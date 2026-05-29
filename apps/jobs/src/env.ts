@@ -13,6 +13,7 @@ export interface Env {
   API_FOOTBALL_BASE_URL: string;
   DEEPSEEK_BASE_URL: string;
   OPENROUTER_BASE_URL: string;
+  WC_SEASON?: string;
 }
 
 /** Copy Worker env into process.env so shared packages (which read process.env) work. */

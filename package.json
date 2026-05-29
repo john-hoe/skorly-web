@@ -15,5 +15,8 @@
     "db:generate": "pnpm --filter @skorly/db generate",
     "db:push": "pnpm --filter @skorly/db push",
     "db:studio": "pnpm --filter @skorly/db studio"
+  },
+  "devDependencies": {
+    "tsx": "^4.22.3"
   }
 }

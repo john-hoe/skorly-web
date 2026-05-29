@@ -19,7 +19,13 @@ export default {
 
     switch (event.cron) {
       case "0 */6 * * *":
-        ctx.waitUntil(ingestFixtures(env));
+        ctx.waitUntil(
+          ingestFixtures({
+            apiKey: env.API_FOOTBALL_KEY,
+            baseUrl: env.API_FOOTBALL_BASE_URL,
+            season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
+          })
+        );
         break;
       case "*/2 * * * *":
         // live poller (no-op until Phase 1.6); also nudges previews/recaps
@@ -38,7 +44,11 @@ export default {
     hydrateProcessEnv(env);
     const url = new URL(req.url);
     if (url.pathname === "/__run/ingest") {
-      const result = await ingestFixtures(env);
+      const result = await ingestFixtures({
+        apiKey: env.API_FOOTBALL_KEY,
+        baseUrl: env.API_FOOTBALL_BASE_URL,
+        season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
+      });
       return Response.json(result);
     }
     return new Response("skorly-jobs ok", { status: 200 });
