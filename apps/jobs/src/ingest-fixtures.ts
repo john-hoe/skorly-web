@@ -5,7 +5,7 @@ import type { FixtureStatus } from "@skorly/types";
 export interface IngestOptions {
   apiKey: string;
   baseUrl?: string;
-  /** Season year. Free tier: 2022-2024. WC2026 needs Pro. Default 2022 for dev. */
+  /** Season year. WC2026 = 2026 (requires API-Football Pro). */
   season?: number;
   leagueId?: number;
 }
@@ -29,7 +29,7 @@ export async function ingestFixtures(opts: IngestOptions): Promise<{
   fixtures: number;
   season: number;
 }> {
-  const season = opts.season ?? 2022;
+  const season = opts.season ?? 2026;
   const leagueId = opts.leagueId ?? WORLD_CUP_LEAGUE_ID;
   const client = new ApiFootballClient({
     apiKey: opts.apiKey,

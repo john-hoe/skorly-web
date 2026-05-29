@@ -12,7 +12,7 @@ async function main() {
   if (!apiKey) throw new Error("API_FOOTBALL_KEY missing");
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL missing");
 
-  const season = process.env.WC_SEASON ? Number(process.env.WC_SEASON) : 2022;
+  const season = process.env.WC_SEASON ? Number(process.env.WC_SEASON) : 2026;
   console.log(`Ingesting World Cup season ${season}...`);
   const result = await ingestFixtures({
     apiKey,
