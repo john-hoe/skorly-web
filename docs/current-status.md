@@ -12,6 +12,11 @@
 - `packages/types`, `packages/ui`: shared types + base components
 - `apps/jobs`: Cloudflare Workers cron router + ingest/preview/recap skeletons + wrangler.toml
 
+## Decisions
+- DB/Auth/Storage consolidated on **Supabase** (Postgres + Auth + Storage).
+  - Phase 1.1 auth will use Supabase Auth (not Better Auth); `users` becomes a profiles table keyed to `auth.users`.
+  - PDF gift stored in Supabase Storage (not R2).
+
 ## Blocked on (keys)
 - API-Football, Supabase DATABASE_URL (pooler), Upstash, Resend, Cloudflare (Account ID + new token for skorly.cc)
 - DeepSeek / OpenRouter / Qwen / GLM keys already exist in ~/.env/apikey
