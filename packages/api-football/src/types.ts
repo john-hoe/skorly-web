@@ -54,6 +54,30 @@ export interface AfPlayer {
   }>;
 }
 
+export interface AfStandingRow {
+  rank: number;
+  team: { id: number; name: string; logo: string };
+  points: number;
+  goalsDiff: number;
+  group: string;
+  all: {
+    played: number;
+    win: number;
+    draw: number;
+    lose: number;
+    goals: { for: number; against: number };
+  };
+}
+
+export interface AfStandingsLeague {
+  league: {
+    id: number;
+    name: string;
+    season: number;
+    standings: AfStandingRow[][];
+  };
+}
+
 /** API-Football short status codes mapped to our internal status. */
 export const STATUS_MAP: Record<string, string> = {
   TBD: "scheduled",

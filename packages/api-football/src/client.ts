@@ -3,6 +3,7 @@ import type {
   AfTeam,
   AfFixture,
   AfPlayer,
+  AfStandingsLeague,
 } from "./types";
 
 export interface ApiFootballOptions {
@@ -66,6 +67,14 @@ export class ApiFootballClient {
   /** Squad for a team. */
   playersByTeam(teamId: number, season: number) {
     return this.get<AfPlayer[]>("/players", { team: teamId, season });
+  }
+
+  /** Standings (groups) for a league + season. */
+  standings(leagueId: number, season: number) {
+    return this.get<AfStandingsLeague[]>("/standings", {
+      league: leagueId,
+      season,
+    });
   }
 
   /** Head-to-head between two teams. */

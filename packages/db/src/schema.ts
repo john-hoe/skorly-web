@@ -136,6 +136,32 @@ export const fixtureEvents = pgTable(
   (t) => [index("fixture_events_fixture_idx").on(t.fixtureId)]
 );
 
+/** Group standings (membership now, live table during tournament). */
+export const standings = pgTable(
+  "standings",
+  {
+    id: serial("id").primaryKey(),
+    leagueId: integer("league_id").references(() => leagues.id),
+    groupName: text("group_name").notNull(), // "Group A" .. "Group L"
+    teamId: integer("team_id")
+      .references(() => teams.id)
+      .notNull(),
+    rank: integer("rank"),
+    played: integer("played").default(0).notNull(),
+    win: integer("win").default(0).notNull(),
+    draw: integer("draw").default(0).notNull(),
+    lose: integer("lose").default(0).notNull(),
+    goalsFor: integer("goals_for").default(0).notNull(),
+    goalsAgainst: integer("goals_against").default(0).notNull(),
+    points: integer("points").default(0).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("standings_group_team_idx").on(t.groupName, t.teamId),
+    index("standings_group_idx").on(t.groupName),
+  ]
+);
+
 /* ------------------------------------------------------------------ */
 /* Phase 0 - AI content                                               */
 /* ------------------------------------------------------------------ */
