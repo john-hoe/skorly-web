@@ -74,6 +74,9 @@ const env = {
   // Email
   RESEND_API_KEY: get("resend"),
   RESEND_FROM: "Skorly <noreply@skorly.cc>",
+  // Cloudflare (deploy)
+  CLOUDFLARE_ACCOUNT_ID: get("cloudflare account id"),
+  CLOUDFLARE_API_TOKEN: get("cloudflare deploy token"),
   // Public site
   NEXT_PUBLIC_SITE_URL: "https://skorly.cc",
   NEXT_PUBLIC_DEFAULT_LOCALE: "id",

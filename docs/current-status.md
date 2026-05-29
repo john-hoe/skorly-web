@@ -42,9 +42,10 @@
 - Upstash Redis: REST URL+TOKEN verified (set/get/del roundtrip). NOTE: values stored with surrounding quotes in apikey file; strip quotes when loading.
 - Resend: send-only restricted key (re_...); skorly.cc DKIM+SPF Verified, sending enabled. From address noreply@skorly.cc usable.
 
-## Still needed (deploy-time only, not blocking dev)
-- Cloudflare deploy token (new, scoped Pages+Workers+R2+skorly.cc DNS) — at Day 13.
-- Cloudflare Turnstile keys — when wiring subscribe/comment anti-spam.
+- Cloudflare: deploy token (Pages+Workers+R2+Account read, DNS+Workers Routes on skorly.cc) verified active; account id verified (Pages API reachable, 2 existing projects). Stored as `cloudflare deploy token` + `cloudflare account id`.
+
+## Still needed (when wiring that feature)
+- Cloudflare Turnstile keys — subscribe/comment anti-spam.
 
 
 ## Next
