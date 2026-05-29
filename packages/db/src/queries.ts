@@ -240,6 +240,79 @@ export async function getArticlesForFixture(
   return rows as unknown as ArticleView[];
 }
 
+export interface InsertArticleInput {
+  slug: string;
+  locale: string;
+  type: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  fixtureId?: number | null;
+  teamId?: number | null;
+  groupName?: string | null;
+  status: "draft" | "published";
+  qualityScore?: number | null;
+  qaLog?: unknown;
+  model?: string | null;
+}
+
+/** Upsert an article keyed on (slug, locale). Sets publishedAt when published. */
+export async function insertArticle(input: InsertArticleInput): Promise<void> {
+  const db = getDb();
+  const publishedAt = input.status === "published" ? new Date() : null;
+  const score =
+    input.qualityScore == null ? null : Math.round(input.qualityScore);
+  await db
+    .insert(articles)
+    .values({
+      slug: input.slug,
+      locale: input.locale,
+      type: input.type as (typeof articles.type.enumValues)[number],
+      title: input.title,
+      summary: input.summary ?? null,
+      body: input.body,
+      fixtureId: input.fixtureId ?? null,
+      teamId: input.teamId ?? null,
+      groupName: input.groupName ?? null,
+      status: input.status,
+      qualityScore: score,
+      qaLog: input.qaLog ?? null,
+      model: input.model ?? null,
+      publishedAt,
+    })
+    .onConflictDoUpdate({
+      target: [articles.slug, articles.locale],
+      set: {
+        title: input.title,
+        summary: input.summary ?? null,
+        body: input.body,
+        status: input.status,
+        qualityScore: score,
+        qaLog: input.qaLog ?? null,
+        model: input.model ?? null,
+        publishedAt,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/** True if a published article with this slug+locale already exists. */
+export async function articleExists(slug: string, locale = "id"): Promise<boolean> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: articles.id })
+    .from(articles)
+    .where(
+      and(
+        eq(articles.slug, slug),
+        eq(articles.locale, locale),
+        eq(articles.status, "published")
+      )
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
 export async function getArticleBySlug(slug: string, locale = "id"): Promise<ArticleView | null> {
   const db = getDb();
   const rows = await db
