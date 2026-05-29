@@ -1,0 +1,58 @@
+{
+  "site": {
+    "name": "Skorly",
+    "tagline": "World Cup 2026 football news & analysis"
+  },
+  "nav": {
+    "home": "Home",
+    "worldCup": "World Cup 2026",
+    "matches": "Matches",
+    "teams": "Teams",
+    "articles": "Articles",
+    "groups": "Groups"
+  },
+  "home": {
+    "heroTitle": "World Cup 2026",
+    "heroSubtitle": "Previews, predictions and analysis for every match",
+    "latestArticles": "Latest Articles",
+    "upcomingMatches": "Upcoming Matches",
+    "countdown": "Countdown to World Cup"
+  },
+  "match": {
+    "preview": "Preview",
+    "watchpoints": "Talking Points",
+    "prediction": "Prediction",
+    "recap": "Match Recap",
+    "tactical": "Tactical Analysis",
+    "lineups": "Lineups",
+    "headToHead": "Head to Head",
+    "kickoff": "Kick-off"
+  },
+  "team": {
+    "squad": "Squad",
+    "fixtures": "Fixtures",
+    "recentForm": "Recent Form"
+  },
+  "subscribe": {
+    "title": "Get the FREE World Cup 2026 Guide",
+    "description": "Enter your email & WhatsApp to receive the World Cup 2026 PDF guide.",
+    "emailPlaceholder": "Your email address",
+    "whatsappPlaceholder": "WhatsApp number (optional)",
+    "consent": "I agree to let Skorly process my data for match info and promotions.",
+    "submit": "Send My Guide",
+    "success": "Check your email! The guide is on its way.",
+    "error": "Something went wrong. Please try again shortly."
+  },
+  "footer": {
+    "about": "About Skorly",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "aiDisclosure": "Some content is generated with AI assistance.",
+    "copyright": "Skorly. All rights reserved."
+  },
+  "common": {
+    "readMore": "Read more",
+    "loading": "Loading...",
+    "vs": "vs"
+  }
+}

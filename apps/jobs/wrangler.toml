@@ -1,0 +1,25 @@
+name = "skorly-jobs"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron schedules (UTC). Adjust kickoff-relative triggers in code via fixture data.
+[triggers]
+crons = [
+  "*/15 * * * *",   # refresh news-sitemap + light tasks
+  "0 */6 * * *",    # ingest fixtures / standings every 6h
+  "*/2 * * * *"     # live poller (no-op when no live matches)
+]
+
+# Secrets are set via `wrangler secret put` (not committed):
+#   DATABASE_URL, API_FOOTBALL_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY,
+#   QWEN_API_KEY, GLM_API_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+
+[vars]
+API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# [[r2_buckets]]
+# binding = "ASSETS"
+# bucket_name = "skorly-assets"

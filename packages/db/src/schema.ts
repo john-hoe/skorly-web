@@ -1,0 +1,366 @@
+import {
+  pgTable,
+  pgEnum,
+  serial,
+  integer,
+  text,
+  boolean,
+  timestamp,
+  jsonb,
+  uniqueIndex,
+  index,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+
+/* ------------------------------------------------------------------ */
+/* Enums                                                              */
+/* ------------------------------------------------------------------ */
+
+export const articleType = pgEnum("article_type", [
+  "preview",
+  "watchpoints",
+  "prediction",
+  "recap",
+  "tactical",
+  "group_analysis",
+]);
+
+export const articleStatus = pgEnum("article_status", ["draft", "published"]);
+
+export const fixtureStatus = pgEnum("fixture_status", [
+  "scheduled",
+  "live",
+  "finished",
+  "postponed",
+  "cancelled",
+]);
+
+export const campaignType = pgEnum("campaign_type", [
+  "subscribe",
+  "predict",
+  "lottery",
+  "referral",
+]);
+
+/* ------------------------------------------------------------------ */
+/* Phase 0 - core football data                                       */
+/* ------------------------------------------------------------------ */
+
+export const leagues = pgTable("leagues", {
+  id: serial("id").primaryKey(),
+  apiId: integer("api_id").notNull().unique(), // API-Football league id
+  name: text("name").notNull(),
+  type: text("type"), // 'Cup' | 'League'
+  country: text("country"),
+  logo: text("logo"),
+  season: integer("season"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const teams = pgTable(
+  "teams",
+  {
+    id: serial("id").primaryKey(),
+    apiId: integer("api_id").notNull().unique(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    code: text("code"), // e.g. BRA
+    country: text("country"),
+    logo: text("logo"),
+    isNational: boolean("is_national").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("teams_slug_idx").on(t.slug)]
+);
+
+export const players = pgTable(
+  "players",
+  {
+    id: serial("id").primaryKey(),
+    apiId: integer("api_id").notNull().unique(),
+    teamId: integer("team_id").references(() => teams.id),
+    name: text("name").notNull(),
+    position: text("position"),
+    number: integer("number"),
+    age: integer("age"),
+    nationality: text("nationality"),
+    photo: text("photo"),
+  },
+  (t) => [index("players_team_idx").on(t.teamId)]
+);
+
+export const fixtures = pgTable(
+  "fixtures",
+  {
+    id: serial("id").primaryKey(),
+    apiId: integer("api_id").notNull().unique(),
+    leagueId: integer("league_id").references(() => leagues.id),
+    slug: text("slug").notNull(),
+    round: text("round"), // e.g. "Group A - 1"
+    groupName: text("group_name"), // A..L
+    stage: text("stage"), // 'group' | 'round_of_32' | ...
+    homeTeamId: integer("home_team_id").references(() => teams.id),
+    awayTeamId: integer("away_team_id").references(() => teams.id),
+    kickoffAt: timestamp("kickoff_at", { withTimezone: true }),
+    venue: text("venue"),
+    city: text("city"),
+    status: fixtureStatus("status").default("scheduled").notNull(),
+    homeGoals: integer("home_goals"),
+    awayGoals: integer("away_goals"),
+    elapsed: integer("elapsed"), // live minute
+    raw: jsonb("raw"), // last raw API payload for debugging
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("fixtures_slug_idx").on(t.slug),
+    index("fixtures_kickoff_idx").on(t.kickoffAt),
+    index("fixtures_group_idx").on(t.groupName),
+  ]
+);
+
+/** Goal/card/sub events used to feed recaps + live text updates (Phase 1.6). */
+export const fixtureEvents = pgTable(
+  "fixture_events",
+  {
+    id: serial("id").primaryKey(),
+    fixtureId: integer("fixture_id")
+      .references(() => fixtures.id)
+      .notNull(),
+    minute: integer("minute"),
+    type: text("type"), // 'Goal' | 'Card' | 'subst'
+    detail: text("detail"),
+    teamId: integer("team_id").references(() => teams.id),
+    playerName: text("player_name"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("fixture_events_fixture_idx").on(t.fixtureId)]
+);
+
+/* ------------------------------------------------------------------ */
+/* Phase 0 - AI content                                               */
+/* ------------------------------------------------------------------ */
+
+export const articles = pgTable(
+  "articles",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull(),
+    locale: text("locale").notNull().default("id"), // id | vi | en
+    type: articleType("type").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    body: text("body").notNull(), // markdown
+    fixtureId: integer("fixture_id").references(() => fixtures.id),
+    teamId: integer("team_id").references(() => teams.id),
+    groupName: text("group_name"),
+    status: articleStatus("status").default("draft").notNull(),
+    qualityScore: integer("quality_score"),
+    qaLog: jsonb("qa_log"), // per-round judge scores for prompt tuning
+    model: text("model"), // which LLM produced it
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("articles_slug_locale_idx").on(t.slug, t.locale),
+    index("articles_status_idx").on(t.status, t.locale),
+    index("articles_fixture_idx").on(t.fixtureId),
+    index("articles_type_idx").on(t.type),
+  ]
+);
+
+/* ------------------------------------------------------------------ */
+/* Phase 0 - lead capture                                             */
+/* ------------------------------------------------------------------ */
+
+export const subscribers = pgTable(
+  "subscribers",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    whatsappNumber: text("whatsapp_number"),
+    locale: text("locale").notNull().default("id"),
+    source: text("source"), // homepage | match_page | article_page | campaign:xxx
+    consentMarketing: boolean("consent_marketing").notNull(),
+    consentAt: timestamp("consent_at", { withTimezone: true }).notNull(),
+    ip: text("ip"),
+    country: text("country"),
+    userAgent: text("user_agent"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }), // double opt-in
+    giftSent: boolean("gift_sent").default(false).notNull(),
+    giftSentAt: timestamp("gift_sent_at", { withTimezone: true }),
+    unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("subscribers_locale_idx").on(t.locale, t.createdAt),
+    index("subscribers_consent_idx").on(t.consentMarketing, t.unsubscribedAt),
+  ]
+);
+
+/* ------------------------------------------------------------------ */
+/* Phase 1 - users / auth                                             */
+/* ------------------------------------------------------------------ */
+
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    passwordHash: text("password_hash"),
+    displayName: text("display_name"),
+    avatarUrl: text("avatar_url"),
+    whatsappNumber: text("whatsapp_number"),
+    locale: text("locale").notNull().default("id"),
+    consentMarketing: boolean("consent_marketing").default(false).notNull(),
+    consentAt: timestamp("consent_at", { withTimezone: true }),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [index("users_email_idx").on(t.email)]
+);
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    provider: text("provider").notNull(), // google | facebook
+    providerAccountId: text("provider_account_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("accounts_provider_idx").on(t.provider, t.providerAccountId),
+  ]
+);
+
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const verificationTokens = pgTable("verification_tokens", {
+  token: text("token").primaryKey(),
+  identifier: text("identifier").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Phase 1 - comments                                                 */
+/* ------------------------------------------------------------------ */
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    articleId: integer("article_id").references(() => articles.id),
+    fixtureId: integer("fixture_id").references(() => fixtures.id),
+    parentId: integer("parent_id"), // 1-level nesting; self-ref set in relations
+    body: text("body").notNull(),
+    isHidden: boolean("is_hidden").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("comments_article_idx").on(t.articleId),
+    index("comments_fixture_idx").on(t.fixtureId),
+  ]
+);
+
+export const commentLikes = pgTable(
+  "comment_likes",
+  {
+    commentId: integer("comment_id")
+      .references(() => comments.id)
+      .notNull(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.commentId, t.userId] })]
+);
+
+export const commentReports = pgTable("comment_reports", {
+  id: serial("id").primaryKey(),
+  commentId: integer("comment_id")
+    .references(() => comments.id)
+    .notNull(),
+  userId: integer("user_id").references(() => users.id),
+  reason: text("reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Phase 1.3 - campaigns + predict & win                              */
+/* ------------------------------------------------------------------ */
+
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    type: campaignType("type").notNull(),
+    name: jsonb("name").notNull(), // { id, vi, en }
+    description: jsonb("description"),
+    rules: jsonb("rules"),
+    prizes: jsonb("prizes"),
+    locales: text("locales").array(),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  }
+);
+
+export const campaignEntries = pgTable(
+  "campaign_entries",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .references(() => campaigns.id)
+      .notNull(),
+    userId: integer("user_id").references(() => users.id),
+    subscriberId: integer("subscriber_id").references(() => subscribers.id),
+    data: jsonb("data"),
+    ip: text("ip"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("campaign_entries_campaign_idx").on(t.campaignId)]
+);
+
+export const predictions = pgTable(
+  "predictions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    fixtureId: integer("fixture_id")
+      .references(() => fixtures.id)
+      .notNull(),
+    homeGoalsPred: integer("home_goals_pred").notNull(),
+    awayGoalsPred: integer("away_goals_pred").notNull(),
+    pointsAwarded: integer("points_awarded"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("predictions_user_fixture_idx").on(t.userId, t.fixtureId)]
+);
+
+export const winners = pgTable("winners", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id),
+  userId: integer("user_id").references(() => users.id),
+  prizeLabel: text("prize_label"),
+  rank: integer("rank"),
+  awardedAt: timestamp("awarded_at", { withTimezone: true }),
+});

@@ -1,0 +1,46 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# env & secrets
+.env
+.env.local
+.env.*.local
+*.local
+
+# cloudflare
+.wrangler/
+.dev.vars
+
+# drizzle
+packages/db/drizzle/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# test / coverage
+coverage/
+.vitest/
+
+# misc
+*.tsbuildinfo
+
+# local tooling state
+.omc/

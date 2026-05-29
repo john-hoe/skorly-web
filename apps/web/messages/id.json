@@ -1,0 +1,58 @@
+{
+  "site": {
+    "name": "Skorly",
+    "tagline": "Berita & analisis sepak bola Piala Dunia 2026"
+  },
+  "nav": {
+    "home": "Beranda",
+    "worldCup": "Piala Dunia 2026",
+    "matches": "Pertandingan",
+    "teams": "Tim",
+    "articles": "Artikel",
+    "groups": "Grup"
+  },
+  "home": {
+    "heroTitle": "Piala Dunia 2026",
+    "heroSubtitle": "Pratinjau, prediksi, dan analisis setiap pertandingan",
+    "latestArticles": "Artikel Terbaru",
+    "upcomingMatches": "Jadwal Terdekat",
+    "countdown": "Menuju Piala Dunia"
+  },
+  "match": {
+    "preview": "Pratinjau",
+    "watchpoints": "Hal yang Perlu Diperhatikan",
+    "prediction": "Prediksi",
+    "recap": "Ulasan Pasca-Pertandingan",
+    "tactical": "Analisis Taktik",
+    "lineups": "Susunan Pemain",
+    "headToHead": "Rekor Pertemuan",
+    "kickoff": "Kick-off"
+  },
+  "team": {
+    "squad": "Skuad",
+    "fixtures": "Jadwal",
+    "recentForm": "Performa Terkini"
+  },
+  "subscribe": {
+    "title": "Dapatkan Panduan Piala Dunia 2026 GRATIS",
+    "description": "Masukkan email & WhatsApp untuk menerima PDF Panduan Bertahan Piala Dunia 2026 untuk fans Indonesia.",
+    "emailPlaceholder": "Alamat email kamu",
+    "whatsappPlaceholder": "Nomor WhatsApp (opsional)",
+    "consent": "Saya setuju Skorly mengolah data saya untuk info pertandingan dan promosi.",
+    "submit": "Kirim Panduan Saya",
+    "success": "Cek email kamu! Panduan sedang dikirim.",
+    "error": "Terjadi kesalahan. Coba lagi sebentar lagi."
+  },
+  "footer": {
+    "about": "Tentang Skorly",
+    "privacy": "Kebijakan Privasi",
+    "terms": "Syarat & Ketentuan",
+    "aiDisclosure": "Sebagian konten dibuat dengan bantuan AI.",
+    "copyright": "Skorly. Semua hak dilindungi."
+  },
+  "common": {
+    "readMore": "Baca selengkapnya",
+    "loading": "Memuat...",
+    "vs": "vs"
+  }
+}

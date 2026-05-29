@@ -1,0 +1,22 @@
+{
+  "name": "@skorly/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@skorly/ai-content": "workspace:*",
+    "@skorly/api-football": "workspace:*",
+    "@skorly/db": "workspace:*",
+    "@skorly/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "typescript": "^5",
+    "wrangler": "^4.0.0"
+  }
+}

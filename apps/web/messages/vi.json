@@ -1,0 +1,58 @@
+{
+  "site": {
+    "name": "Skorly",
+    "tagline": "Tin tức & phân tích bóng đá World Cup 2026"
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "worldCup": "World Cup 2026",
+    "matches": "Trận đấu",
+    "teams": "Đội tuyển",
+    "articles": "Bài viết",
+    "groups": "Bảng đấu"
+  },
+  "home": {
+    "heroTitle": "World Cup 2026",
+    "heroSubtitle": "Nhận định, dự đoán và phân tích từng trận đấu",
+    "latestArticles": "Bài viết mới nhất",
+    "upcomingMatches": "Lịch thi đấu sắp tới",
+    "countdown": "Đếm ngược World Cup"
+  },
+  "match": {
+    "preview": "Nhận định",
+    "watchpoints": "Điểm đáng chú ý",
+    "prediction": "Dự đoán",
+    "recap": "Tổng kết trận đấu",
+    "tactical": "Phân tích chiến thuật",
+    "lineups": "Đội hình",
+    "headToHead": "Lịch sử đối đầu",
+    "kickoff": "Giờ bóng lăn"
+  },
+  "team": {
+    "squad": "Đội hình",
+    "fixtures": "Lịch thi đấu",
+    "recentForm": "Phong độ gần đây"
+  },
+  "subscribe": {
+    "title": "Nhận Cẩm nang World Cup 2026 MIỄN PHÍ",
+    "description": "Nhập email & WhatsApp để nhận PDF cẩm nang World Cup 2026.",
+    "emailPlaceholder": "Email của bạn",
+    "whatsappPlaceholder": "Số WhatsApp (tùy chọn)",
+    "consent": "Tôi đồng ý để Skorly xử lý dữ liệu của tôi cho thông tin trận đấu và khuyến mãi.",
+    "submit": "Gửi cẩm nang cho tôi",
+    "success": "Kiểm tra email của bạn! Cẩm nang đang được gửi.",
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
+  "footer": {
+    "about": "Về Skorly",
+    "privacy": "Chính sách bảo mật",
+    "terms": "Điều khoản dịch vụ",
+    "aiDisclosure": "Một phần nội dung được tạo với sự hỗ trợ của AI.",
+    "copyright": "Skorly. Bảo lưu mọi quyền."
+  },
+  "common": {
+    "readMore": "Đọc thêm",
+    "loading": "Đang tải...",
+    "vs": "vs"
+  }
+}
