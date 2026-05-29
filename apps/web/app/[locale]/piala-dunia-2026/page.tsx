@@ -34,7 +34,7 @@ export default async function WorldCupHubPage({
             return (
               <Link
                 key={g}
-                href={{ pathname: "/piala-dunia-2026/grup-[group]", params: { group: letter.toLowerCase() } }}
+                href={{ pathname: "/piala-dunia-2026/grup/[group]", params: { group: letter.toLowerCase() } }}
                 className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-center transition hover:border-[var(--brand)]"
               >
                 <span className="text-xs text-[var(--muted)]">{t("nav.groups")}</span>

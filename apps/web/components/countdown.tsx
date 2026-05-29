@@ -14,20 +14,21 @@ function diff() {
 }
 
 export function Countdown({ label }: { label: string }) {
-  const [t, setT] = useState(diff());
+  // Start null so server and client initial render match (avoids hydration
+  // mismatch); compute the live value only after mount.
+  const [t, setT] = useState<ReturnType<typeof diff> | null>(null);
   useEffect(() => {
+    setT(diff());
     const id = setInterval(() => setT(diff()), 1000);
     return () => clearInterval(id);
   }, []);
 
   const cells: [number, string][] = [
-    [t.d, "Hari"],
-    [t.h, "Jam"],
-    [t.m, "Menit"],
-    [t.s, "Detik"],
+    [t?.d ?? 0, "Hari"],
+    [t?.h ?? 0, "Jam"],
+    [t?.m ?? 0, "Menit"],
+    [t?.s ?? 0, "Detik"],
   ];
-
-  if (KICKOFF - Date.now() <= 0) return null;
 
   return (
     <div className="text-center">

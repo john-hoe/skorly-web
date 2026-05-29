@@ -16,10 +16,10 @@ export const routing = defineRouting({
       vi: "/world-cup-2026",
       en: "/world-cup-2026",
     },
-    "/piala-dunia-2026/grup-[group]": {
-      id: "/piala-dunia-2026/grup-[group]",
-      vi: "/world-cup-2026/bang-[group]",
-      en: "/world-cup-2026/group-[group]",
+    "/piala-dunia-2026/grup/[group]": {
+      id: "/piala-dunia-2026/grup/[group]",
+      vi: "/world-cup-2026/bang/[group]",
+      en: "/world-cup-2026/group/[group]",
     },
     "/pertandingan/[slug]": {
       id: "/pertandingan/[slug]",
