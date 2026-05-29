@@ -37,3 +37,38 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Article typography */
+.prose-skorly {
+  line-height: 1.75;
+}
+.prose-skorly h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 1rem;
+}
+.prose-skorly h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 1.75rem 0 0.75rem;
+}
+.prose-skorly p {
+  margin: 0 0 1rem;
+}
+.prose-skorly ol,
+.prose-skorly ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  list-style: revert;
+}
+.prose-skorly li {
+  margin: 0.25rem 0;
+}
+.prose-skorly strong {
+  font-weight: 700;
+}
+.prose-skorly a {
+  color: var(--brand);
+  text-decoration: underline;
+}
