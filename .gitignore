@@ -21,8 +21,8 @@ dist/
 .wrangler/
 .dev.vars
 
-# drizzle
-packages/db/drizzle/
+# drizzle: keep migration SQL in git (schema history), ignore only the cache
+# (migrations are committed)
 
 # logs
 *.log

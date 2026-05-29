@@ -12,6 +12,11 @@
 - `packages/types`, `packages/ui`: shared types + base components
 - `apps/jobs`: Cloudflare Workers cron router + ingest/preview/recap skeletons + wrangler.toml
 
+## Day 2 done (via Supabase MCP)
+- Schema applied to Supabase project `majrlaxktengachwrskk` (john-hoe's Project, region ap-northeast-2/Seoul, Postgres 17).
+- 18 tables created (migration `init_skorly_schema`); all RLS-enabled (safe default; server-side Drizzle bypasses RLS).
+- Security advisor: 18x INFO `rls_enabled_no_policy` (expected for Phase 0), 2x WARN about a pre-existing `rls_auto_enable()` SECURITY DEFINER function (decide whether to revoke anon EXECUTE).
+
 ## Decisions
 - DB/Auth/Storage consolidated on **Supabase** (Postgres + Auth + Storage).
   - Phase 1.1 auth will use Supabase Auth (not Better Auth); `users` becomes a profiles table keyed to `auth.users`.
