@@ -1,13 +1,19 @@
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
 /**
- * Drizzle client over Neon's HTTP driver (works in Workers + Node + edge).
- * DATABASE_URL must be set; we read lazily so importing the package without a
- * configured env (e.g. during type-checking) does not throw.
+ * Drizzle client over postgres.js, talking to Supabase.
+ *
+ * IMPORTANT: use the Supabase connection POOLER string (Supavisor, port 6543,
+ * transaction mode) so it works from serverless/edge runtimes. Transaction
+ * mode does not support prepared statements, hence `prepare: false`.
+ *
+ * DATABASE_URL is read lazily so importing this package without env configured
+ * (e.g. during type-checking) does not throw.
  */
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
 export function getDb() {
   if (_db) return _db;
@@ -15,8 +21,8 @@ export function getDb() {
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
-  const sql = neon(url);
-  _db = drizzle(sql, { schema });
+  _client = postgres(url, { prepare: false });
+  _db = drizzle(_client, { schema });
   return _db;
 }
 

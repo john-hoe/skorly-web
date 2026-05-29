@@ -2,13 +2,13 @@
 
 ## Immediate (unblock)
 1. User provides keys -> populate `.env` (copy from `env.example`):
-   - API_FOOTBALL_KEY, DATABASE_URL (Neon), UPSTASH_*, RESEND_API_KEY
+   - API_FOOTBALL_KEY, DATABASE_URL (Supabase pooler), UPSTASH_*, RESEND_API_KEY
    - CLOUDFLARE_ACCOUNT_ID + new CLOUDFLARE_API_TOKEN (Pages+Workers+R2+skorly.cc DNS)
    - DEEPSEEK/OPENROUTER/QWEN/GLM keys from ~/.env/apikey
 2. `pnpm install` at repo root.
 
 ## Day 2 (DB)
-- `pnpm db:push` to create tables in Neon.
+- `pnpm db:push` to create tables in Supabase.
 - Verify schema with `pnpm db:studio`.
 
 ## Day 3 (API-Football)

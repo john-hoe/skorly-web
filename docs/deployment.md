@@ -3,7 +3,7 @@
 ## Environments
 - **Web**: Cloudflare Pages (Next.js). Custom domain `skorly.cc`.
 - **Jobs**: Cloudflare Workers (`skorly-jobs`) with Cron Triggers.
-- **DB**: Neon Postgres (Singapore region for SEA latency + data-residency note).
+- **DB**: Supabase Postgres (choose Singapore region for SEA latency). Connect via Supavisor pooler (transaction mode, port 6543, `prepare:false`).
 - **Cache**: Upstash Redis (REST).
 - **Assets/PDF**: Cloudflare R2.
 
@@ -12,7 +12,7 @@
 pnpm install
 cp env.example .env   # fill values (real keys in ~/.env/apikey)
 pnpm dev              # apps/web on http://localhost:3000/id
-pnpm db:push          # apply schema to Neon
+pnpm db:push          # apply schema to Supabase
 pnpm --filter @skorly/jobs dev   # workers locally
 ```
 

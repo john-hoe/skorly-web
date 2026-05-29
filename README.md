@@ -14,7 +14,7 @@ apps/
   web/                 Next.js 15 App Router site (SSR/ISR, i18n)
   jobs/                Cloudflare Workers cron jobs (ingest + generate)
 packages/
-  db/                  Drizzle ORM schema + client (Neon Postgres)
+  db/                  Drizzle ORM schema + client (Supabase Postgres)
   api-football/        Typed API-Football client
   ai-content/          LLM provider abstraction + prompts + QA pipeline
   types/               Shared TypeScript types
@@ -28,7 +28,7 @@ docs/                  Status, prompts, SEO and deployment docs
 |---|---|
 | Frontend | Next.js 15 App Router + TypeScript + Tailwind + next-intl |
 | Hosting | Cloudflare Pages + Workers + Cron Triggers |
-| Database | Neon Postgres + Drizzle ORM |
+| Database | Supabase Postgres + Drizzle ORM (postgres.js via pooler) |
 | Cache | Upstash Redis |
 | Sports data | API-Football |
 | AI generation | DeepSeek V4 Pro |
