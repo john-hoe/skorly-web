@@ -35,9 +35,17 @@
   - Phase 1.1 auth will use Supabase Auth (not Better Auth); `users` becomes a profiles table keyed to `auth.users`.
   - PDF gift stored in Supabase Storage (not R2).
 
-## Blocked on (keys)
-- API-Football, Supabase DATABASE_URL (pooler), Upstash, Resend, Cloudflare (Account ID + new token for skorly.cc)
-- DeepSeek / OpenRouter / Qwen / GLM keys already exist in ~/.env/apikey
+## Credentials status (verified)
+- DeepSeek / OpenRouter / Qwen(bailian) / GLM(z.ai): present, AI pipeline works.
+- API-Football: PRO active, WC2026 (season 2026) accessible. 48 teams + 72 group fixtures ingested.
+- Supabase: DATABASE_URL via pooler host `aws-1-ap-northeast-2` port 6543 (verified); service_role secret key `sb_secret_...` (verified, bypasses RLS).
+- Upstash Redis: REST URL+TOKEN verified (set/get/del roundtrip). NOTE: values stored with surrounding quotes in apikey file; strip quotes when loading.
+- Resend: send-only restricted key (re_...); skorly.cc DKIM+SPF Verified, sending enabled. From address noreply@skorly.cc usable.
+
+## Still needed (deploy-time only, not blocking dev)
+- Cloudflare deploy token (new, scoped Pages+Workers+R2+skorly.cc DNS) — at Day 13.
+- Cloudflare Turnstile keys — when wiring subscribe/comment anti-spam.
+
 
 ## Next
 See [next-step.md](next-step.md).
