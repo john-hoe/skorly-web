@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getArticleCards } from "@skorly/db";
 import { ArticleGrid } from "@/components/article-grid";
-import { ARTICLE_TYPE_KEY } from "@/components/article-card";
+import { ARTICLE_TYPE_KEY } from "@/lib/article-types";
 import { buildAlternates } from "@/lib/seo";
 
 /** Tab order; only types that actually have articles are shown. */

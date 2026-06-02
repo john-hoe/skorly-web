@@ -3,17 +3,7 @@
 import { useTranslations } from "next-intl";
 import type { ArticleCardData } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
-
-/** article.type -> message key used for the badge and the archive filter tabs. */
-export const ARTICLE_TYPE_KEY: Record<string, string> = {
-  preview: "match.preview",
-  watchpoints: "match.watchpoints",
-  prediction: "match.prediction",
-  recap: "match.recap",
-  tactical: "match.tactical",
-  group_analysis: "common.groupAnalysis",
-  news: "nav.news",
-};
+import { ARTICLE_TYPE_KEY } from "@/lib/article-types";
 
 export function ArticleCard({ article }: { article: ArticleCardData }) {
   const t = useTranslations();
