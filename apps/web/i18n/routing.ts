@@ -29,11 +29,43 @@ export const routing = defineRouting({
       en: "/match/[slug]",
       zh: "/bisai/[slug]",
     },
+    "/tim": {
+      id: "/tim",
+      vi: "/doi-tuyen",
+      en: "/teams",
+      zh: "/qiudui",
+    },
     "/tim/[slug]": {
       id: "/tim/[slug]",
       vi: "/doi-tuyen/[slug]",
       en: "/team/[slug]",
       zh: "/qiudui/[slug]",
+    },
+    "/jadwal": {
+      id: "/jadwal",
+      vi: "/lich-thi-dau",
+      en: "/schedule",
+      zh: "/saicheng",
+    },
+    // 二期 M2 — AMP Web Stories (Google Discover surface)
+    "/cerita": {
+      id: "/cerita",
+      vi: "/cau-chuyen",
+      en: "/web-stories",
+      zh: "/gushi",
+    },
+    "/cerita/[slug]": {
+      id: "/cerita/[slug]",
+      vi: "/cau-chuyen/[slug]",
+      en: "/web-stories/[slug]",
+      zh: "/gushi/[slug]",
+    },
+    // 二期 M2 — legal "where to watch" (official broadcasters, no piracy)
+    "/nonton": {
+      id: "/nonton",
+      vi: "/xem-o-dau",
+      en: "/where-to-watch",
+      zh: "/zhibo",
     },
     "/artikel/[slug]": {
       id: "/artikel/[slug]",
@@ -52,6 +84,26 @@ export const routing = defineRouting({
       vi: "/luu-tru",
       en: "/articles",
       zh: "/quanbu-wenzhang",
+    },
+    // 二期 — auth (single slug across locales so server-side redirects to
+    // `/{locale}/akun` resolve without a per-locale path map).
+    "/masuk": "/masuk",
+    "/daftar": "/daftar",
+    "/lupa-sandi": "/lupa-sandi",
+    "/atur-ulang-sandi": "/atur-ulang-sandi",
+    "/akun": "/akun",
+    // 二期 — predictions & leaderboard
+    "/prediksi": "/prediksi",
+    "/peringkat": "/peringkat",
+    // 二期 M5 — private prediction mini-leagues
+    "/liga": "/liga",
+    "/liga/[slug]": "/liga/[slug]",
+    // 二期 — live scores & results (high-intent SEO term per market)
+    "/skor": {
+      id: "/skor-langsung",
+      vi: "/ket-qua-truc-tiep",
+      en: "/live-scores",
+      zh: "/shishi-bifen",
     },
   },
 });

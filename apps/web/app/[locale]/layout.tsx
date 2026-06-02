@@ -8,6 +8,7 @@ import { routing, type Locale } from "@/i18n/routing";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
+import { PwaRegister } from "@/components/pwa-register";
 import { SITE_NAME, SITE_URL, OG_LOCALE, absoluteUrl } from "@/lib/seo";
 import "../globals.css";
 
@@ -86,6 +87,7 @@ export default async function LocaleLayout({
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
+    logo: absoluteUrl("/og.png"),
   };
   const siteLd = {
     "@context": "https://schema.org",
@@ -121,6 +123,7 @@ export default async function LocaleLayout({
           </>
         ) : null}
         <JsonLd data={[orgLd, siteLd]} />
+        <PwaRegister />
         <NextIntlClientProvider>
           <SiteHeader />
           <main className="flex-1">{children}</main>

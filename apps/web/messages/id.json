@@ -6,19 +6,41 @@
   "nav": {
     "home": "Beranda",
     "worldCup": "Piala Dunia 2026",
+    "scores": "Skor Langsung",
     "matches": "Pertandingan",
     "teams": "Tim",
     "articles": "Artikel",
+    "leaderboard": "Klasemen",
+    "leagues": "Liga",
     "groups": "Grup",
     "news": "Berita",
-    "contact": "Kontak"
+    "contact": "Kontak",
+    "login": "Masuk",
+    "register": "Daftar",
+    "account": "Akun saya",
+    "logout": "Keluar"
   },
   "home": {
     "heroTitle": "Piala Dunia 2026",
     "heroSubtitle": "Pratinjau, prediksi, dan analisis setiap pertandingan",
     "latestArticles": "Artikel Terbaru",
     "upcomingMatches": "Jadwal Terdekat",
-    "countdown": "Menuju Piala Dunia"
+    "countdown": "Menuju Piala Dunia",
+    "predictCta": "Tebak laga",
+    "bracketCta": "Tantangan bagan",
+    "premiumBadge": "Premium",
+    "premiumTitle": "Prediksi eksklusif",
+    "premiumDesc": "Analisis AI lebih dalam dan pilihan pra-laga — daftar gratis, member buka plan lengkap.",
+    "premiumCta": "Buka gratis",
+    "leaderboardTitle": "Penebak teratas",
+    "anonymousPlayer": "Pemain",
+    "guestTitle": "Main tebak skor",
+    "guestDesc": "Tebak skor, kumpulkan poin, naik klasemen.",
+    "guestCta": "Gabung gratis",
+    "myPoints": "Poin",
+    "myRank": "Peringkat",
+    "continuePredicting": "Lanjut menebak",
+    "viewLeaderboard": "Lihat klasemen"
   },
   "match": {
     "preview": "Pratinjau",
@@ -28,12 +50,51 @@
     "tactical": "Analisis Taktik",
     "lineups": "Susunan Pemain",
     "headToHead": "Rekor Pertemuan",
-    "kickoff": "Kick-off"
+    "kickoff": "Kick-off",
+    "draws": "Seri",
+    "highlights": "Cuplikan gol",
+    "goals": "Gol",
+    "noGoals": "Tidak ada gol di pertandingan ini.",
+    "officialVideo": "Cuplikan resmi"
+  },
+  "stories": {
+    "title": "Web Stories",
+    "subtitle": "Pratinjau pertandingan visual singkat — geser & tebak skornya."
+  },
+  "push": {
+    "enable": "Notifikasi",
+    "on": "Notif aktif",
+    "busy": "…",
+    "denied": "Notif diblokir"
+  },
+  "share": {
+    "label": "Bagikan:",
+    "share": "Bagikan",
+    "copy": "Salin tautan",
+    "copied": "Tersalin!"
+  },
+  "watch": {
+    "title": "Nonton Piala Dunia 2026 di Mana",
+    "subtitle": "Penyiar resmi & berlisensi per wilayah. Selalu tonton lewat pemegang hak resmi.",
+    "officialSite": "Situs resmi",
+    "globalHeading": "Seluruh dunia",
+    "regionHeading": "Per wilayah",
+    "disclaimer": "Skorly tidak menyiarkan atau menyimpan cuplikan pertandingan. Kami hanya menautkan ke penyiar resmi berlisensi. Hak siar bisa berubah — mohon konfirmasi ke pemegang hak resmi di negaramu. Hindari siaran ilegal.",
+    "tbd": "Pemegang hak belum dikonfirmasi — cek daftar resmi FIFA."
   },
   "team": {
     "squad": "Skuad",
     "fixtures": "Jadwal",
-    "recentForm": "Performa Terkini"
+    "recentForm": "Performa Terkini",
+    "group": "Grup",
+    "position": "Posisi",
+    "number": "No.",
+    "age": "Usia",
+    "nationality": "Kebangsaan",
+    "player": "Pemain",
+    "noSquad": "Data skuad belum tersedia.",
+    "noFixtures": "Belum ada jadwal.",
+    "allTeams": "Semua Tim"
   },
   "subscribe": {
     "title": "Dapatkan Panduan Piala Dunia 2026 GRATIS",
@@ -43,7 +104,233 @@
     "consent": "Saya setuju Skorly mengolah data saya untuk info pertandingan dan promosi.",
     "submit": "Kirim Panduan Saya",
     "success": "Cek email kamu! Panduan sedang dikirim.",
+    "checkEmail": "Hampir selesai — cek email kamu!",
+    "checkEmailHint": "Kami mengirim tautan konfirmasi. Klik untuk mulai menerima prediksi eksklusif.",
     "error": "Terjadi kesalahan. Coba lagi sebentar lagi."
+  },
+  "auth": {
+    "login": {
+      "title": "Selamat datang kembali",
+      "subtitle": "Masuk untuk menebak skor dan naik ke papan peringkat.",
+      "email": "Email",
+      "password": "Kata sandi",
+      "submit": "Masuk",
+      "noAccount": "Belum punya akun?",
+      "signUp": "Daftar",
+      "forgot": "Lupa kata sandi?",
+      "orContinue": "atau lanjut dengan"
+    },
+    "register": {
+      "title": "Buat akun kamu",
+      "subtitle": "Tebak skor, ikut liga, dan buka pratinjau eksklusif.",
+      "displayName": "Nama tampilan",
+      "email": "Email",
+      "password": "Kata sandi",
+      "passwordHint": "Minimal 8 karakter.",
+      "consent": "Kirimi saya info pertandingan dan prediksi eksklusif via email.",
+      "submit": "Daftar",
+      "haveAccount": "Sudah punya akun?",
+      "signIn": "Masuk",
+      "checkEmail": "Tinggal sedikit lagi! Cek email kamu untuk konfirmasi."
+    },
+    "forgot": {
+      "title": "Atur ulang kata sandi",
+      "subtitle": "Kami akan mengirim tautan untuk membuat kata sandi baru.",
+      "email": "Email",
+      "submit": "Kirim tautan",
+      "backToLogin": "Kembali ke halaman masuk",
+      "resetSent": "Jika email itu terdaftar, tautan reset sedang dikirim."
+    },
+    "reset": {
+      "title": "Buat kata sandi baru",
+      "subtitle": "Pilih kata sandi kuat yang tidak kamu pakai di tempat lain.",
+      "password": "Kata sandi baru",
+      "submit": "Perbarui kata sandi",
+      "passwordUpdated": "Kata sandi diperbarui. Sekarang bisa kamu pakai.",
+      "invalidLink": "Tautan reset ini tidak valid atau sudah kedaluwarsa."
+    },
+    "google": "Lanjut dengan Google",
+    "facebook": "Lanjut dengan Facebook",
+    "errors": {
+      "invalidEmail": "Masukkan alamat email yang valid.",
+      "weakPassword": "Kata sandi minimal 8 karakter.",
+      "invalidCredentials": "Email atau kata sandi salah.",
+      "captcha": "Verifikasi captcha gagal. Coba lagi.",
+      "rateLimited": "Terlalu banyak percobaan. Tunggu beberapa menit.",
+      "unauthorized": "Silakan masuk dulu.",
+      "auth": "Gagal masuk. Coba lagi.",
+      "generic": "Terjadi kesalahan. Coba lagi."
+    }
+  },
+  "account": {
+    "title": "Akun saya",
+    "displayName": "Nama tampilan",
+    "email": "Email",
+    "whatsapp": "Nomor WhatsApp",
+    "favoriteTeam": "Tim favorit",
+    "none": "Tidak ada",
+    "consent": "Kirimi saya info pertandingan dan prediksi eksklusif.",
+    "save": "Simpan perubahan",
+    "saved": "Profil kamu sudah disimpan.",
+    "signOut": "Keluar",
+    "memberSince": "Anggota sejak",
+    "role": "Keanggotaan",
+    "roles": { "member": "Anggota", "premium": "Premium", "admin": "Admin" },
+    "myPredictions": "Tebakan saya",
+    "noPredictions": "Kamu belum membuat tebakan.",
+    "stats": {
+      "points": "Poin",
+      "rank": "Peringkat",
+      "played": "Tebakan",
+      "exact": "Skor tepat",
+      "unranked": "Belum berperingkat"
+    }
+  },
+  "premium": {
+    "badge": "Rencana eksklusif",
+    "locked": "Rencana prediksi mendalam lengkap khusus untuk member.",
+    "lockedHint": "Pratinjau gratis di atas. Masuk untuk membuka analisis lengkap, statistik kunci, dan tebakannya.",
+    "login": "Masuk untuk membuka",
+    "loading": "Membuka…"
+  },
+  "predict": {
+    "title": "Tebak skor",
+    "subtitle": "Kumpulkan poin dan naik ke puncak klasemen.",
+    "yourPrediction": "Tebakanmu",
+    "submit": "Kirim tebakan",
+    "update": "Ubah tebakan",
+    "saved": "Tebakan tersimpan!",
+    "locked": "Tebakan untuk laga ini sudah ditutup.",
+    "loginToPredict": "Masuk untuk menebak laga ini.",
+    "login": "Masuk",
+    "pts": "{points} poin",
+    "leaderboardLink": "Lihat klasemen →",
+    "sharePick": "Tebakanku untuk {match}: {home}-{away} ⚽ Tebak skormu di Skorly!",
+    "shareResult": "Aku dapat {points} poin di {match}! Tebakanku: {home}-{away}. Main di Skorly ⚽",
+    "errors": {
+      "locked": "Tebakan untuk laga ini sudah ditutup.",
+      "invalid": "Masukkan skor yang valid.",
+      "rateLimited": "Terlalu banyak percobaan. Pelan-pelan ya.",
+      "generic": "Terjadi kesalahan. Silakan coba lagi."
+    }
+  },
+  "leaderboard": {
+    "title": "Klasemen",
+    "subtitle": "Penebak terbaik Skorly untuk Piala Dunia 2026.",
+    "rank": "#",
+    "player": "Pemain",
+    "points": "Poin",
+    "played": "Main",
+    "exact": "Tepat",
+    "anonymous": "Pemain",
+    "empty": "Belum ada tebakan yang dinilai — jadilah yang pertama!",
+    "scoring": "Penilaian: skor tepat 5 poin · hasil + selisih gol benar 3 poin · hasil benar 2 poin.",
+    "shareText": "Lihat klasemen tebak skor Piala Dunia 2026 di Skorly ⚽"
+  },
+  "comments": {
+    "title": "Komentar",
+    "placeholder": "Bagikan pendapatmu soal laga ini…",
+    "post": "Kirim",
+    "posting": "Mengirim…",
+    "loginCta": "Masuk untuk ikut diskusi.",
+    "login": "Masuk",
+    "empty": "Belum ada komentar — mulai percakapan!",
+    "reply": "Balas",
+    "replyPlaceholder": "Tulis balasan…",
+    "cancel": "Batal",
+    "like": "Suka",
+    "report": "Laporkan",
+    "reported": "Dilaporkan",
+    "errors": {
+      "rateLimited": "Terlalu cepat — tunggu sebentar.",
+      "captcha": "Selesaikan verifikasi dulu.",
+      "gambling": "Konten judi tidak diizinkan di sini.",
+      "piracy": "Tautan siaran tidak diizinkan di sini.",
+      "link": "Tautan tidak diizinkan di komentar.",
+      "invalid": "Komentar kosong atau terlalu panjang.",
+      "unauth": "Masuk dulu untuk berkomentar.",
+      "generic": "Terjadi kesalahan. Coba lagi."
+    }
+  },
+  "picks": {
+    "title": "Tebakan komunitas",
+    "empty": "Belum ada tebakan — jadilah yang pertama!",
+    "pts": "{points} poin"
+  },
+  "league": {
+    "title": "Liga mini privat",
+    "subtitle": "Buat liga dan tantang temanmu adu prediksi Piala Dunia.",
+    "create": "Buat liga",
+    "creating": "Membuat…",
+    "namePlaceholder": "Nama liga (mis. Geng Kantor WC)",
+    "loginCta": "Masuk untuk membuat dan bergabung liga privat.",
+    "login": "Masuk",
+    "myLeagues": "Liga saya",
+    "members": "{count} anggota",
+    "invite": "Tautan undangan",
+    "inviteHint": "Bagikan tautan ini — siapa pun yang membukanya bisa bergabung.",
+    "copy": "Salin tautan",
+    "copied": "Tersalin!",
+    "share": "Bagikan ke WhatsApp",
+    "shareText": "Gabung liga prediksi Piala Dunia 2026 saya di Skorly ⚽",
+    "join": "Gabung liga ini",
+    "joining": "Bergabung…",
+    "joined": "Kamu bergabung! 🎉",
+    "alreadyMember": "Kamu sudah menjadi anggota.",
+    "open": "Buka",
+    "notFound": "Liga ini tidak ada.",
+    "empty": "Belum ada liga — buat yang pertama!",
+    "standings": "Klasemen",
+    "rank": "#",
+    "player": "Pemain",
+    "points": "Poin",
+    "played": "Main",
+    "you": "Kamu",
+    "errors": {
+      "invalid": "Masukkan nama liga.",
+      "rateLimited": "Terlalu banyak liga dibuat. Coba nanti.",
+      "unauth": "Masuk dulu.",
+      "notFound": "Tautan undangan tidak valid.",
+      "generic": "Terjadi kesalahan. Coba lagi."
+    }
+  },
+  "bracket": {
+    "title": "Prediksi bagan",
+    "subtitle": "Pilih jalan menuju final — empat besar, finalis, dan sang juara.",
+    "pickFinalFour": "Pilih empat besarmu",
+    "pickFinalists": "Pilih dua finalis",
+    "pickChampion": "Nobatkan sang juara",
+    "chooseTeams": "Ketuk tim untuk menyusun baganmu",
+    "slotEmpty": "Kosong",
+    "save": "Simpan bagan",
+    "update": "Ubah bagan",
+    "saved": "Bagan tersimpan!",
+    "loginToSave": "Masuk untuk menyimpan baganmu",
+    "share": "Bagikan ke WhatsApp",
+    "shareText": "Juara Piala Dunia 2026 versiku: {champion} 🏆 — susun baganmu di Skorly!",
+    "errors": {
+      "invalid": "Lengkapi semua pilihan dulu.",
+      "rateLimited": "Terlalu banyak percobaan. Pelan-pelan ya.",
+      "generic": "Terjadi kesalahan. Silakan coba lagi."
+    }
+  },
+  "forecast": {
+    "title": "Prakiraan model Skorly",
+    "draw": "Seri",
+    "mostLikely": "Skor paling mungkin",
+    "expectedGoals": "Ekspektasi gol",
+    "confidence": "Keyakinan",
+    "disclaimer": "Model statistik, sekadar hiburan — bukan odds taruhan.",
+    "lowData": "Perkiraan pra-turnamen — makin akurat saat laga berjalan."
+  },
+  "scores": {
+    "title": "Skor langsung & hasil",
+    "subtitle": "Skor langsung Piala Dunia 2026 menit demi menit, plus hasil akhir.",
+    "liveNow": "Berlangsung",
+    "recentResults": "Hasil terbaru",
+    "noLive": "Belum ada laga yang berlangsung.",
+    "noResults": "Hasil akan tampil di sini setelah laga selesai.",
+    "timeline": "Linimasa laga"
   },
   "footer": {
     "about": "Tentang Skorly",

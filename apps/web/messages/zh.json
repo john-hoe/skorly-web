@@ -6,20 +6,42 @@
   "nav": {
     "home": "首页",
     "worldCup": "2026 世界杯",
+    "scores": "实时比分",
     "matches": "比赛",
     "teams": "球队",
     "articles": "文章",
+    "leaderboard": "排行榜",
+    "leagues": "联赛",
     "groups": "小组",
     "news": "新闻",
     "language": "语言",
-    "contact": "联系"
+    "contact": "联系",
+    "login": "登录",
+    "register": "注册",
+    "account": "我的账户",
+    "logout": "退出"
   },
   "home": {
     "heroTitle": "2026 世界杯",
     "heroSubtitle": "每场比赛的赛前分析、预测与深度解读",
     "latestArticles": "最新文章",
     "upcomingMatches": "即将开赛",
-    "countdown": "世界杯倒计时"
+    "countdown": "世界杯倒计时",
+    "predictCta": "竞猜比赛",
+    "bracketCta": "晋级图挑战",
+    "premiumBadge": "专属",
+    "premiumTitle": "专属预测方案",
+    "premiumDesc": "更深度的 AI 分析与赛前精选——免费注册，会员解锁完整方案。",
+    "premiumCta": "免费解锁",
+    "leaderboardTitle": "竞猜榜首",
+    "anonymousPlayer": "玩家",
+    "guestTitle": "来玩比分竞猜",
+    "guestDesc": "竞猜比分、赢取积分、冲上排行榜。",
+    "guestCta": "免费加入",
+    "myPoints": "积分",
+    "myRank": "排名",
+    "continuePredicting": "继续竞猜",
+    "viewLeaderboard": "查看排行榜"
   },
   "match": {
     "preview": "赛前分析",
@@ -29,12 +51,51 @@
     "tactical": "战术分析",
     "lineups": "首发阵容",
     "headToHead": "历史交锋",
-    "kickoff": "开球时间"
+    "kickoff": "开球时间",
+    "draws": "平局",
+    "highlights": "进球集锦",
+    "goals": "进球",
+    "noGoals": "本场比赛无进球。",
+    "officialVideo": "官方集锦"
+  },
+  "stories": {
+    "title": "Web Stories",
+    "subtitle": "图文速览赛事前瞻——滑动浏览，预测比分。"
+  },
+  "push": {
+    "enable": "开赛提醒",
+    "on": "已开启",
+    "busy": "…",
+    "denied": "已屏蔽"
+  },
+  "share": {
+    "label": "分享：",
+    "share": "分享",
+    "copy": "复制链接",
+    "copied": "已复制！"
+  },
+  "watch": {
+    "title": "2026 世界杯在哪看",
+    "subtitle": "各地区官方及授权转播方。请始终通过官方版权方观看。",
+    "officialSite": "官方网站",
+    "globalHeading": "全球",
+    "regionHeading": "按地区",
+    "disclaimer": "Skorly 不转播或托管任何比赛画面，仅链接到官方授权的转播方。转播权可能变动——请向你所在国家的官方版权方确认。请勿观看盗播。",
+    "tbd": "版权方待确认——请查看 FIFA 官方名单。"
   },
   "team": {
     "squad": "阵容",
     "fixtures": "赛程",
-    "recentForm": "近期状态"
+    "recentForm": "近期状态",
+    "group": "小组",
+    "position": "位置",
+    "number": "号",
+    "age": "年龄",
+    "nationality": "国籍",
+    "player": "球员",
+    "noSquad": "暂无阵容数据。",
+    "noFixtures": "暂无赛程。",
+    "allTeams": "所有球队"
   },
   "subscribe": {
     "title": "免费领取 2026 世界杯指南",
@@ -44,7 +105,233 @@
     "consent": "我同意 Skorly 为比赛资讯和促销目的处理我的数据。",
     "submit": "发送指南",
     "success": "请查收邮件，指南正在发送中。",
+    "checkEmail": "就差一步——请查收邮件！",
+    "checkEmailHint": "我们已发送确认链接，点击即可开始接收独家预测。",
     "error": "出错了，请稍后再试。"
+  },
+  "auth": {
+    "login": {
+      "title": "欢迎回来",
+      "subtitle": "登录即可竞猜比分、冲击排行榜。",
+      "email": "邮箱",
+      "password": "密码",
+      "submit": "登录",
+      "noAccount": "还没有账户？",
+      "signUp": "注册",
+      "forgot": "忘记密码？",
+      "orContinue": "或使用以下方式继续"
+    },
+    "register": {
+      "title": "创建你的账户",
+      "subtitle": "竞猜比分、加入联赛、解锁专属赛前内容。",
+      "displayName": "昵称",
+      "email": "邮箱",
+      "password": "密码",
+      "passwordHint": "至少 8 个字符。",
+      "consent": "通过邮件向我发送比赛提醒和专属预测。",
+      "submit": "注册",
+      "haveAccount": "已经有账户了？",
+      "signIn": "登录",
+      "checkEmail": "就差一步！请查收邮件确认你的邮箱。"
+    },
+    "forgot": {
+      "title": "重置密码",
+      "subtitle": "我们会发送一个链接，让你设置新密码。",
+      "email": "邮箱",
+      "submit": "发送重置链接",
+      "backToLogin": "返回登录",
+      "resetSent": "如果该邮箱存在，重置链接已发送。"
+    },
+    "reset": {
+      "title": "设置新密码",
+      "subtitle": "请选择一个未在其他地方使用过的强密码。",
+      "password": "新密码",
+      "submit": "更新密码",
+      "passwordUpdated": "密码已更新，现在即可使用。",
+      "invalidLink": "此重置链接无效或已过期。"
+    },
+    "google": "使用 Google 继续",
+    "facebook": "使用 Facebook 继续",
+    "errors": {
+      "invalidEmail": "请输入有效的邮箱地址。",
+      "weakPassword": "密码至少需要 8 个字符。",
+      "invalidCredentials": "邮箱或密码不正确。",
+      "captcha": "人机验证失败，请重试。",
+      "rateLimited": "尝试次数过多，请稍等几分钟。",
+      "unauthorized": "请先登录。",
+      "auth": "登录失败，请重试。",
+      "generic": "出错了，请重试。"
+    }
+  },
+  "account": {
+    "title": "我的账户",
+    "displayName": "昵称",
+    "email": "邮箱",
+    "whatsapp": "WhatsApp 号码",
+    "favoriteTeam": "最爱的球队",
+    "none": "无",
+    "consent": "通过邮件向我发送比赛提醒和专属预测。",
+    "save": "保存修改",
+    "saved": "你的资料已保存。",
+    "signOut": "退出登录",
+    "memberSince": "注册于",
+    "role": "会员等级",
+    "roles": { "member": "普通会员", "premium": "高级会员", "admin": "管理员" },
+    "myPredictions": "我的竞猜",
+    "noPredictions": "你还没有任何竞猜。",
+    "stats": {
+      "points": "积分",
+      "rank": "排名",
+      "played": "竞猜场次",
+      "exact": "精准比分",
+      "unranked": "暂无排名"
+    }
+  },
+  "premium": {
+    "badge": "专属方案",
+    "locked": "完整深度预测方案仅对会员开放。",
+    "lockedHint": "上方为免费预览。登录即可解锁完整分析、关键数据与推荐比分。",
+    "login": "登录解锁",
+    "loading": "解锁中…"
+  },
+  "predict": {
+    "title": "竞猜比分",
+    "subtitle": "赢取积分，冲上排行榜。",
+    "yourPrediction": "你的竞猜",
+    "submit": "提交竞猜",
+    "update": "修改竞猜",
+    "saved": "竞猜已保存！",
+    "locked": "本场比赛竞猜已截止。",
+    "loginToPredict": "登录后即可竞猜本场比赛。",
+    "login": "登录",
+    "pts": "{points} 分",
+    "leaderboardLink": "查看排行榜 →",
+    "sharePick": "我对 {match} 的预测：{home}-{away} ⚽ 来 Skorly 猜你的比分！",
+    "shareResult": "我在 {match} 拿了 {points} 分！我的预测：{home}-{away}。来 Skorly 玩 ⚽",
+    "errors": {
+      "locked": "本场比赛竞猜已截止。",
+      "invalid": "请输入有效比分。",
+      "rateLimited": "操作过于频繁，请稍后再试。",
+      "generic": "出错了，请重试。"
+    }
+  },
+  "leaderboard": {
+    "title": "排行榜",
+    "subtitle": "2026 世界杯 Skorly 竞猜高手榜。",
+    "rank": "#",
+    "player": "玩家",
+    "points": "积分",
+    "played": "场次",
+    "exact": "精准",
+    "anonymous": "玩家",
+    "empty": "还没有已结算的竞猜——快来抢头名！",
+    "scoring": "计分：精准比分 5 分 · 胜负 + 净胜球 3 分 · 仅胜负 2 分。",
+    "shareText": "来 Skorly 查看 2026 世界杯预测排行榜 ⚽"
+  },
+  "comments": {
+    "title": "评论",
+    "placeholder": "聊聊你对这场比赛的看法…",
+    "post": "发布",
+    "posting": "发布中…",
+    "loginCta": "登录后参与讨论。",
+    "login": "登录",
+    "empty": "还没有评论——快来抢沙发！",
+    "reply": "回复",
+    "replyPlaceholder": "写下回复…",
+    "cancel": "取消",
+    "like": "赞",
+    "report": "举报",
+    "reported": "已举报",
+    "errors": {
+      "rateLimited": "操作太快了——请稍等片刻。",
+      "captcha": "请先完成验证。",
+      "gambling": "这里不允许发布博彩内容。",
+      "piracy": "这里不允许发布直播链接。",
+      "link": "评论中不允许包含链接。",
+      "invalid": "评论为空或过长。",
+      "unauth": "请先登录再评论。",
+      "generic": "出错了，请重试。"
+    }
+  },
+  "picks": {
+    "title": "社区竞猜",
+    "empty": "还没有人竞猜——来做第一个吧！",
+    "pts": "{points} 分"
+  },
+  "league": {
+    "title": "私人竞猜联赛",
+    "subtitle": "创建联赛，和好友比拼世界杯预测。",
+    "create": "创建联赛",
+    "creating": "创建中…",
+    "namePlaceholder": "联赛名称（如：办公室世界杯战队）",
+    "loginCta": "登录后创建并加入私人联赛。",
+    "login": "登录",
+    "myLeagues": "我的联赛",
+    "members": "{count} 名成员",
+    "invite": "邀请链接",
+    "inviteHint": "分享此链接——任何人打开即可加入你的联赛。",
+    "copy": "复制链接",
+    "copied": "已复制！",
+    "share": "分享到 WhatsApp",
+    "shareText": "来 Skorly 加入我的 2026 世界杯竞猜联赛 ⚽",
+    "join": "加入此联赛",
+    "joining": "加入中…",
+    "joined": "你已加入！🎉",
+    "alreadyMember": "你已经是成员了。",
+    "open": "打开",
+    "notFound": "该联赛不存在。",
+    "empty": "还没有联赛——创建第一个吧！",
+    "standings": "积分榜",
+    "rank": "#",
+    "player": "玩家",
+    "points": "积分",
+    "played": "场次",
+    "you": "你",
+    "errors": {
+      "invalid": "请输入联赛名称。",
+      "rateLimited": "创建的联赛过多，请稍后再试。",
+      "unauth": "请先登录。",
+      "notFound": "邀请链接无效。",
+      "generic": "出错了，请重试。"
+    }
+  },
+  "bracket": {
+    "title": "晋级图竞猜",
+    "subtitle": "预测你的夺冠之路——四强、决赛对阵与冠军。",
+    "pickFinalFour": "选出你的四强",
+    "pickFinalists": "选出两支决赛球队",
+    "pickChampion": "加冕你的冠军",
+    "chooseTeams": "点击球队来搭建你的晋级图",
+    "slotEmpty": "空",
+    "save": "保存晋级图",
+    "update": "更新晋级图",
+    "saved": "晋级图已保存！",
+    "loginToSave": "登录后保存你的晋级图",
+    "share": "分享到 WhatsApp",
+    "shareText": "我的 2026 世界杯冠军：{champion} 🏆 —— 来 Skorly 搭建你的晋级图！",
+    "errors": {
+      "invalid": "请先完成所有选择。",
+      "rateLimited": "操作过于频繁，请稍后再试。",
+      "generic": "出错了，请重试。"
+    }
+  },
+  "forecast": {
+    "title": "Skorly 模型预测",
+    "draw": "平局",
+    "mostLikely": "最可能比分",
+    "expectedGoals": "预期进球",
+    "confidence": "置信度",
+    "disclaimer": "统计模型，仅供娱乐——非博彩赔率。",
+    "lowData": "赛前预估——随着比赛进行会更准确。"
+  },
+  "scores": {
+    "title": "实时比分与赛果",
+    "subtitle": "2026 世界杯实时比分，分钟级更新，附全场赛果。",
+    "liveNow": "正在进行",
+    "recentResults": "近期赛果",
+    "noLive": "暂时没有正在进行的比赛。",
+    "noResults": "比赛结束后赛果将显示在这里。",
+    "timeline": "比赛进程"
   },
   "footer": {
     "about": "关于 Skorly",

@@ -6,19 +6,41 @@
   "nav": {
     "home": "Trang chủ",
     "worldCup": "World Cup 2026",
+    "scores": "Tỉ số trực tiếp",
     "matches": "Trận đấu",
     "teams": "Đội tuyển",
     "articles": "Bài viết",
+    "leaderboard": "Xếp hạng",
+    "leagues": "Giải đấu",
     "groups": "Bảng đấu",
     "news": "Tin tức",
-    "contact": "Liên hệ"
+    "contact": "Liên hệ",
+    "login": "Đăng nhập",
+    "register": "Đăng ký",
+    "account": "Tài khoản",
+    "logout": "Đăng xuất"
   },
   "home": {
     "heroTitle": "World Cup 2026",
     "heroSubtitle": "Nhận định, dự đoán và phân tích từng trận đấu",
     "latestArticles": "Bài viết mới nhất",
     "upcomingMatches": "Lịch thi đấu sắp tới",
-    "countdown": "Đếm ngược World Cup"
+    "countdown": "Đếm ngược World Cup",
+    "predictCta": "Dự đoán trận đấu",
+    "bracketCta": "Thử thách nhánh đấu",
+    "premiumBadge": "Premium",
+    "premiumTitle": "Dự đoán độc quyền",
+    "premiumDesc": "Phân tích AI sâu hơn và lựa chọn trước trận — đăng ký miễn phí, thành viên mở khóa bản đầy đủ.",
+    "premiumCta": "Mở khóa miễn phí",
+    "leaderboardTitle": "Người dự đoán hàng đầu",
+    "anonymousPlayer": "Người chơi",
+    "guestTitle": "Chơi dự đoán tỉ số",
+    "guestDesc": "Dự đoán tỉ số, ghi điểm, leo bảng xếp hạng.",
+    "guestCta": "Tham gia miễn phí",
+    "myPoints": "Điểm",
+    "myRank": "Hạng",
+    "continuePredicting": "Tiếp tục dự đoán",
+    "viewLeaderboard": "Xem bảng xếp hạng"
   },
   "match": {
     "preview": "Nhận định",
@@ -28,12 +50,51 @@
     "tactical": "Phân tích chiến thuật",
     "lineups": "Đội hình",
     "headToHead": "Lịch sử đối đầu",
-    "kickoff": "Giờ bóng lăn"
+    "kickoff": "Giờ bóng lăn",
+    "draws": "Hòa",
+    "highlights": "Điểm nhấn bàn thắng",
+    "goals": "Bàn thắng",
+    "noGoals": "Trận đấu không có bàn thắng.",
+    "officialVideo": "Video chính thức"
+  },
+  "stories": {
+    "title": "Web Stories",
+    "subtitle": "Xem nhanh trận đấu bằng hình ảnh — lướt và dự đoán tỉ số."
+  },
+  "push": {
+    "enable": "Thông báo",
+    "on": "Đã bật",
+    "busy": "…",
+    "denied": "Đã chặn"
+  },
+  "share": {
+    "label": "Chia sẻ:",
+    "share": "Chia sẻ",
+    "copy": "Sao chép liên kết",
+    "copied": "Đã sao chép!"
+  },
+  "watch": {
+    "title": "Xem World Cup 2026 ở đâu",
+    "subtitle": "Các đài phát sóng chính thức & được cấp phép theo khu vực. Luôn xem qua đơn vị giữ bản quyền chính thức.",
+    "officialSite": "Trang chính thức",
+    "globalHeading": "Toàn cầu",
+    "regionHeading": "Theo khu vực",
+    "disclaimer": "Skorly không phát trực tiếp hay lưu trữ bất kỳ hình ảnh trận đấu nào. Chúng tôi chỉ liên kết tới các đài phát chính thức được cấp phép. Bản quyền có thể thay đổi — vui lòng xác nhận với đơn vị giữ bản quyền tại quốc gia của bạn. Tránh các luồng phát lậu.",
+    "tbd": "Đơn vị giữ bản quyền chưa được xác nhận — xem danh sách chính thức của FIFA."
   },
   "team": {
     "squad": "Đội hình",
     "fixtures": "Lịch thi đấu",
-    "recentForm": "Phong độ gần đây"
+    "recentForm": "Phong độ gần đây",
+    "group": "Bảng",
+    "position": "Vị trí",
+    "number": "Số",
+    "age": "Tuổi",
+    "nationality": "Quốc tịch",
+    "player": "Cầu thủ",
+    "noSquad": "Chưa có dữ liệu đội hình.",
+    "noFixtures": "Chưa có lịch thi đấu.",
+    "allTeams": "Tất cả đội tuyển"
   },
   "subscribe": {
     "title": "Nhận Cẩm nang World Cup 2026 MIỄN PHÍ",
@@ -43,7 +104,233 @@
     "consent": "Tôi đồng ý để Skorly xử lý dữ liệu của tôi cho thông tin trận đấu và khuyến mãi.",
     "submit": "Gửi cẩm nang cho tôi",
     "success": "Kiểm tra email của bạn! Cẩm nang đang được gửi.",
+    "checkEmail": "Sắp xong — kiểm tra email của bạn!",
+    "checkEmailHint": "Chúng tôi đã gửi liên kết xác nhận. Nhấn vào đó để bắt đầu nhận dự đoán độc quyền.",
     "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+  },
+  "auth": {
+    "login": {
+      "title": "Chào mừng trở lại",
+      "subtitle": "Đăng nhập để dự đoán tỉ số và leo bảng xếp hạng.",
+      "email": "Email",
+      "password": "Mật khẩu",
+      "submit": "Đăng nhập",
+      "noAccount": "Chưa có tài khoản?",
+      "signUp": "Đăng ký",
+      "forgot": "Quên mật khẩu?",
+      "orContinue": "hoặc tiếp tục với"
+    },
+    "register": {
+      "title": "Tạo tài khoản",
+      "subtitle": "Dự đoán tỉ số, tham gia giải đấu và mở khóa nội dung độc quyền.",
+      "displayName": "Tên hiển thị",
+      "email": "Email",
+      "password": "Mật khẩu",
+      "passwordHint": "Tối thiểu 8 ký tự.",
+      "consent": "Gửi cho tôi thông báo trận đấu và dự đoán độc quyền qua email.",
+      "submit": "Đăng ký",
+      "haveAccount": "Đã có tài khoản?",
+      "signIn": "Đăng nhập",
+      "checkEmail": "Gần xong rồi! Kiểm tra hộp thư để xác nhận email."
+    },
+    "forgot": {
+      "title": "Đặt lại mật khẩu",
+      "subtitle": "Chúng tôi sẽ gửi liên kết để tạo mật khẩu mới.",
+      "email": "Email",
+      "submit": "Gửi liên kết",
+      "backToLogin": "Quay lại đăng nhập",
+      "resetSent": "Nếu email tồn tại, liên kết đặt lại đang được gửi."
+    },
+    "reset": {
+      "title": "Đặt mật khẩu mới",
+      "subtitle": "Chọn mật khẩu mạnh mà bạn không dùng ở nơi khác.",
+      "password": "Mật khẩu mới",
+      "submit": "Cập nhật mật khẩu",
+      "passwordUpdated": "Đã cập nhật mật khẩu. Bạn có thể dùng ngay.",
+      "invalidLink": "Liên kết đặt lại không hợp lệ hoặc đã hết hạn."
+    },
+    "google": "Tiếp tục với Google",
+    "facebook": "Tiếp tục với Facebook",
+    "errors": {
+      "invalidEmail": "Vui lòng nhập email hợp lệ.",
+      "weakPassword": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+      "captcha": "Xác minh captcha thất bại. Vui lòng thử lại.",
+      "rateLimited": "Quá nhiều lần thử. Vui lòng đợi vài phút.",
+      "unauthorized": "Vui lòng đăng nhập trước.",
+      "auth": "Đăng nhập thất bại. Vui lòng thử lại.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
+  },
+  "account": {
+    "title": "Tài khoản của tôi",
+    "displayName": "Tên hiển thị",
+    "email": "Email",
+    "whatsapp": "Số WhatsApp",
+    "favoriteTeam": "Đội yêu thích",
+    "none": "Không có",
+    "consent": "Gửi cho tôi thông báo trận đấu và dự đoán độc quyền.",
+    "save": "Lưu thay đổi",
+    "saved": "Đã lưu hồ sơ của bạn.",
+    "signOut": "Đăng xuất",
+    "memberSince": "Thành viên từ",
+    "role": "Hạng thành viên",
+    "roles": { "member": "Thành viên", "premium": "Premium", "admin": "Quản trị" },
+    "myPredictions": "Dự đoán của tôi",
+    "noPredictions": "Bạn chưa có dự đoán nào.",
+    "stats": {
+      "points": "Điểm",
+      "rank": "Hạng",
+      "played": "Dự đoán",
+      "exact": "Tỉ số chính xác",
+      "unranked": "Chưa xếp hạng"
+    }
+  },
+  "premium": {
+    "badge": "Kế hoạch độc quyền",
+    "locked": "Bản phân tích dự đoán chuyên sâu đầy đủ chỉ dành cho thành viên.",
+    "lockedHint": "Bản xem trước miễn phí ở trên. Đăng nhập để mở khóa phân tích đầy đủ, số liệu chính và lựa chọn.",
+    "login": "Đăng nhập để mở khóa",
+    "loading": "Đang mở khóa…"
+  },
+  "predict": {
+    "title": "Dự đoán tỉ số",
+    "subtitle": "Ghi điểm và leo lên bảng xếp hạng.",
+    "yourPrediction": "Dự đoán của bạn",
+    "submit": "Gửi dự đoán",
+    "update": "Cập nhật dự đoán",
+    "saved": "Đã lưu dự đoán!",
+    "locked": "Dự đoán cho trận này đã đóng.",
+    "loginToPredict": "Đăng nhập để dự đoán trận này.",
+    "login": "Đăng nhập",
+    "pts": "{points} điểm",
+    "leaderboardLink": "Xem bảng xếp hạng →",
+    "sharePick": "Dự đoán của tôi cho {match}: {home}-{away} ⚽ Dự đoán của bạn trên Skorly!",
+    "shareResult": "Tôi được {points} điểm ở {match}! Dự đoán: {home}-{away}. Chơi trên Skorly ⚽",
+    "errors": {
+      "locked": "Dự đoán cho trận này đã đóng.",
+      "invalid": "Nhập tỉ số hợp lệ.",
+      "rateLimited": "Quá nhiều lần thử. Vui lòng chậm lại.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
+  },
+  "leaderboard": {
+    "title": "Bảng xếp hạng",
+    "subtitle": "Những người dự đoán giỏi nhất Skorly cho World Cup 2026.",
+    "rank": "#",
+    "player": "Người chơi",
+    "points": "Điểm",
+    "played": "Số trận",
+    "exact": "Chính xác",
+    "anonymous": "Người chơi",
+    "empty": "Chưa có dự đoán nào được tính điểm — hãy là người đầu tiên!",
+    "scoring": "Cách tính: tỉ số chính xác 5 điểm · đúng kết quả + hiệu số 3 điểm · đúng kết quả 2 điểm.",
+    "shareText": "Xem bảng xếp hạng dự đoán World Cup 2026 trên Skorly ⚽"
+  },
+  "comments": {
+    "title": "Bình luận",
+    "placeholder": "Chia sẻ ý kiến của bạn về trận này…",
+    "post": "Gửi",
+    "posting": "Đang gửi…",
+    "loginCta": "Đăng nhập để tham gia thảo luận.",
+    "login": "Đăng nhập",
+    "empty": "Chưa có bình luận — hãy bắt đầu nào!",
+    "reply": "Trả lời",
+    "replyPlaceholder": "Viết trả lời…",
+    "cancel": "Hủy",
+    "like": "Thích",
+    "report": "Báo cáo",
+    "reported": "Đã báo cáo",
+    "errors": {
+      "rateLimited": "Bạn thao tác quá nhanh — chậm lại chút nhé.",
+      "captcha": "Vui lòng hoàn tất xác minh.",
+      "gambling": "Nội dung cá cược không được phép ở đây.",
+      "piracy": "Liên kết phát trực tiếp không được phép ở đây.",
+      "link": "Không được phép gửi liên kết trong bình luận.",
+      "invalid": "Bình luận trống hoặc quá dài.",
+      "unauth": "Vui lòng đăng nhập để bình luận.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
+  },
+  "picks": {
+    "title": "Dự đoán cộng đồng",
+    "empty": "Chưa có dự đoán — hãy là người đầu tiên!",
+    "pts": "{points} điểm"
+  },
+  "league": {
+    "title": "Giải đấu mini riêng tư",
+    "subtitle": "Tạo giải đấu và thách đấu bạn bè dự đoán World Cup.",
+    "create": "Tạo giải đấu",
+    "creating": "Đang tạo…",
+    "namePlaceholder": "Tên giải đấu (vd. Hội Văn Phòng WC)",
+    "loginCta": "Đăng nhập để tạo và tham gia giải đấu riêng.",
+    "login": "Đăng nhập",
+    "myLeagues": "Giải đấu của tôi",
+    "members": "{count} thành viên",
+    "invite": "Liên kết mời",
+    "inviteHint": "Chia sẻ liên kết này — ai mở cũng có thể tham gia.",
+    "copy": "Sao chép liên kết",
+    "copied": "Đã sao chép!",
+    "share": "Chia sẻ qua WhatsApp",
+    "shareText": "Tham gia giải dự đoán World Cup 2026 của tôi trên Skorly ⚽",
+    "join": "Tham gia giải này",
+    "joining": "Đang tham gia…",
+    "joined": "Bạn đã tham gia! 🎉",
+    "alreadyMember": "Bạn đã là thành viên.",
+    "open": "Mở",
+    "notFound": "Giải đấu này không tồn tại.",
+    "empty": "Chưa có giải đấu — tạo cái đầu tiên nào!",
+    "standings": "Bảng xếp hạng",
+    "rank": "#",
+    "player": "Người chơi",
+    "points": "Điểm",
+    "played": "Đã chơi",
+    "you": "Bạn",
+    "errors": {
+      "invalid": "Nhập tên giải đấu.",
+      "rateLimited": "Tạo quá nhiều giải. Thử lại sau.",
+      "unauth": "Vui lòng đăng nhập trước.",
+      "notFound": "Liên kết mời không hợp lệ.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
+  },
+  "bracket": {
+    "title": "Dự đoán nhánh đấu",
+    "subtitle": "Chọn đường đến chung kết — bán kết, chung kết và nhà vô địch.",
+    "pickFinalFour": "Chọn 4 đội bán kết",
+    "pickFinalists": "Chọn 2 đội chung kết",
+    "pickChampion": "Chọn nhà vô địch",
+    "chooseTeams": "Chạm vào đội để dựng nhánh đấu",
+    "slotEmpty": "Trống",
+    "save": "Lưu nhánh đấu",
+    "update": "Cập nhật nhánh đấu",
+    "saved": "Đã lưu nhánh đấu!",
+    "loginToSave": "Đăng nhập để lưu nhánh đấu",
+    "share": "Chia sẻ qua WhatsApp",
+    "shareText": "Nhà vô địch World Cup 2026 của tôi: {champion} 🏆 — dựng nhánh đấu trên Skorly!",
+    "errors": {
+      "invalid": "Hãy hoàn tất tất cả lựa chọn trước.",
+      "rateLimited": "Quá nhiều lần thử. Vui lòng chậm lại.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
+  },
+  "forecast": {
+    "title": "Dự báo mô hình Skorly",
+    "draw": "Hòa",
+    "mostLikely": "Tỉ số khả dĩ nhất",
+    "expectedGoals": "Bàn thắng kỳ vọng",
+    "confidence": "Độ tin cậy",
+    "disclaimer": "Mô hình thống kê cho vui — không phải tỉ lệ cá cược.",
+    "lowData": "Ước tính trước giải — sẽ chính xác hơn khi các trận diễn ra."
+  },
+  "scores": {
+    "title": "Tỉ số trực tiếp & kết quả",
+    "subtitle": "Tỉ số World Cup 2026 trực tiếp từng phút, kèm kết quả chung cuộc.",
+    "liveNow": "Đang diễn ra",
+    "recentResults": "Kết quả gần đây",
+    "noLive": "Hiện chưa có trận nào đang diễn ra.",
+    "noResults": "Kết quả sẽ hiển thị ở đây sau khi trận đấu kết thúc.",
+    "timeline": "Diễn biến trận đấu"
   },
   "footer": {
     "about": "Về Skorly",

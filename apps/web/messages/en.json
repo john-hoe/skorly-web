@@ -6,19 +6,41 @@
   "nav": {
     "home": "Home",
     "worldCup": "World Cup 2026",
+    "scores": "Live Scores",
     "matches": "Matches",
     "teams": "Teams",
     "articles": "Articles",
+    "leaderboard": "Leaderboard",
+    "leagues": "Leagues",
     "groups": "Groups",
     "news": "News",
-    "contact": "Contact"
+    "contact": "Contact",
+    "login": "Log in",
+    "register": "Sign up",
+    "account": "My account",
+    "logout": "Log out"
   },
   "home": {
     "heroTitle": "World Cup 2026",
     "heroSubtitle": "Previews, predictions and analysis for every match",
     "latestArticles": "Latest Articles",
     "upcomingMatches": "Upcoming Matches",
-    "countdown": "Countdown to World Cup"
+    "countdown": "Countdown to World Cup",
+    "predictCta": "Predict a match",
+    "bracketCta": "Bracket challenge",
+    "premiumBadge": "Premium",
+    "premiumTitle": "Exclusive prediction plans",
+    "premiumDesc": "Deeper AI analysis and pre-match picks — free to register, members unlock the full plan.",
+    "premiumCta": "Unlock free",
+    "leaderboardTitle": "Top predictors",
+    "anonymousPlayer": "Player",
+    "guestTitle": "Play the prediction game",
+    "guestDesc": "Predict scores, earn points, climb the leaderboard.",
+    "guestCta": "Join free",
+    "myPoints": "Points",
+    "myRank": "Rank",
+    "continuePredicting": "Keep predicting",
+    "viewLeaderboard": "View leaderboard"
   },
   "match": {
     "preview": "Preview",
@@ -28,12 +50,51 @@
     "tactical": "Tactical Analysis",
     "lineups": "Lineups",
     "headToHead": "Head to Head",
-    "kickoff": "Kick-off"
+    "kickoff": "Kick-off",
+    "draws": "Draws",
+    "highlights": "Goal highlights",
+    "goals": "Goals",
+    "noGoals": "No goals in this match.",
+    "officialVideo": "Official highlights"
+  },
+  "stories": {
+    "title": "Web Stories",
+    "subtitle": "Quick visual match previews — tap through and predict."
+  },
+  "push": {
+    "enable": "Alerts",
+    "on": "Alerts on",
+    "busy": "…",
+    "denied": "Alerts blocked"
+  },
+  "share": {
+    "label": "Share:",
+    "share": "Share",
+    "copy": "Copy link",
+    "copied": "Copied!"
+  },
+  "watch": {
+    "title": "Where to Watch World Cup 2026",
+    "subtitle": "Official and licensed broadcasters by region. Always watch via official rights holders.",
+    "officialSite": "Official site",
+    "globalHeading": "Worldwide",
+    "regionHeading": "By region",
+    "disclaimer": "Skorly does not stream or host any match footage. We only link to official, licensed broadcasters. Broadcast rights can change — please confirm with the official rights holder in your country. Avoid illegal streams.",
+    "tbd": "Rights holder to be confirmed — check the official FIFA listing."
   },
   "team": {
     "squad": "Squad",
     "fixtures": "Fixtures",
-    "recentForm": "Recent Form"
+    "recentForm": "Recent Form",
+    "group": "Group",
+    "position": "Position",
+    "number": "No.",
+    "age": "Age",
+    "nationality": "Nationality",
+    "player": "Player",
+    "noSquad": "Squad data not available yet.",
+    "noFixtures": "No fixtures yet.",
+    "allTeams": "All Teams"
   },
   "subscribe": {
     "title": "Get the FREE World Cup 2026 Guide",
@@ -43,7 +104,233 @@
     "consent": "I agree to let Skorly process my data for match info and promotions.",
     "submit": "Send My Guide",
     "success": "Check your email! The guide is on its way.",
+    "checkEmail": "Almost there — check your email!",
+    "checkEmailHint": "We sent a confirmation link. Click it to start receiving exclusive predictions.",
     "error": "Something went wrong. Please try again shortly."
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Log in to make predictions and climb the leaderboard.",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Log in",
+      "noAccount": "No account yet?",
+      "signUp": "Sign up",
+      "forgot": "Forgot password?",
+      "orContinue": "or continue with"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Predict scores, join leagues and unlock exclusive previews.",
+      "displayName": "Display name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "consent": "Send me match alerts and exclusive predictions by email.",
+      "submit": "Sign up",
+      "haveAccount": "Already have an account?",
+      "signIn": "Log in",
+      "checkEmail": "Almost there! Check your inbox to confirm your email."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "We'll email you a link to set a new password.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "backToLogin": "Back to log in",
+      "resetSent": "If that email exists, a reset link is on its way."
+    },
+    "reset": {
+      "title": "Set a new password",
+      "subtitle": "Choose a strong password you don't use elsewhere.",
+      "password": "New password",
+      "submit": "Update password",
+      "passwordUpdated": "Password updated. You can use it now.",
+      "invalidLink": "This reset link is invalid or has expired."
+    },
+    "google": "Continue with Google",
+    "facebook": "Continue with Facebook",
+    "errors": {
+      "invalidEmail": "Please enter a valid email address.",
+      "weakPassword": "Password must be at least 8 characters.",
+      "invalidCredentials": "Incorrect email or password.",
+      "captcha": "Captcha verification failed. Please try again.",
+      "rateLimited": "Too many attempts. Please wait a few minutes.",
+      "unauthorized": "Please log in first.",
+      "auth": "Sign-in failed. Please try again.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "account": {
+    "title": "My account",
+    "displayName": "Display name",
+    "email": "Email",
+    "whatsapp": "WhatsApp number",
+    "favoriteTeam": "Favorite team",
+    "none": "None",
+    "consent": "Email me match alerts and exclusive predictions.",
+    "save": "Save changes",
+    "saved": "Your profile has been saved.",
+    "signOut": "Log out",
+    "memberSince": "Member since",
+    "role": "Membership",
+    "roles": { "member": "Member", "premium": "Premium", "admin": "Admin" },
+    "myPredictions": "My predictions",
+    "noPredictions": "You haven't made any predictions yet.",
+    "stats": {
+      "points": "Points",
+      "rank": "Rank",
+      "played": "Predictions",
+      "exact": "Exact scores",
+      "unranked": "Unranked"
+    }
+  },
+  "premium": {
+    "badge": "Exclusive plan",
+    "locked": "The full deep-dive prediction plan is for members.",
+    "lockedHint": "Free preview above. Log in to unlock the complete analysis, key stats and the pick.",
+    "login": "Log in to unlock",
+    "loading": "Unlocking…"
+  },
+  "predict": {
+    "title": "Predict the score",
+    "subtitle": "Earn points and climb the leaderboard.",
+    "yourPrediction": "Your prediction",
+    "submit": "Submit prediction",
+    "update": "Update prediction",
+    "saved": "Prediction saved!",
+    "locked": "Predictions are closed for this match.",
+    "loginToPredict": "Log in to predict this match.",
+    "login": "Log in",
+    "pts": "{points} pts",
+    "leaderboardLink": "View leaderboard →",
+    "sharePick": "My pick for {match}: {home}-{away} ⚽ Predict yours on Skorly!",
+    "shareResult": "I scored {points} pts on {match}! My pick: {home}-{away}. Play on Skorly ⚽",
+    "errors": {
+      "locked": "Predictions are closed for this match.",
+      "invalid": "Enter a valid score.",
+      "rateLimited": "Too many attempts. Please slow down.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "Top Skorly predictors for World Cup 2026.",
+    "rank": "#",
+    "player": "Player",
+    "points": "Pts",
+    "played": "Played",
+    "exact": "Exact",
+    "anonymous": "Player",
+    "empty": "No scored predictions yet — be the first to play!",
+    "scoring": "Scoring: exact score 5 pts · correct result + goal difference 3 pts · correct result 2 pts.",
+    "shareText": "Check the World Cup 2026 prediction leaderboard on Skorly ⚽"
+  },
+  "comments": {
+    "title": "Comments",
+    "placeholder": "Share your take on this match…",
+    "post": "Post",
+    "posting": "Posting…",
+    "loginCta": "Log in to join the discussion.",
+    "login": "Log in",
+    "empty": "No comments yet — start the conversation!",
+    "reply": "Reply",
+    "replyPlaceholder": "Write a reply…",
+    "cancel": "Cancel",
+    "like": "Like",
+    "report": "Report",
+    "reported": "Reported",
+    "errors": {
+      "rateLimited": "You're going too fast — slow down a moment.",
+      "captcha": "Please complete the verification.",
+      "gambling": "Gambling content isn't allowed here.",
+      "piracy": "Links to streams aren't allowed here.",
+      "link": "Links aren't allowed in comments.",
+      "invalid": "Your comment looks empty or too long.",
+      "unauth": "Please log in to comment.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "picks": {
+    "title": "Community picks",
+    "empty": "No picks yet — be the first to predict!",
+    "pts": "{points} pts"
+  },
+  "league": {
+    "title": "Private mini-leagues",
+    "subtitle": "Create a league and challenge your friends on World Cup predictions.",
+    "create": "Create league",
+    "creating": "Creating…",
+    "namePlaceholder": "League name (e.g. Office WC Crew)",
+    "loginCta": "Log in to create and join private leagues.",
+    "login": "Log in",
+    "myLeagues": "My leagues",
+    "members": "{count} members",
+    "invite": "Invite link",
+    "inviteHint": "Share this link — anyone who opens it can join your league.",
+    "copy": "Copy link",
+    "copied": "Copied!",
+    "share": "Share on WhatsApp",
+    "shareText": "Join my World Cup 2026 prediction league on Skorly ⚽",
+    "join": "Join this league",
+    "joining": "Joining…",
+    "joined": "You're in! 🎉",
+    "alreadyMember": "You're already a member.",
+    "open": "Open",
+    "notFound": "This league doesn't exist.",
+    "empty": "No leagues yet — create your first one!",
+    "standings": "Standings",
+    "rank": "#",
+    "player": "Player",
+    "points": "Pts",
+    "played": "Played",
+    "you": "You",
+    "errors": {
+      "invalid": "Enter a league name.",
+      "rateLimited": "Too many leagues created. Try later.",
+      "unauth": "Please log in first.",
+      "notFound": "Invite link is invalid.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "bracket": {
+    "title": "Bracket prediction",
+    "subtitle": "Pick your road to the final — final four, finalists and champion.",
+    "pickFinalFour": "Pick your final four",
+    "pickFinalists": "Choose the two finalists",
+    "pickChampion": "Crown your champion",
+    "chooseTeams": "Tap teams to build your bracket",
+    "slotEmpty": "Empty",
+    "save": "Save bracket",
+    "update": "Update bracket",
+    "saved": "Bracket saved!",
+    "loginToSave": "Log in to save your bracket",
+    "share": "Share on WhatsApp",
+    "shareText": "My World Cup 2026 champion: {champion} 🏆 — build your bracket on Skorly!",
+    "errors": {
+      "invalid": "Complete all picks first.",
+      "rateLimited": "Too many attempts. Please slow down.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "forecast": {
+    "title": "Skorly model forecast",
+    "draw": "Draw",
+    "mostLikely": "Most likely score",
+    "expectedGoals": "Expected goals",
+    "confidence": "Confidence",
+    "disclaimer": "Statistical model, just for fun — not betting odds.",
+    "lowData": "Pre-tournament estimate — it sharpens as matches are played."
+  },
+  "scores": {
+    "title": "Live scores & results",
+    "subtitle": "Live World Cup 2026 scores, minute by minute, plus full-time results.",
+    "liveNow": "Live now",
+    "recentResults": "Recent results",
+    "noLive": "No live matches right now.",
+    "noResults": "Results will appear here once matches finish.",
+    "timeline": "Match timeline"
   },
   "footer": {
     "about": "About Skorly",

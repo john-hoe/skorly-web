@@ -21,7 +21,21 @@ export function getDb() {
   if (!url) {
     throw new Error("DATABASE_URL is not set");
   }
-  _client = postgres(url, { prepare: false });
+  // `idle_timeout` closes idle connections so short-lived processes (e.g.
+  // `next build` static generation, scripts) can exit instead of hanging on an
+  // open pool. `max` caps concurrent connections against the Supavisor pooler
+  // (kept small so parallel SSG workers can't exhaust the transaction pool).
+  // `connect_timeout` (seconds) and `statement_timeout` (ms) make queries
+  // fail fast instead of hanging forever when the pooler is saturated.
+  // Note: `statement_timeout` is sent via Postgres startup options and is
+  // generally honored by the Supavisor transaction pooler (port 6543).
+  _client = postgres(url, {
+    prepare: false,
+    idle_timeout: 20,
+    max: 4,
+    connect_timeout: 15,
+    connection: { statement_timeout: 30000 },
+  });
   _db = drizzle(_client, { schema });
   return _db;
 }

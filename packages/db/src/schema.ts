@@ -3,6 +3,7 @@ import {
   pgEnum,
   serial,
   integer,
+  uuid,
   text,
   boolean,
   timestamp,
@@ -125,6 +126,8 @@ export const fixtures = pgTable(
     awayGoals: integer("away_goals"),
     elapsed: integer("elapsed"), // live minute
     raw: jsonb("raw"), // last raw API payload for debugging
+    notifiedKickoffAt: timestamp("notified_kickoff_at", { withTimezone: true }), // push dedupe
+    premiumEmailedAt: timestamp("premium_emailed_at", { withTimezone: true }), // pre-match email dedupe
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
@@ -147,6 +150,7 @@ export const fixtureEvents = pgTable(
     detail: text("detail"),
     teamId: integer("team_id").references(() => teams.id),
     playerName: text("player_name"),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }), // push dedupe (goals)
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("fixture_events_fixture_idx").on(t.fixtureId)]
@@ -233,6 +237,7 @@ export const subscribers = pgTable(
     country: text("country"),
     userAgent: text("user_agent"),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }), // double opt-in
+    confirmToken: text("confirm_token"), // double opt-in / unsubscribe token
     giftSent: boolean("gift_sent").default(false).notNull(),
     giftSentAt: timestamp("gift_sent_at", { withTimezone: true }),
     unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
@@ -245,58 +250,33 @@ export const subscribers = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
-/* Phase 1 - users / auth                                             */
+/* Phase 1 (二期) - identity                                          */
 /* ------------------------------------------------------------------ */
 
-export const users = pgTable(
-  "users",
+/**
+ * Public profile mirror of `auth.users` (managed by Supabase Auth).
+ * - Password / OAuth / email-verify / reset are all handled by Supabase Auth.
+ * - `id` equals `auth.users.id` (uuid); a DB trigger auto-creates a row on signup.
+ * - `role` drives premium gating (M4): member | premium | admin.
+ */
+export const profiles = pgTable(
+  "profiles",
   {
-    id: serial("id").primaryKey(),
-    email: text("email").notNull().unique(),
-    passwordHash: text("password_hash"),
+    id: uuid("id").primaryKey(), // = auth.users.id (FK added in migration SQL)
+    email: text("email"),
     displayName: text("display_name"),
     avatarUrl: text("avatar_url"),
     whatsappNumber: text("whatsapp_number"),
     locale: text("locale").notNull().default("id"),
+    favoriteTeamId: integer("favorite_team_id").references(() => teams.id),
+    role: text("role").notNull().default("member"), // member | premium | admin
     consentMarketing: boolean("consent_marketing").default(false).notNull(),
     consentAt: timestamp("consent_at", { withTimezone: true }),
-    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (t) => [index("users_email_idx").on(t.email)]
+  (t) => [index("profiles_email_idx").on(t.email)]
 );
-
-export const accounts = pgTable(
-  "accounts",
-  {
-    id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .references(() => users.id)
-      .notNull(),
-    provider: text("provider").notNull(), // google | facebook
-    providerAccountId: text("provider_account_id").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex("accounts_provider_idx").on(t.provider, t.providerAccountId),
-  ]
-);
-
-export const sessions = pgTable("sessions", {
-  id: text("id").primaryKey(),
-  userId: integer("user_id")
-    .references(() => users.id)
-    .notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const verificationTokens = pgTable("verification_tokens", {
-  token: text("token").primaryKey(),
-  identifier: text("identifier").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-});
 
 /* ------------------------------------------------------------------ */
 /* Phase 1 - comments                                                 */
@@ -306,8 +286,8 @@ export const comments = pgTable(
   "comments",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .references(() => users.id)
+    userId: uuid("user_id")
+      .references(() => profiles.id)
       .notNull(),
     articleId: integer("article_id").references(() => articles.id),
     fixtureId: integer("fixture_id").references(() => fixtures.id),
@@ -328,8 +308,8 @@ export const commentLikes = pgTable(
     commentId: integer("comment_id")
       .references(() => comments.id)
       .notNull(),
-    userId: integer("user_id")
-      .references(() => users.id)
+    userId: uuid("user_id")
+      .references(() => profiles.id)
       .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -341,7 +321,7 @@ export const commentReports = pgTable("comment_reports", {
   commentId: integer("comment_id")
     .references(() => comments.id)
     .notNull(),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => profiles.id),
   reason: text("reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -375,7 +355,7 @@ export const campaignEntries = pgTable(
     campaignId: integer("campaign_id")
       .references(() => campaigns.id)
       .notNull(),
-    userId: integer("user_id").references(() => users.id),
+    userId: uuid("user_id").references(() => profiles.id),
     subscriberId: integer("subscriber_id").references(() => subscribers.id),
     data: jsonb("data"),
     ip: text("ip"),
@@ -388,8 +368,8 @@ export const predictions = pgTable(
   "predictions",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id")
-      .references(() => users.id)
+    userId: uuid("user_id")
+      .references(() => profiles.id)
       .notNull(),
     fixtureId: integer("fixture_id")
       .references(() => fixtures.id)
@@ -397,6 +377,7 @@ export const predictions = pgTable(
     homeGoalsPred: integer("home_goals_pred").notNull(),
     awayGoalsPred: integer("away_goals_pred").notNull(),
     pointsAwarded: integer("points_awarded"),
+    resultNotifiedAt: timestamp("result_notified_at", { withTimezone: true }), // push dedupe
     submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("predictions_user_fixture_idx").on(t.userId, t.fixtureId)]
@@ -405,7 +386,7 @@ export const predictions = pgTable(
 export const winners = pgTable("winners", {
   id: serial("id").primaryKey(),
   campaignId: integer("campaign_id").references(() => campaigns.id),
-  userId: integer("user_id").references(() => users.id),
+  userId: uuid("user_id").references(() => profiles.id),
   prizeLabel: text("prize_label"),
   rank: integer("rank"),
   awardedAt: timestamp("awarded_at", { withTimezone: true }),
@@ -469,8 +450,70 @@ export const imageLibrary = pgTable(
     id: serial("id").primaryKey(),
     team: text("team"), // nullable: generic category image
     category: text("category").notNull(), // transfer|injury|preview|result|tactical|generic
-    url: text("url").notNull(), // R2 public URL (already watermarked)
+    url: text("url"), // R2/Storage public URL (watermarked). null while pending.
+    // 二期 M6 — match poster pipeline (enqueue prompt -> local GPT-Image skill -> url)
+    fixtureId: integer("fixture_id").references(() => fixtures.id),
+    kind: text("kind").default("generic").notNull(), // prematch_poster|result_card|motm_card|generic
+    variant: text("variant"), // star|totem|silhouette
+    prompt: text("prompt"), // GPT-Image prompt to fulfill
+    status: text("status").default("ready").notNull(), // pending|ready|failed
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index("image_library_lookup_idx").on(t.category, t.team)]
+  (t) => [
+    index("image_library_lookup_idx").on(t.category, t.team),
+    uniqueIndex("image_library_fixture_kind_idx").on(t.fixtureId, t.kind, t.variant),
+  ]
+);
+
+/**
+ * 二期 M6 — team identity registry. Parametric inputs for GPT-Image poster
+ * templates so all 48 nations render in a consistent, batchable style:
+ * alias, totem animal, kit colours, flag emoji, and the star player + number.
+ */
+export const teamIdentities = pgTable(
+  "team_identities",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id")
+      .references(() => teams.id)
+      .notNull(),
+    alias: text("alias"), // e.g. "La Albiceleste"
+    totemAnimal: text("totem_animal"), // e.g. "condor"
+    primaryColor: text("primary_color"), // hex
+    secondaryColor: text("secondary_color"), // hex
+    flagEmoji: text("flag_emoji"),
+    starPlayer: text("star_player"),
+    starNumber: integer("star_number"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("team_identities_team_idx").on(t.teamId)]
+);
+
+/* ------------------------------------------------------------------ */
+/* 二期 M3 — Web Push subscriptions (PWA notifications)                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One row per browser push subscription (W3C Push API). `userId` is nullable so
+ * anonymous visitors can still subscribe to kickoff/goal alerts; once they log
+ * in we backfill it. `keys` holds the p256dh/auth pair needed by web-push.
+ */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    endpoint: text("endpoint").notNull().unique(),
+    keys: jsonb("keys").notNull(), // { p256dh: string, auth: string }
+    userId: uuid("user_id").references(() => profiles.id),
+    locale: text("locale").notNull().default("id"),
+    // notification topic opt-ins
+    kickoff: boolean("kickoff").default(true).notNull(),
+    goals: boolean("goals").default(true).notNull(),
+    predictionResult: boolean("prediction_result").default(true).notNull(),
+    userAgent: text("user_agent"),
+    failureCount: integer("failure_count").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    lastSentAt: timestamp("last_sent_at", { withTimezone: true }),
+  },
+  (t) => [index("push_subscriptions_user_idx").on(t.userId)]
 );
