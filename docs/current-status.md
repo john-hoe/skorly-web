@@ -1,12 +1,19 @@
 # Current Status
 
-**Phase**: 一期已交付，二期规划完成（待开工）
-**Updated**: 2026-06-02
+**Phase**: 二期已上线生产环境（Phase 2 deployed to production）
+**Updated**: 2026-06-03
+
+## Phase 2 — DEPLOYED (2026-06-03)
+Phase 2 is live at https://skorly.cc, shipped via the `Daily News` GitHub Actions workflow (build + deploy to Cloudflare Workers).
+
+- **Shipped**: membership, predictions, leaderboards, bracket, live scores, programmatic SEO, Google News/Discover/Web Stories, PWA + Web Push, premium tiering + Resend + WhatsApp, comments, mini-leagues, GPT-Image posters (72/72), goal highlights.
+- **Note**: dynamic OG share images at `/og` are working — do NOT re-add `export const runtime = "edge"` (it breaks next/og on Cloudflare).
+- **Verify**: `curl https://skorly.cc/id` → 200; `curl https://skorly.cc/og?kind=match` → 200 `image/png`; a match page renders a Supabase poster.
 
 ## 二期（会员·预测·增长）
 - 完整规划见 [phase-2-plan.md](phase-2-plan.md)（里程碑 M0–M7 + 优先级 + 完成判据）。
 - 任务追踪在 Cursor 计划文件：`.cursor/plans/skorly_会员与预测功能_2e693864.plan.md`。
-- 下一步：见 [next-step.md](next-step.md)（M0 Auth 迁移起步）。
+- 下一步：见 [next-step.md](next-step.md)。
 
 ---
 
