@@ -34,7 +34,9 @@ permissions:
 jobs:
   generate-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Generation is ~10-13 min/topic (4 langs + web fact-check); 6 topics plus
+    # the ~6 min build+deploy can approach ~90 min, so give generous headroom.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
