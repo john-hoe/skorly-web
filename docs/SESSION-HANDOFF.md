@@ -6,7 +6,7 @@
 
 ## 0. 一句话现状
 足球资讯站 **skorly.cc 已上线**（4 语言，909 篇世界杯赛事文章 + SEO + GA4 全就绪）。
-**自动新闻管线核心已全部跑通且可信**：C（Tavily 联网检索）已接线并实测通过，并新增「定向修复 pass」把写手脑补的未证实细节精准剔除后再过审——发布率显著提升。**接下来：继续扩充新闻板块 + P4 自动化。**
+**自动新闻管线核心已全部跑通且可信**：C（Tavily 联网检索）已接线并实测通过，并新增「定向修复 pass」把写手脑补的未证实细节精准剔除后再过审——发布率显著提升。**P4 全自动化已上线**：GitHub Actions 每天 01:00 UTC 自动 radar→出稿→构建→部署（见 §8c），实测全绿。**接下来：可选优化频次/并行，或继续打磨内容。**
 
 ---
 
@@ -77,7 +77,7 @@
 ## 6. 还没做（C 之后）—— 新 session 从这里继续
 - **继续扩充新闻板块**：Option A 首批扩充已完成并部署。后续可继续跑 `run-generate-news.ts 10~20`，把 pending 高热 topic 出稿 → 人工扫重复/证据不足 → `cd apps/web && pnpm cf:build` + `wrangler deploy`。**注意：这是生产部署，动手前先确认。**
 - **P3b 配图**：✅ **已上线**（2026-06-02，Version 9e9426df）。7 张品牌绿抽象主题图（transfer/injury/callup/preview/result/fans/generic，含 Skorly 水印、无真脸/队徽）打包在 `apps/web/public/news/*.webp`（cwebp q82，51–86KB/张）。已发布新闻手动归类写入 `articles.image_url`；新闻生成器 `run-generate-news.ts` 加了启发式 `categoryImage()`，未来文章自动配图。前端 `article-card` + 详情页 hero + OG/Twitter/JSON-LD 全部渲染封面（`imageUrl` 为空时优雅降级，赛事文章暂无图）。前端嵌入(X/YouTube)+来源外链(P3a)已做好。
-- **P4 自动化**：Cloudflare Worker cron（轻量轮询信号，比赛日 5 分/平日 15 分）+ **GitHub Action**（定时生成+构建+部署）。**前提：仓库要推到 GitHub（当前 branch=main，未确认有无远程）**。频率方案见 news-pipeline.md §1.1。
+- **P4 自动化**：✅ **已完成**（见 §8c）。后续可选优化：比赛日加密频次、把生成并行化（当前 ~10-13min/topic 串行）。
 
 ## 7. 关键路径/命令速查
 - 信号雷达：`pnpm tsx --env-file=.env apps/jobs/scripts/run-news.ts`
@@ -100,7 +100,7 @@
 | 新闻部署上线 | ✅ **已上线+线上核验**（2026-06-01；6 个去重且联网核过话题，Version 99a7ac83）|
 | P3b 配图 | ✅ **已上线+线上核验**（2026-06-02，Version 9e9426df；7 张分类主题图 webp，列表/详情/OG 全渲染）|
 | Option A 新闻批量出稿 | ✅ **已出稿+部署+核验**（2026-06-02；15 个 pending topic → 7 topic/28 rows published；5 topic/8 rows draft 或降级，其中 topic 194 因证据不足人工全语言降级；3 topic 无有效 signals 跳过；Version 45064f0c-f749-46ac-add7-cc681c8af127）|
-| P4 自动化 | ⬜ 未做（需 GitHub 远程）|
+| P4 自动化 | ✅ **已上线+实测全绿**（2026-06-02）GitHub Actions 每天 01:00 UTC 自动 radar→出稿(6)→构建→部署；仓库 https://github.com/john-hoe/skorly-web （public）|
 
 **整体进度约 82–85%。** "完成"目标定义：
 1. 新闻管线接入 Tavily 后**自动、可信地**持续产出 4 语言原创新闻（零编造、有来源、有配图）；
@@ -112,6 +112,18 @@
 ## 8b. 合作联系邮箱 ✅
 - 站点页头+页脚已展示 `business@skorly.cc`（4 语言，全站可见；Version d737cba0，2026-06-02）。
 - **Cloudflare Email Routing 已开通并实测收信成功**（2026-06-02）：MX+SPF 已配置，目标邮箱 `he.john@outlook.com` 已验证，自定义规则 `business@skorly.cc` → 转发到 Outlook，Catch-all 保持禁用。
+
+## 8c. P4 全自动化 ✅（2026-06-02，GitHub Actions）
+- **仓库**：https://github.com/john-hoe/skorly-web （账号 john-hoe，**public**；用户选的，已确认无密钥进库——`.env`/`.env/apikey` 全 gitignore，历史无密钥，源码扫描干净）。
+- **Workflow**：`.github/workflows/news.yml`，名 `Daily News`。触发：`schedule` 每天 `01:00 UTC`（=雅加达/河内 08:00）+ `workflow_dispatch`（手动，入参 `count` 默认 6、`skip_radar`）。
+- **流程**：checkout → pnpm/Node22 → install → 写 `.env`(来自 secret) → **radar(P1)** → **生成(P2, N 篇)** → **构建+部署 Cloudflare**(`cf:deploy`)。radar/生成各重试 3 次、部署重试 2 次（抗瞬时网络）。`concurrency` 防并发；`timeout-minutes: 120`。
+- **密钥**：单个 repo secret `DOTENV` = 整份根 `.env`（用 `gh secret set DOTENV < .env` 设的）。runner 上写成 `.env` 再 `cp` 成 `apps/web/.env.local`。
+- **关键修复（4 个，均已验证）**：
+  1. secret 多行需经 `env:` 映射注入（直接内联进脚本会被特殊字符炸）。
+  2. 网络步骤加 `until` 重试（Supabase pooler 偶发 CONNECT_TIMEOUT）。
+  3. **DB 用 session pooler(5432) 而非 transaction pooler(6543)**：runner 上 `sed` 把 `.pooler...:6543`→`:5432`。txn pooler 在 13min/1324 页的长构建里回收连接导致页面生成卡死超时；session 模式连接稳定，构建从"超时失败"变 **2.5min 完成**。
+  4. **Node 22**（Wrangler 要求 ≥22；构建+OpenNext 打包都过了，只有 wrangler deploy 卡 Node 版本）。
+- **实测**：run 26800366399 全绿（generate ✅ + build&deploy ✅），线上 home/news/cover 均 200。schedule 已 active。
 
 ## 9. 注意事项 / 已知坑
 - 思考模型慢且 GLM 易限流 → 已配兜底链；自动化时注意整体耗时（~4.5min/topic）。
