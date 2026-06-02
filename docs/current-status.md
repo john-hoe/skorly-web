@@ -1,5 +1,17 @@
 # Current Status
 
+**Phase**: 一期已交付，二期规划完成（待开工）
+**Updated**: 2026-06-02
+
+## 二期（会员·预测·增长）
+- 完整规划见 [phase-2-plan.md](phase-2-plan.md)（里程碑 M0–M7 + 优先级 + 完成判据）。
+- 任务追踪在 Cursor 计划文件：`.cursor/plans/skorly_会员与预测功能_2e693864.plan.md`。
+- 下一步：见 [next-step.md](next-step.md)（M0 Auth 迁移起步）。
+
+---
+
+## 一期历史记录
+
 **Phase**: 0 (Indonesia MVP) - Day 1 scaffolding
 **Updated**: 2026-05-29
 
