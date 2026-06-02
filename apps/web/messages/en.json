@@ -59,6 +59,8 @@
     "sources": "Sources",
     "latestNews": "Latest News",
     "loadMore": "Load more",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "allTypes": "All",
+    "groupAnalysis": "Group Analysis"
   }
 }

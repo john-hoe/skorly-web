@@ -1,17 +1,24 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { ArticleCardData } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 
-const TYPE_LABEL: Record<string, string> = {
-  preview: "Pratinjau",
-  watchpoints: "Sorotan",
-  prediction: "Prediksi",
-  recap: "Ulasan",
-  tactical: "Taktik",
-  group_analysis: "Analisis Grup",
-  news: "Berita",
+/** article.type -> message key used for the badge and the archive filter tabs. */
+export const ARTICLE_TYPE_KEY: Record<string, string> = {
+  preview: "match.preview",
+  watchpoints: "match.watchpoints",
+  prediction: "match.prediction",
+  recap: "match.recap",
+  tactical: "match.tactical",
+  group_analysis: "common.groupAnalysis",
+  news: "nav.news",
 };
 
 export function ArticleCard({ article }: { article: ArticleCardData }) {
+  const t = useTranslations();
+  const labelKey = ARTICLE_TYPE_KEY[article.type];
+  const label = labelKey ? t(labelKey) : article.type;
   return (
     <Link
       href={{ pathname: "/artikel/[slug]", params: { slug: article.slug } }}
@@ -30,7 +37,7 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
       )}
       <div className="p-4">
         <span className="inline-block rounded-full bg-[var(--brand)]/10 px-2 py-0.5 text-xs font-medium text-[var(--brand)]">
-          {TYPE_LABEL[article.type] ?? article.type}
+          {label}
         </span>
         <h3 className="mt-2 font-semibold leading-snug line-clamp-2">{article.title}</h3>
         {article.summary && (

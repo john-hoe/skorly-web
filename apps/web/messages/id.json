@@ -59,6 +59,8 @@
     "sources": "Sumber",
     "latestNews": "Berita Terbaru",
     "loadMore": "Muat lebih banyak",
-    "viewAll": "Lihat semua"
+    "viewAll": "Lihat semua",
+    "allTypes": "Semua",
+    "groupAnalysis": "Analisis Grup"
   }
 }
