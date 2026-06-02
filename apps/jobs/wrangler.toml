@@ -13,12 +13,24 @@ crons = [
 
 # Secrets are set via `wrangler secret put` (not committed):
 #   DATABASE_URL, API_FOOTBALL_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY,
-#   QWEN_API_KEY, GLM_API_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+#   QWEN_API_KEY, GLM_API_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN,
+#   VAPID_PRIVATE_KEY  (Web Push signing key — keep secret),
+#   RESEND_API_KEY (premium email broadcast),
+#   WHATSAPP_TOKEN  (M7 — WhatsApp Business Cloud API access token, keep secret)
 
 [vars]
 API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+VAPID_SUBJECT = "mailto:business@skorly.cc"
+SITE_URL = "https://skorly.cc"
+# VAPID_PUBLIC_KEY is public; set the matching VAPID_PRIVATE_KEY as a secret.
+VAPID_PUBLIC_KEY = "BAIm3KxszLJEx7wCcNrCSqzGpwKqtM3VIzIqB21FH9DW-PfBCERPEsN_tsrlpFlMI_076LWMUUuWpPdNZk6HXmQ"
+# M7 WhatsApp Business Cloud API (token is a secret; the rest are public IDs).
+# Leave unset to disable WhatsApp broadcast (email keeps working alone).
+# WHATSAPP_PHONE_ID = "<meta-phone-number-id>"
+# WHATSAPP_TEMPLATE = "premium_prediction"   # pre-approved template name
+WHATSAPP_API_VERSION = "v21.0"
 
 # [[r2_buckets]]
 # binding = "ASSETS"

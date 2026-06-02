@@ -1,26 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { Turnstile } from "@/components/auth/turnstile";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 /**
  * Lead-capture card: email + optional WhatsApp + marketing consent.
- * Posts to /api/subscribe (implemented in Phase 0 Day 11). Consent box is
- * unchecked by default to comply with Indonesia UU PDP.
+ * Posts to /api/subscribe → persists an unconfirmed subscriber + sends a
+ * double opt-in email. Consent box is unchecked by default (Indonesia UU PDP).
  */
-/**
- * Hidden until the lead-magnet (PDF) content is decided. Flip to `true` to
- * re-enable on all pages at once; backend (/api/subscribe) is still a skeleton.
- */
-const ENABLED = false;
-
 export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
   const t = useTranslations("subscribe");
+  const locale = useLocale();
   const [status, setStatus] = useState<Status>("idle");
-
-  if (!ENABLED) return null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,7 +28,9 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
           email: form.get("email"),
           whatsapp: form.get("whatsapp"),
           consent: form.get("consent") === "on",
+          turnstileToken: form.get("cf-turnstile-response"),
           source,
+          locale,
         }),
       });
       setStatus(res.ok ? "success" : "error");
@@ -46,7 +42,8 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
   if (status === "success") {
     return (
       <div className="rounded-xl border border-[var(--brand)] bg-[var(--card)] p-6 text-center">
-        <p className="font-semibold text-[var(--brand)]">{t("success")}</p>
+        <p className="font-semibold text-[var(--brand)]">{t("checkEmail")}</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{t("checkEmailHint")}</p>
       </div>
     );
   }
@@ -75,6 +72,7 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
         <input type="checkbox" name="consent" required className="mt-0.5" />
         <span>{t("consent")}</span>
       </label>
+      <Turnstile />
       <button
         type="submit"
         disabled={status === "loading"}

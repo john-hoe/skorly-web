@@ -9,11 +9,15 @@ export interface Env {
   GLM_API_KEY?: string;
   UPSTASH_REDIS_REST_URL?: string;
   UPSTASH_REDIS_REST_TOKEN?: string;
+  VAPID_PRIVATE_KEY?: string;
   // vars
   API_FOOTBALL_BASE_URL: string;
   DEEPSEEK_BASE_URL: string;
   OPENROUTER_BASE_URL: string;
   WC_SEASON?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_SUBJECT?: string;
+  SITE_URL?: string;
 }
 
 /** Copy Worker env into process.env so shared packages (which read process.env) work. */
