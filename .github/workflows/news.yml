@@ -62,15 +62,29 @@ jobs:
 
       - name: Signal radar (P1)
         if: ${{ inputs.skip_radar != true }}
-        run: pnpm tsx --env-file=.env apps/jobs/scripts/run-news.ts
         continue-on-error: true
+        run: |
+          n=0
+          until pnpm tsx --env-file=.env apps/jobs/scripts/run-news.ts; do
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "radar failed after $n attempts"; exit 1; }
+            echo "radar attempt $n failed; retry in 20s"; sleep 20
+          done
 
       - name: Generate news (P2)
-        run: pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-news.ts ${{ inputs.count || '6' }}
+        run: |
+          n=0
+          until pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-news.ts ${{ inputs.count || '6' }}; do
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "generate failed after $n attempts"; exit 1; }
+            echo "generate attempt $n failed; retry in 20s"; sleep 20
+          done
 
       - name: Build & deploy to Cloudflare
         run: |
           set -a
           . ./.env
           set +a
-          pnpm --filter @skorly/web cf:deploy
+          n=0
+          until pnpm --filter @skorly/web cf:deploy; do
+            n=$((n+1)); [ "$n" -ge 2 ] && { echo "deploy failed after $n attempts"; exit 1; }
+            echo "deploy attempt $n failed; retry in 30s"; sleep 30
+          done
