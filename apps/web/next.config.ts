@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
   // Each static page queries Supabase at build time; when many workers connect
   // at once the DB can be slow, so allow more headroom before a worker is
   // killed (default 60s -> SIGTERM tears down the whole build).
-  staticPageGenerationTimeout: 240,
+  staticPageGenerationTimeout: 600,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "media.api-sports.io" },

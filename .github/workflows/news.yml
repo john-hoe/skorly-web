@@ -58,6 +58,11 @@ jobs:
           DOTENV: ${{ secrets.DOTENV }}
         run: |
           printf '%s\n' "$DOTENV" > .env
+          # Use Supabase SESSION pooler (5432) instead of TRANSACTION pooler
+          # (6543): session mode keeps a stable, persistent connection, which a
+          # long cross-region SSG build / generation script needs (the txn
+          # pooler recycles connections mid-build and stalls page generation).
+          sed -i 's/\.pooler\.supabase\.com:6543/.pooler.supabase.com:5432/g' .env
           cp .env apps/web/.env.local
 
       - name: Signal radar (P1)
