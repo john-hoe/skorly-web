@@ -54,6 +54,14 @@ function toContext(f: FixtureView): MatchContext {
   };
 }
 
+/** Branded category banner per article type (packed in apps/web/public/news/). */
+const TYPE_IMAGE: Record<string, string> = {
+  preview: "/news/preview.webp",
+  watchpoints: "/news/watchpoints.webp",
+  prediction: "/news/prediction.webp",
+  group_analysis: "/news/group.webp",
+};
+
 async function genMatch(f: FixtureView, locale: Locale) {
   const ctx = toContext(f);
   const entities = [f.home.name, f.away.name];
@@ -83,6 +91,7 @@ async function genMatch(f: FixtureView, locale: Locale) {
       title: res.title || `${f.home.name} vs ${f.away.name}`,
       summary: null,
       body: res.body,
+      imageUrl: TYPE_IMAGE[job.type],
       fixtureId: f.id,
       groupName: f.groupName,
       status: res.status,
@@ -142,6 +151,7 @@ async function main() {
     type: "group_analysis",
     title: ga.title || `Analisis Grup ${letter}`,
     body: ga.body,
+    imageUrl: TYPE_IMAGE.group_analysis,
     groupName,
     status: ga.status,
     qualityScore: ga.qualityScore,
