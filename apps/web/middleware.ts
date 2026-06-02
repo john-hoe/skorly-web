@@ -41,6 +41,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Match all paths except api, auth (OAuth callback, no locale prefix),
-  // _next, _vercel, and files with an extension.
-  matcher: ["/((?!api|auth|_next|_vercel|.*\\..*).*)"],
+  // og (dynamic OG image route handler), _next, _vercel, and files with an extension.
+  matcher: ["/((?!api|auth|og|_next|_vercel|.*\\..*).*)"],
 };
