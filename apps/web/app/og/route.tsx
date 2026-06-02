@@ -1,6 +1,8 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+// NOTE: do NOT add `export const runtime = "edge"` — the @opennextjs/cloudflare
+// adapter shims the edge runtime to an empty module, which makes next/og routes
+// return a silent 500. On Workers every route already runs at the edge.
 
 /**
  * Lightweight branded OG/share card (1200×630). Parametric so match,
