@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getUpcomingFixtures, getLatestArticles } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
@@ -5,8 +6,21 @@ import { Countdown } from "@/components/countdown";
 import { MatchCard } from "@/components/match-card";
 import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
+import { buildAlternates } from "@/lib/seo";
 
-export const revalidate = 300; // ISR: refresh every 5 min
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "home" });
+  return {
+    title: t("heroTitle"),
+    description: t("heroSubtitle"),
+    alternates: buildAlternates("/", locale),
+  };
+}
 
 export default async function HomePage({
   params,

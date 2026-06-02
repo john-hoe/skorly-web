@@ -1,6 +1,6 @@
 /** Shared domain types used across web, jobs and ai-content. */
 
-export type Locale = "id" | "vi" | "en";
+export type Locale = "id" | "vi" | "en" | "zh";
 
 export const ARTICLE_TYPES = [
   "preview",

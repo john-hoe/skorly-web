@@ -1,0 +1,63 @@
+{
+  "site": {
+    "name": "Skorly",
+    "tagline": "2026 世界杯足球资讯与分析"
+  },
+  "nav": {
+    "home": "首页",
+    "worldCup": "2026 世界杯",
+    "matches": "比赛",
+    "teams": "球队",
+    "articles": "文章",
+    "groups": "小组",
+    "news": "新闻",
+    "language": "语言",
+    "contact": "联系"
+  },
+  "home": {
+    "heroTitle": "2026 世界杯",
+    "heroSubtitle": "每场比赛的赛前分析、预测与深度解读",
+    "latestArticles": "最新文章",
+    "upcomingMatches": "即将开赛",
+    "countdown": "世界杯倒计时"
+  },
+  "match": {
+    "preview": "赛前分析",
+    "watchpoints": "看点",
+    "prediction": "预测",
+    "recap": "赛后总结",
+    "tactical": "战术分析",
+    "lineups": "首发阵容",
+    "headToHead": "历史交锋",
+    "kickoff": "开球时间"
+  },
+  "team": {
+    "squad": "阵容",
+    "fixtures": "赛程",
+    "recentForm": "近期状态"
+  },
+  "subscribe": {
+    "title": "免费领取 2026 世界杯指南",
+    "description": "填写邮箱和 WhatsApp，即可获取 2026 世界杯 PDF 指南。",
+    "emailPlaceholder": "你的邮箱",
+    "whatsappPlaceholder": "WhatsApp 号码（选填）",
+    "consent": "我同意 Skorly 为比赛资讯和促销目的处理我的数据。",
+    "submit": "发送指南",
+    "success": "请查收邮件，指南正在发送中。",
+    "error": "出错了，请稍后再试。"
+  },
+  "footer": {
+    "about": "关于 Skorly",
+    "contact": "合作请联系",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "copyright": "Skorly. 保留所有权利。"
+  },
+  "common": {
+    "readMore": "阅读全文",
+    "loading": "加载中…",
+    "vs": "vs",
+    "sources": "来源",
+    "latestNews": "最新新闻"
+  }
+}

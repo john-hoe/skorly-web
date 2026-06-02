@@ -15,7 +15,15 @@ export function SiteFooter() {
             {t("terms")}
           </a>
         </nav>
-        <p>{t("aiDisclosure")}</p>
+        <p>
+          {t("contact")}:{" "}
+          <a
+            href="mailto:business@skorly.cc"
+            className="text-[var(--brand)] hover:underline"
+          >
+            business@skorly.cc
+          </a>
+        </p>
         <p>
           &copy; {year} {t("copyright")}
         </p>

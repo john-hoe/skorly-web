@@ -2,6 +2,17 @@ export { critique } from "./critique";
 export { judge } from "./judge";
 export { backTranslateCheck } from "./back-translate";
 export type { BackTranslateCheck } from "./back-translate";
+export { reviewArticle, DEFAULT_THEME } from "./review";
+export type { ReviewResult, ReviewOptions } from "./review";
+export { repairArticle } from "./repair";
+export { webFactCheck, webVerifyArticle } from "./web-factcheck";
+export type {
+  WebSearchFn,
+  ClaimResult,
+  ClaimVerdict,
+  WebFactCheckResult,
+  WebVerifyResult,
+} from "./web-factcheck";
 export {
   decide,
   shouldRegenerate,

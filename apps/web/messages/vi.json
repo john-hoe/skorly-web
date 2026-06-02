@@ -9,7 +9,9 @@
     "matches": "Trận đấu",
     "teams": "Đội tuyển",
     "articles": "Bài viết",
-    "groups": "Bảng đấu"
+    "groups": "Bảng đấu",
+    "news": "Tin tức",
+    "contact": "Liên hệ"
   },
   "home": {
     "heroTitle": "World Cup 2026",
@@ -45,14 +47,16 @@
   },
   "footer": {
     "about": "Về Skorly",
+    "contact": "Hợp tác & liên hệ",
     "privacy": "Chính sách bảo mật",
     "terms": "Điều khoản dịch vụ",
-    "aiDisclosure": "Một phần nội dung được tạo với sự hỗ trợ của AI.",
     "copyright": "Skorly. Bảo lưu mọi quyền."
   },
   "common": {
     "readMore": "Đọc thêm",
     "loading": "Đang tải...",
-    "vs": "vs"
+    "vs": "vs",
+    "sources": "Nguồn",
+    "latestNews": "Tin tức mới nhất"
   }
 }

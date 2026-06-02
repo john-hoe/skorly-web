@@ -20,6 +20,7 @@ dist/
 # cloudflare
 .wrangler/
 .dev.vars
+.open-next/
 
 # drizzle: keep migration SQL in git (schema history), ignore only the cache
 # (migrations are committed)

@@ -1,7 +1,7 @@
 import type { QaRound } from "@skorly/types";
 
 export const QUALITY_THRESHOLD = 8;
-export const MAX_REGENERATIONS = 2;
+export const MAX_REGENERATIONS = 1;
 
 export interface GateDecision {
   status: "published" | "draft";

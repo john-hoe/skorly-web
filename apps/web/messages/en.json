@@ -9,7 +9,9 @@
     "matches": "Matches",
     "teams": "Teams",
     "articles": "Articles",
-    "groups": "Groups"
+    "groups": "Groups",
+    "news": "News",
+    "contact": "Contact"
   },
   "home": {
     "heroTitle": "World Cup 2026",
@@ -45,14 +47,16 @@
   },
   "footer": {
     "about": "About Skorly",
+    "contact": "Partnership & inquiries",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "aiDisclosure": "Some content is generated with AI assistance.",
     "copyright": "Skorly. All rights reserved."
   },
   "common": {
     "readMore": "Read more",
     "loading": "Loading...",
-    "vs": "vs"
+    "vs": "vs",
+    "sources": "Sources",
+    "latestNews": "Latest News"
   }
 }

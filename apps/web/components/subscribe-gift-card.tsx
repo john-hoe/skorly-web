@@ -10,9 +10,17 @@ type Status = "idle" | "loading" | "success" | "error";
  * Posts to /api/subscribe (implemented in Phase 0 Day 11). Consent box is
  * unchecked by default to comply with Indonesia UU PDP.
  */
+/**
+ * Hidden until the lead-magnet (PDF) content is decided. Flip to `true` to
+ * re-enable on all pages at once; backend (/api/subscribe) is still a skeleton.
+ */
+const ENABLED = false;
+
 export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
   const t = useTranslations("subscribe");
   const [status, setStatus] = useState<Status>("idle");
+
+  if (!ENABLED) return null;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

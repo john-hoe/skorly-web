@@ -1,9 +1,23 @@
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getGroupNames, getUpcomingFixtures } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
+import { buildAlternates } from "@/lib/seo";
 
-export const revalidate = 300;
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale });
+  return {
+    title: t("nav.worldCup"),
+    description: t("home.heroSubtitle"),
+    alternates: buildAlternates("/piala-dunia-2026", locale),
+  };
+}
 
 export default async function WorldCupHubPage({
   params,

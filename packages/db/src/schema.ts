@@ -23,6 +23,22 @@ export const articleType = pgEnum("article_type", [
   "recap",
   "tactical",
   "group_analysis",
+  "news",
+]);
+
+export const signalSource = pgEnum("signal_source", [
+  "socialdata",
+  "rss",
+  "api_football",
+  "dongqiudi",
+  "zhibo8",
+]);
+
+export const topicStatus = pgEnum("topic_status", [
+  "pending", // detected, not yet written
+  "writing", // generation in progress
+  "done", // article(s) produced
+  "skipped", // deduped or below heat threshold
 ]);
 
 export const articleStatus = pgEnum("article_status", ["draft", "published"]);
@@ -171,7 +187,7 @@ export const articles = pgTable(
   {
     id: serial("id").primaryKey(),
     slug: text("slug").notNull(),
-    locale: text("locale").notNull().default("id"), // id | vi | en
+    locale: text("locale").notNull().default("id"), // id | vi | en | zh
     type: articleType("type").notNull(),
     title: text("title").notNull(),
     summary: text("summary"),
@@ -179,6 +195,10 @@ export const articles = pgTable(
     fixtureId: integer("fixture_id").references(() => fixtures.id),
     teamId: integer("team_id").references(() => teams.id),
     groupName: text("group_name"),
+    topicId: integer("topic_id"), // FK set after topics table; news articles
+    imageUrl: text("image_url"), // own/licensed cover image (R2)
+    sources: jsonb("sources"), // string[] of source URLs (audit/attribution)
+    embeds: jsonb("embeds"), // string[] of YouTube/X/Giphy embed URLs
     status: articleStatus("status").default("draft").notNull(),
     qualityScore: integer("quality_score"),
     qaLog: jsonb("qa_log"), // per-round judge scores for prompt tuning
@@ -390,3 +410,67 @@ export const winners = pgTable("winners", {
   rank: integer("rank"),
   awardedAt: timestamp("awarded_at", { withTimezone: true }),
 });
+
+/* ------------------------------------------------------------------ */
+/* Phase 2 - news pipeline (signals -> topics -> original articles)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Raw signals/leads. We store ONLY lead metadata (title/url/entities), never
+ * the full body of third-party content. URL is for dedup + attribution audit.
+ */
+export const newsSignals = pgTable(
+  "news_signals",
+  {
+    id: serial("id").primaryKey(),
+    source: signalSource("source").notNull(),
+    url: text("url").notNull().unique(),
+    externalId: text("external_id"), // tweet id / guid, for incremental polling
+    author: text("author"), // e.g. tweet author handle
+    title: text("title").notNull(), // headline or tweet text snippet (lead only)
+    lang: text("lang"),
+    entities: jsonb("entities"), // { teams: string[], players: string[] }
+    hasMedia: boolean("has_media").default(false).notNull(),
+    embedUrl: text("embed_url"), // canonical embeddable URL if media present
+    topicId: integer("topic_id"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("news_signals_source_idx").on(t.source, t.publishedAt),
+    index("news_signals_topic_idx").on(t.topicId),
+  ]
+);
+
+/** Deduped event/topic clustered from one or more signals. */
+export const topics = pgTable(
+  "topics",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull().unique(), // stable dedup key (normalized)
+    title: text("title").notNull(),
+    entities: jsonb("entities"), // { teams, players }
+    factSheet: jsonb("fact_sheet"), // [{ fact, sourceUrl }]
+    heat: integer("heat").default(0).notNull(), // ranking score
+    signalCount: integer("signal_count").default(1).notNull(),
+    status: topicStatus("status").default("pending").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("topics_status_heat_idx").on(t.status, t.heat),
+  ]
+);
+
+/** Reusable, watermarked cover-image library (R2 URLs), keyed by team/category. */
+export const imageLibrary = pgTable(
+  "image_library",
+  {
+    id: serial("id").primaryKey(),
+    team: text("team"), // nullable: generic category image
+    category: text("category").notNull(), // transfer|injury|preview|result|tactical|generic
+    url: text("url").notNull(), // R2 public URL (already watermarked)
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index("image_library_lookup_idx").on(t.category, t.team)]
+);

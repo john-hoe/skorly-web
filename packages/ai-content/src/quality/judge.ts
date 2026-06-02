@@ -1,5 +1,6 @@
 import { complete } from "../llm-client";
 import type { QaRound } from "@skorly/types";
+import { localeEnglishName } from "../locale-meta";
 
 /**
  * Pass 3: an independent model (via OpenRouter, different family from the
@@ -9,8 +10,7 @@ export async function judge(
   article: string,
   opts: { locale?: string; round?: number; facts?: string } = {}
 ): Promise<QaRound> {
-  const langName =
-    opts.locale === "vi" ? "Vietnamese" : opts.locale === "en" ? "English" : "Indonesian";
+  const langName = localeEnglishName(opts.locale ?? "id");
 
   const res = await complete({
     role: "judge",

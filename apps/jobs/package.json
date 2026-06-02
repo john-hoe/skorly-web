@@ -12,6 +12,7 @@
     "@skorly/ai-content": "workspace:*",
     "@skorly/api-football": "workspace:*",
     "@skorly/db": "workspace:*",
+    "@skorly/news": "workspace:*",
     "@skorly/types": "workspace:*"
   },
   "devDependencies": {

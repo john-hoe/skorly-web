@@ -3,8 +3,9 @@
  * Validates the full content -> QA -> gate -> DB flow on a small slice.
  *
  * Usage:
- *   pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-batch.ts "Group A"
+ *   pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-batch.ts "Group A" --locale vi
  */
+import type { Locale } from "@skorly/types";
 import {
   getFixturesByGroup,
   getStandingsByGroup,
@@ -23,6 +24,21 @@ import {
 
 const CONCURRENCY = 3;
 
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let groupName = "Group A";
+  let locale: Locale = "id";
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--locale" && args[i + 1]) {
+      locale = args[i + 1] as Locale;
+      i++;
+    } else if (!args[i]?.startsWith("--")) {
+      groupName = args[i]!;
+    }
+  }
+  return { groupName, locale };
+}
+
 function toContext(f: FixtureView): MatchContext {
   return {
     fixture: {
@@ -38,7 +54,7 @@ function toContext(f: FixtureView): MatchContext {
   };
 }
 
-async function genMatch(f: FixtureView) {
+async function genMatch(f: FixtureView, locale: Locale) {
   const ctx = toContext(f);
   const entities = [f.home.name, f.away.name];
   const facts = `Match: ${f.home.name} vs ${f.away.name}. Group: ${f.groupName}.`;
@@ -51,18 +67,18 @@ async function genMatch(f: FixtureView) {
 
   for (const job of jobs) {
     const slug = `${f.slug}-${job.type}`;
-    if (await articleExists(slug, "id")) {
+    if (await articleExists(slug, locale)) {
       console.log(`  [skip] ${job.type} already published`);
       continue;
     }
     const res = await generateArticle(job.prompt, {
-      locale: "id",
+      locale,
       expectedEntities: entities,
       facts,
     });
     await insertArticle({
       slug,
-      locale: "id",
+      locale,
       type: job.type,
       title: res.title || `${f.home.name} vs ${f.away.name}`,
       summary: null,
@@ -91,8 +107,8 @@ async function pool<T>(items: T[], fn: (x: T) => Promise<void>, n: number) {
 }
 
 async function main() {
-  const groupName = process.argv[2] ?? "Group A";
-  console.log(`Generating articles for ${groupName}...`);
+  const { groupName, locale } = parseArgs();
+  console.log(`Generating ${locale} articles for ${groupName}...`);
 
   const fixtures = await getFixturesByGroup(groupName);
   console.log(`${fixtures.length} fixtures.`);
@@ -101,7 +117,7 @@ async function main() {
     fixtures,
     async (f) => {
       console.log(`\n${f.home.name} vs ${f.away.name}`);
-      await genMatch(f);
+      await genMatch(f, locale);
     },
     CONCURRENCY
   );
@@ -109,7 +125,7 @@ async function main() {
   // One group analysis article.
   const letter = groupName.replace("Group ", "");
   const gaSlug = `grup-${letter.toLowerCase()}-analisis`;
-  if (await articleExists(gaSlug, "id")) {
+  if (await articleExists(gaSlug, locale)) {
     console.log(`\n[skip] group_analysis already published`);
     console.log("\nDone.");
     process.exit(0);
@@ -118,11 +134,11 @@ async function main() {
   const teams = standings.map((s) => s.team.name);
   const ga = await generateArticle(
     groupAnalysisPrompt({ groupName: letter, teams }),
-    { locale: "id", expectedEntities: teams.slice(0, 2) }
+    { locale, expectedEntities: teams.slice(0, 2) }
   );
   await insertArticle({
     slug: gaSlug,
-    locale: "id",
+    locale,
     type: "group_analysis",
     title: ga.title || `Analisis Grup ${letter}`,
     body: ga.body,

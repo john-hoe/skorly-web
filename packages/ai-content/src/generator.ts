@@ -1,10 +1,13 @@
 import type { QaRound } from "@skorly/types";
 import { complete } from "./llm-client";
+import { localizePrompt } from "./prompts/locale";
 import type { PromptResult } from "./prompts/types";
 import { critique } from "./quality/critique";
 import { judge } from "./quality/judge";
 import { backTranslateCheck } from "./quality/back-translate";
-import { decide, shouldRegenerate, MAX_REGENERATIONS } from "./quality/gate";
+import { reviewArticle } from "./quality/review";
+import { repairArticle } from "./quality/repair";
+import { QUALITY_THRESHOLD, MAX_REGENERATIONS } from "./quality/gate";
 
 export interface GenerateOptions {
   locale?: string;
@@ -14,6 +17,12 @@ export interface GenerateOptions {
   facts?: string;
   /** Skip critique/judge/back-translate (fast mode for local dev). */
   skipQa?: boolean;
+  /**
+   * Enable the editorial review pass (on-theme + grounded + correct edition).
+   * Articles that fail are regenerated; if still failing they are never
+   * published (filed as draft). Used for news to prevent off-theme/fabrication.
+   */
+  review?: { theme?: string; facts?: string };
 }
 
 export interface GeneratedArticle {
@@ -44,10 +53,11 @@ export async function generateArticle(
   let best: { body: string; round: QaRound } | null = null;
 
   for (let attempt = 0; attempt <= MAX_REGENERATIONS; attempt++) {
+    const localized = localizePrompt(prompt, locale);
     const gen = await complete({
       role: "generate",
-      system: prompt.system,
-      user: prompt.user,
+      system: localized.system,
+      user: localized.user,
       temperature: attempt === 0 ? 0.7 : 0.85,
     });
     let body = gen.text.trim();
@@ -68,13 +78,47 @@ export async function generateArticle(
     qaLog.push(round);
 
     const bt = await backTranslateCheck(body, opts.expectedEntities ?? []);
-    const decision = decide(round, bt.ok, attempt);
+
+    // Editorial review (opt-in): on-theme + grounded + correct edition.
+    let reviewPass = true;
+    if (opts.review) {
+      const reviewOpts = {
+        locale,
+        theme: opts.review.theme,
+        facts: opts.review.facts ?? opts.facts,
+      };
+      let rev = await reviewArticle(body, reviewOpts);
+
+      // Targeted repair: if the only problem is ungrounded specifics (on-theme,
+      // right edition), surgically strip those exact claims and re-review once
+      // instead of re-rolling the whole article. Raises publish rate while
+      // keeping the zero-fabrication bar (the repaired text is re-reviewed).
+      if (!rev.pass && rev.onTheme && !rev.wrongEdition && rev.unsupportedClaims.length) {
+        const repaired = await repairArticle(body, rev.unsupportedClaims, locale);
+        const rev2 = await reviewArticle(repaired, reviewOpts);
+        if (rev2.pass) {
+          body = repaired;
+          rev = rev2;
+          round.notes = [round.notes, "repaired: removed ungrounded specifics"]
+            .filter(Boolean)
+            .join(" | ");
+        }
+      }
+
+      reviewPass = rev.pass;
+      if (!rev.pass) {
+        round.notes = [round.notes, `review: ${rev.issues.join("; ")}`]
+          .filter(Boolean)
+          .join(" | ");
+      }
+    }
 
     if (!best || round.overall > best.round.overall) {
       best = { body, round };
     }
 
-    if (decision.status === "published") {
+    const passAll = round.overall >= QUALITY_THRESHOLD && bt.ok && reviewPass;
+    if (passAll) {
       return {
         body,
         title: extractTitle(body),
@@ -84,8 +128,7 @@ export async function generateArticle(
         model: gen.model,
       };
     }
-
-    if (!shouldRegenerate(decision, attempt)) break;
+    // else: regenerate (loop) until attempts exhausted, then draft.
   }
 
   // Nothing crossed the threshold: file the best attempt as draft.

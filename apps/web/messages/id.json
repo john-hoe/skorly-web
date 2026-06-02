@@ -9,7 +9,9 @@
     "matches": "Pertandingan",
     "teams": "Tim",
     "articles": "Artikel",
-    "groups": "Grup"
+    "groups": "Grup",
+    "news": "Berita",
+    "contact": "Kontak"
   },
   "home": {
     "heroTitle": "Piala Dunia 2026",
@@ -45,14 +47,16 @@
   },
   "footer": {
     "about": "Tentang Skorly",
+    "contact": "Kerja sama & pertanyaan",
     "privacy": "Kebijakan Privasi",
     "terms": "Syarat & Ketentuan",
-    "aiDisclosure": "Sebagian konten dibuat dengan bantuan AI.",
     "copyright": "Skorly. Semua hak dilindungi."
   },
   "common": {
     "readMore": "Baca selengkapnya",
     "loading": "Memuat...",
-    "vs": "vs"
+    "vs": "vs",
+    "sources": "Sumber",
+    "latestNews": "Berita Terbaru"
   }
 }

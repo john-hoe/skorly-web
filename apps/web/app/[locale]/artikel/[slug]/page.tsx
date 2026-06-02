@@ -1,11 +1,33 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { setRequestLocale } from "next-intl/server";
-import { getArticleBySlug } from "@skorly/db";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getArticleBySlug, getAllArticleSlugs } from "@skorly/db";
+import { routing } from "@/i18n/routing";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
+import { SocialEmbed } from "@/components/social-embed";
+import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
+import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
 
-export const revalidate = 300;
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+// Fully static: prerendered at build, no DB at runtime. Rebuild to publish new content.
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const params: { locale: string; slug: string }[] = [];
+  for (const locale of routing.locales) {
+    const slugs = await getAllArticleSlugs(locale).catch(() => []);
+    for (const slug of slugs) params.push({ locale, slug });
+  }
+  return params;
+}
 
 export async function generateMetadata({
   params,
@@ -15,7 +37,24 @@ export async function generateMetadata({
   const { slug, locale } = await params;
   const article = await getArticleBySlug(slug, locale).catch(() => null);
   if (!article) return { title: "Artikel" };
-  return { title: article.title, description: article.summary ?? undefined };
+  const description =
+    article.summary ?? article.body.replace(/[#*_>`]/g, "").slice(0, 160).trim();
+  return {
+    title: article.title,
+    description,
+    alternates: buildAlternates(
+      { pathname: "/artikel/[slug]", params: { slug } },
+      locale
+    ),
+    openGraph: {
+      type: "article",
+      title: article.title,
+      description,
+      publishedTime: article.publishedAt?.toISOString(),
+      images: [article.imageUrl ?? "/og.png"],
+    },
+    twitter: { card: "summary_large_image", images: [article.imageUrl ?? "/og.png"] },
+  };
 }
 
 export default async function ArticlePage({
@@ -25,16 +64,74 @@ export default async function ArticlePage({
 }) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations("common");
 
   const article = await getArticleBySlug(slug, locale).catch(() => null);
   if (!article || article.status !== "published") notFound();
 
+  const embeds = Array.isArray(article.embeds) ? article.embeds : [];
+  const sources = Array.isArray(article.sources) ? article.sources : [];
+
+  const url = absoluteUrl(localizedPath({ pathname: "/artikel/[slug]", params: { slug } }, locale));
+  const newsLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: article.title,
+    ...(article.imageUrl ? { image: [absoluteUrl(article.imageUrl)] } : {}),
+    inLanguage: locale,
+    datePublished: article.publishedAt?.toISOString(),
+    dateModified: article.publishedAt?.toISOString(),
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    author: { "@type": "Organization", name: SITE_NAME },
+    publisher: { "@type": "Organization", name: SITE_NAME },
+  };
+
   return (
     <article className="mx-auto max-w-2xl px-4 py-8 space-y-6">
+      <JsonLd data={newsLd} />
+      {article.imageUrl && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={article.imageUrl}
+          alt=""
+          className="aspect-[16/9] w-full rounded-xl border border-[var(--border)] object-cover"
+        />
+      )}
       <div
         className="prose-skorly"
         dangerouslySetInnerHTML={{ __html: renderMarkdown(article.body) }}
       />
+
+      {embeds.length > 0 && (
+        <section aria-label="media">
+          {embeds.map((u) => (
+            <SocialEmbed key={u} url={u} />
+          ))}
+        </section>
+      )}
+
+      {sources.length > 0 && (
+        <section className="border-t border-[var(--border)] pt-4">
+          <h2 className="mb-2 text-sm font-semibold text-[var(--muted)]">
+            {t("sources")}
+          </h2>
+          <ul className="space-y-1 text-sm">
+            {sources.map((u) => (
+              <li key={u}>
+                <a
+                  href={u}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="text-[var(--brand)] hover:underline break-all"
+                >
+                  {hostOf(u)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <SubscribeGiftCard source="article_page" />
     </article>
   );

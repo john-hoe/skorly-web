@@ -1,11 +1,39 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getFixturesByGroup, getStandingsByGroup } from "@skorly/db";
+import { getFixturesByGroup, getStandingsByGroup, getGroupNames } from "@skorly/db";
+import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
 import { StandingsTable } from "@/components/standings-table";
+import { buildAlternates } from "@/lib/seo";
 
-export const revalidate = 300;
-export const dynamicParams = true;
+// Fully static: prerendered at build, no DB at runtime.
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const groups = await getGroupNames().catch(() => []);
+  return routing.locales.flatMap((locale) =>
+    groups.map((g) => ({ locale, group: g.replace("Group ", "").toLowerCase() }))
+  );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; group: string }>;
+}): Promise<Metadata> {
+  const { locale, group } = await params;
+  const t = await getTranslations({ locale });
+  const title = `${t("nav.groups")} ${group.toUpperCase()} — ${t("nav.worldCup")}`;
+  return {
+    title,
+    description: title,
+    alternates: buildAlternates(
+      { pathname: "/piala-dunia-2026/grup/[group]", params: { group: group.toLowerCase() } },
+      locale
+    ),
+  };
+}
 
 export default async function GroupPage({
   params,
