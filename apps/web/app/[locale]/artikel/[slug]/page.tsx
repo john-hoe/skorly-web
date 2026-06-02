@@ -5,6 +5,7 @@ import { getArticleBySlug, getAllArticleSlugs } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { SocialEmbed } from "@/components/social-embed";
+import { CommentsSection } from "@/components/comments-section";
 import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
@@ -65,6 +66,7 @@ export default async function ArticlePage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("common");
+  const tNav = await getTranslations("nav");
 
   const article = await getArticleBySlug(slug, locale).catch(() => null);
   if (!article || article.status !== "published") notFound();
@@ -83,12 +85,25 @@ export default async function ArticlePage({
     dateModified: article.publishedAt?.toISOString(),
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     author: { "@type": "Organization", name: SITE_NAME },
-    publisher: { "@type": "Organization", name: SITE_NAME },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      logo: { "@type": "ImageObject", url: absoluteUrl("/og.png") },
+    },
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE_NAME, item: absoluteUrl(localizedPath("/", locale)) },
+      { "@type": "ListItem", position: 2, name: tNav("news"), item: absoluteUrl(localizedPath("/berita", locale)) },
+      { "@type": "ListItem", position: 3, name: article.title },
+    ],
   };
 
   return (
     <article className="mx-auto max-w-2xl px-4 py-8 space-y-6">
-      <JsonLd data={newsLd} />
+      <JsonLd data={[newsLd, breadcrumbLd]} />
       {article.imageUrl && (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
@@ -133,6 +148,8 @@ export default async function ArticlePage({
       )}
 
       <SubscribeGiftCard source="article_page" />
+
+      <CommentsSection target={{ articleId: article.id }} />
     </article>
   );
 }

@@ -1,13 +1,20 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getFixtureBySlug, getArticlesForFixture, getAllFixtures } from "@skorly/db";
+import { getFixtureBySlug, getArticlesForFixture, getAllFixtures, getHeadToHead, getFixturePoster } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { TeamBadge } from "@/components/team-badge";
+import { PredictScore } from "@/components/predict-score";
+import { ForecastCard } from "@/components/forecast-card";
+import { PremiumContent } from "@/components/premium-content";
+import { PublicPicks } from "@/components/public-picks";
+import { CommentsSection } from "@/components/comments-section";
+import { EventsTimeline } from "@/components/events-timeline";
+import { GoalHighlights } from "@/components/goal-highlights";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
-import { buildAlternates } from "@/lib/seo";
+import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
 
 // Fully static: prerendered at build, no DB at runtime.
 export const dynamicParams = false;
@@ -30,6 +37,13 @@ export async function generateMetadata({
   const fixture = await getFixtureBySlug(slug).catch(() => null);
   if (!fixture) return { title: "Pertandingan" };
   const title = `${fixture.home.name} vs ${fixture.away.name}`;
+  const finished = fixture.status === "finished";
+  const sub = finished
+    ? `${fixture.homeGoals ?? 0} - ${fixture.awayGoals ?? 0}`
+    : formatKickoff(fixture.kickoffAt) + " WIB";
+  const ogImage = absoluteUrl(
+    `/og?kind=match&t=${encodeURIComponent(title)}&s=${encodeURIComponent(sub)}`
+  );
   return {
     title,
     description: `${title} — World Cup 2026 preview, prediction & analysis.`,
@@ -37,8 +51,8 @@ export async function generateMetadata({
       { pathname: "/pertandingan/[slug]", params: { slug } },
       locale
     ),
-    openGraph: { type: "article", title, images: ["/og.png"] },
-    twitter: { card: "summary_large_image", images: ["/og.png"] },
+    openGraph: { type: "article", title, images: [ogImage] },
+    twitter: { card: "summary_large_image", images: [ogImage] },
   };
 }
 
@@ -70,6 +84,17 @@ export default async function MatchPage({
   const byType = new Map(articles.map((a) => [a.type, a]));
   const finished = fixture.status === "finished";
 
+  const h2h =
+    fixture.home.id != null && fixture.away.id != null
+      ? await getHeadToHead(fixture.home.id, fixture.away.id).catch(() => null)
+      : null;
+
+  // 二期 M6 — exclusive AI poster (prematch versus / post-match result card).
+  const poster = await getFixturePoster(
+    fixture.id,
+    finished ? "result_card" : "prematch_poster",
+  ).catch(() => null);
+
   const eventLd = {
     "@context": "https://schema.org",
     "@type": "SportsEvent",
@@ -89,9 +114,66 @@ export default async function MatchPage({
     superEvent: { "@type": "SportsEvent", name: "FIFA World Cup 2026" },
   };
 
+  const matchTitle = `${fixture.home.name} vs ${fixture.away.name}`;
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: SITE_NAME, item: absoluteUrl(localizedPath("/", locale)) },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "World Cup 2026",
+        item: absoluteUrl(localizedPath("/piala-dunia-2026", locale)),
+      },
+      { "@type": "ListItem", position: 3, name: matchTitle },
+    ],
+  };
+
+  // FAQ JSON-LD from the prediction article (if any) — strong Discover/News signal.
+  const predictionArticle = byType.get("prediction");
+  const faqLd = predictionArticle
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: `${matchTitle}: ${t("prediction")}?`,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                predictionArticle.summary ??
+                predictionArticle.body.replace(/[#*_>`]/g, "").slice(0, 280).trim(),
+            },
+          },
+          ...(fixture.venue
+            ? [
+                {
+                  "@type": "Question",
+                  name: `${matchTitle}: ${t("kickoff")}?`,
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: `${formatKickoff(fixture.kickoffAt)} WIB — ${fixture.venue}${fixture.city ? `, ${fixture.city}` : ""}.`,
+                  },
+                },
+              ]
+            : []),
+        ],
+      }
+    : null;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
-      <JsonLd data={eventLd} />
+      <JsonLd data={faqLd ? [eventLd, breadcrumbLd, faqLd] : [eventLd, breadcrumbLd]} />
+      {poster?.url && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={poster.url}
+          alt={`${fixture.home.name} vs ${fixture.away.name}`}
+          className="w-full rounded-2xl border border-[var(--border)] object-cover"
+        />
+      )}
       {/* Score header */}
       <header className="rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] p-6 text-white">
         <p className="text-center text-sm text-white/80">
@@ -117,17 +199,94 @@ export default async function MatchPage({
         )}
       </header>
 
-      {/* Articles by type */}
+      {/* Predict & win + statistical forecast (client islands — keep this
+          page statically cached while showing live data). */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <PredictScore
+          fixtureId={fixture.id}
+          status={fixture.status}
+          kickoffAt={fixture.kickoffAt ? fixture.kickoffAt.toISOString() : null}
+          homeName={fixture.home.name}
+          awayName={fixture.away.name}
+          homeGoals={fixture.homeGoals}
+          awayGoals={fixture.awayGoals}
+          sharePath={localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)}
+        />
+        <ForecastCard fixtureId={fixture.id} />
+      </div>
+
+      {/* Minute-level events (live + post-match), client island */}
+      <EventsTimeline fixtureId={fixture.id} />
+
+      {/* Goal highlights (finished matches): goals-only timeline + official
+          video embeds from the recap article. No self-hosted clips. */}
+      {finished && (
+        <GoalHighlights
+          fixtureId={fixture.id}
+          embeds={
+            Array.isArray(byType.get("recap")?.embeds)
+              ? (byType.get("recap")!.embeds as string[])
+              : []
+          }
+        />
+      )}
+
+      {/* Head-to-head record */}
+      {h2h && h2h.total > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold">{t("headToHead")}</h2>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+              <p className="text-2xl font-bold tabular-nums">{h2h.homeWins}</p>
+              <p className="truncate text-xs text-[var(--muted)]">{fixture.home.name}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+              <p className="text-2xl font-bold tabular-nums">{h2h.draws}</p>
+              <p className="text-xs text-[var(--muted)]">{t("draws")}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+              <p className="text-2xl font-bold tabular-nums">{h2h.awayWins}</p>
+              <p className="truncate text-xs text-[var(--muted)]">{fixture.away.name}</p>
+            </div>
+          </div>
+          <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)] text-sm">
+            {h2h.meetings.slice(0, 5).map((m) => (
+              <li key={m.id} className="flex items-center justify-between px-3 py-2">
+                <span className="truncate">
+                  {m.home.name} <span className="font-bold tabular-nums">{m.homeGoals ?? 0}-{m.awayGoals ?? 0}</span> {m.away.name}
+                </span>
+                <span className="shrink-0 pl-2 text-xs text-[var(--muted)]">
+                  {m.kickoffAt ? m.kickoffAt.getFullYear() : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Articles by type. The prediction plan is tiered: free preview is
+          server-rendered (SEO), the full deep-dive unlocks for members. */}
       {TYPE_ORDER.map((type) => {
         const article = byType.get(type);
         if (!article) return null;
+        const previewMd =
+          article.summary && article.summary.trim().length > 0
+            ? article.summary
+            : article.body.slice(0, 600);
         return (
           <article key={type} className="space-y-3">
             <h2 className="text-xl font-bold">{t(type as never)}</h2>
-            <div
-              className="prose-skorly"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(article.body) }}
-            />
+            {type === "prediction" ? (
+              <PremiumContent
+                fixtureId={fixture.id}
+                previewHtml={renderMarkdown(previewMd)}
+              />
+            ) : (
+              <div
+                className="prose-skorly"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(article.body) }}
+              />
+            )}
           </article>
         );
       })}
@@ -138,7 +297,13 @@ export default async function MatchPage({
         </p>
       )}
 
+      {/* Structured "show your prediction" — community picks for this fixture */}
+      <PublicPicks fixtureId={fixture.id} />
+
       <SubscribeGiftCard source="match_page" />
+
+      {/* Comments (client island — keeps the page statically cached) */}
+      <CommentsSection target={{ fixtureId: fixture.id }} />
     </div>
   );
 }
