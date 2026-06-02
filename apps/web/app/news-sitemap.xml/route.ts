@@ -15,7 +15,8 @@ function xmlEscape(s: string): string {
 
 /**
  * Google News sitemap. Per spec, only articles published in the last 48h are
- * valid; older ones are ignored by Google. Regenerated on each build.
+ * valid; older ones are ignored by Google. Keep the cache short so Google can
+ * re-read a newly deployed sitemap quickly during the tournament.
  */
 export async function GET() {
   const articles = await getArticleSitemapEntries().catch(() => []);
@@ -48,6 +49,9 @@ ${items}
 </urlset>`;
 
   return new Response(xml, {
-    headers: { "Content-Type": "application/xml" },
+    headers: {
+      "Content-Type": "application/xml",
+      "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=60",
+    },
   });
 }

@@ -3,6 +3,7 @@ import {
   getAllFixtures,
   getGroupNames,
   getArticleSitemapEntries,
+  getAllTeamSlugs,
 } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { absoluteUrl, localizedPath } from "@/lib/seo";
@@ -33,10 +34,11 @@ function withAlternates(
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [fixtures, groups, articles] = await Promise.all([
+  const [fixtures, groups, articles, teamSlugs] = await Promise.all([
     getAllFixtures().catch(() => []),
     getGroupNames().catch(() => []),
     getArticleSitemapEntries().catch(() => []),
+    getAllTeamSlugs().catch(() => []),
   ]);
 
   const entries: MetadataRoute.Sitemap = [];
@@ -55,6 +57,49 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   entries.push(
     ...withAlternates("/arsip", new Date(), { changeFrequency: "daily", priority: 0.7 })
   );
+  entries.push(
+    ...withAlternates("/skor", new Date(), { changeFrequency: "hourly", priority: 0.9 })
+  );
+  entries.push(
+    ...withAlternates("/jadwal", new Date(), { changeFrequency: "daily", priority: 0.8 })
+  );
+  entries.push(
+    ...withAlternates("/tim", new Date(), { changeFrequency: "weekly", priority: 0.7 })
+  );
+  entries.push(
+    ...withAlternates("/peringkat", new Date(), { changeFrequency: "daily", priority: 0.6 })
+  );
+  entries.push(
+    ...withAlternates("/prediksi", new Date(), { changeFrequency: "weekly", priority: 0.6 })
+  );
+  entries.push(
+    ...withAlternates("/cerita", new Date(), { changeFrequency: "daily", priority: 0.6 })
+  );
+  entries.push(
+    ...withAlternates("/nonton", new Date(), { changeFrequency: "weekly", priority: 0.6 })
+  );
+
+  // AMP Web Stories per fixture (Discover surface)
+  for (const f of fixtures) {
+    entries.push(
+      ...withAlternates(
+        { pathname: "/cerita/[slug]", params: { slug: f.slug } },
+        f.kickoffAt ?? undefined,
+        { changeFrequency: "daily", priority: 0.5 }
+      )
+    );
+  }
+
+  // Teams (squad + schedule programmatic pages)
+  for (const slug of teamSlugs) {
+    entries.push(
+      ...withAlternates(
+        { pathname: "/tim/[slug]", params: { slug } },
+        new Date(),
+        { changeFrequency: "weekly", priority: 0.6 }
+      )
+    );
+  }
 
   // Groups
   for (const g of groups) {
