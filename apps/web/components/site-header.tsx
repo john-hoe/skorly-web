@@ -19,6 +19,9 @@ export function SiteHeader() {
           <Link href="/berita" className="hover:text-[var(--brand)]">
             {t("news")}
           </Link>
+          <Link href="/arsip" className="hover:text-[var(--brand)] hidden sm:inline">
+            {t("articles")}
+          </Link>
           <a href="mailto:business@skorly.cc" className="hover:text-[var(--brand)]">
             {t("contact")}
           </a>

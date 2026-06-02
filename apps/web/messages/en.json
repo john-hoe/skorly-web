@@ -57,6 +57,8 @@
     "loading": "Loading...",
     "vs": "vs",
     "sources": "Sources",
-    "latestNews": "Latest News"
+    "latestNews": "Latest News",
+    "loadMore": "Load more",
+    "viewAll": "View all"
   }
 }

@@ -12,13 +12,13 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale });
   return {
-    title: t("nav.news"),
-    description: `${t("nav.news")} — ${t("site.tagline")}`,
-    alternates: buildAlternates("/berita", locale),
+    title: t("nav.articles"),
+    description: `${t("nav.articles")} — ${t("site.tagline")}`,
+    alternates: buildAlternates("/arsip", locale),
   };
 }
 
-export default async function NewsPage({
+export default async function ArchivePage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -27,13 +27,13 @@ export default async function NewsPage({
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  const news = await getArticleCards(locale, { type: "news" }).catch(() => []);
+  const articles = await getArticleCards(locale).catch(() => []);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">{t("nav.news")}</h1>
-      {news.length ? (
-        <ArticleGrid articles={news} loadMoreLabel={t("common.loadMore")} />
+      <h1 className="text-2xl font-bold tracking-tight">{t("nav.articles")}</h1>
+      {articles.length ? (
+        <ArticleGrid articles={articles} loadMoreLabel={t("common.loadMore")} />
       ) : (
         <p className="text-sm text-[var(--muted)]">{t("common.loading")}</p>
       )}

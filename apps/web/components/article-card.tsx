@@ -1,4 +1,4 @@
-import type { ArticleView } from "@skorly/db";
+import type { ArticleCardData } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -11,7 +11,7 @@ const TYPE_LABEL: Record<string, string> = {
   news: "Berita",
 };
 
-export function ArticleCard({ article }: { article: ArticleView }) {
+export function ArticleCard({ article }: { article: ArticleCardData }) {
   return (
     <Link
       href={{ pathname: "/artikel/[slug]", params: { slug: article.slug } }}

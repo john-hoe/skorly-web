@@ -30,6 +30,7 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("home");
+  const tCommon = await getTranslations("common");
 
   const [fixtures, articles] = await Promise.all([
     getUpcomingFixtures(6).catch(() => []),
@@ -56,7 +57,7 @@ export default async function HomePage({
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-xl font-semibold">{t("upcomingMatches")}</h2>
               <Link href="/piala-dunia-2026" className="text-sm text-[var(--brand)]">
-                Lihat semua
+                {tCommon("viewAll")}
               </Link>
             </div>
             {fixtures.length ? (
@@ -72,7 +73,12 @@ export default async function HomePage({
 
           {/* Latest articles */}
           <section>
-            <h2 className="mb-3 text-xl font-semibold">{t("latestArticles")}</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">{t("latestArticles")}</h2>
+              <Link href="/arsip" className="text-sm text-[var(--brand)]">
+                {tCommon("viewAll")}
+              </Link>
+            </div>
             {articles.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {articles.map((a) => (

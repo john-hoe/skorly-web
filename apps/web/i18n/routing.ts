@@ -47,6 +47,12 @@ export const routing = defineRouting({
       en: "/news",
       zh: "/xinwen",
     },
+    "/arsip": {
+      id: "/arsip",
+      vi: "/luu-tru",
+      en: "/articles",
+      zh: "/quanbu-wenzhang",
+    },
   },
 });
 

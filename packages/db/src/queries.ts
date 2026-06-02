@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
-import { fixtures, teams, articles, standings, newsSignals, topics } from "./schema";
+import { fixtures, teams, articles, articleType, standings, newsSignals, topics } from "./schema";
 
 const homeTeam = () => alias(teams, "home_team");
 const awayTeam = () => alias(teams, "away_team");
@@ -249,6 +249,43 @@ export async function getLatestArticles(locale = "id", limit = 10): Promise<Arti
     .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
     .limit(limit);
   return rows as unknown as ArticleView[];
+}
+
+/** Card fields only (no body) for listing/archive pages. */
+export interface ArticleCardData {
+  id: number;
+  slug: string;
+  type: string;
+  title: string;
+  summary: string | null;
+  imageUrl: string | null;
+}
+
+/**
+ * All published article cards for a locale, newest first. Optionally filter by
+ * type (e.g. "news"). Selects only card fields so listing pages stay light even
+ * with hundreds of articles.
+ */
+export async function getArticleCards(
+  locale = "id",
+  opts: { type?: (typeof articleType.enumValues)[number] } = {},
+): Promise<ArticleCardData[]> {
+  const db = getDb();
+  const conds = [eq(articles.locale, locale), eq(articles.status, "published")];
+  if (opts.type) conds.push(eq(articles.type, opts.type));
+  const rows = await db
+    .select({
+      id: articles.id,
+      slug: articles.slug,
+      type: articles.type,
+      title: articles.title,
+      summary: articles.summary,
+      imageUrl: articles.imageUrl,
+    })
+    .from(articles)
+    .where(and(...conds))
+    .orderBy(desc(articles.publishedAt), desc(articles.createdAt));
+  return rows as ArticleCardData[];
 }
 
 export async function getArticlesForFixture(

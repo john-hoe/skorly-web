@@ -49,6 +49,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     })
   );
+  entries.push(
+    ...withAlternates("/berita", new Date(), { changeFrequency: "daily", priority: 0.8 })
+  );
+  entries.push(
+    ...withAlternates("/arsip", new Date(), { changeFrequency: "daily", priority: 0.7 })
+  );
 
   // Groups
   for (const g of groups) {
