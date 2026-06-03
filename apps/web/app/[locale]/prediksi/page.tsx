@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getGroupedTeams, getBracket } from "@skorly/db";
-import { getSessionUser } from "@/lib/supabase/server";
+import { getGroupedTeams } from "@skorly/db";
 import { BracketBuilder } from "@/components/bracket-builder";
+import { buildAlternates } from "@/lib/seo";
+
+export const dynamic = "force-static";
 
 export async function generateMetadata({
   params,
@@ -11,7 +13,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "bracket" });
-  return { title: t("title"), description: t("subtitle") };
+  return {
+    title: t("title"),
+    description: t("subtitle"),
+    alternates: buildAlternates("/prediksi", locale),
+  };
 }
 
 export default async function BracketPage({
@@ -23,11 +29,7 @@ export default async function BracketPage({
   setRequestLocale(locale);
 
   const t = await getTranslations("bracket");
-  const user = await getSessionUser();
-  const [groups, bracket] = await Promise.all([
-    getGroupedTeams().catch(() => []),
-    user ? getBracket(user.id).catch(() => null) : Promise.resolve(null),
-  ]);
+  const groups = await getGroupedTeams().catch(() => []);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 space-y-6">
@@ -36,7 +38,7 @@ export default async function BracketPage({
         <p className="text-sm text-[var(--muted)]">{t("subtitle")}</p>
       </header>
 
-      <BracketBuilder groups={groups} initial={bracket} authed={!!user} />
+      <BracketBuilder groups={groups} initial={null} />
     </div>
   );
 }

@@ -1,25 +1,30 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { saveBracketAction } from "@/lib/bracket-actions";
+import { getBracketAction, saveBracketAction } from "@/lib/bracket-actions";
 import type { TeamGroup, GroupTeam, BracketPicks } from "@skorly/db";
 
 interface Props {
   groups: TeamGroup[];
   initial: BracketPicks | null;
-  authed: boolean;
+  authed?: boolean;
 }
 
-export function BracketBuilder({ groups, initial, authed }: Props) {
+export function BracketBuilder({ groups, initial, authed = false }: Props) {
   const t = useTranslations("bracket");
   const [semifinalists, setSemis] = useState<number[]>(initial?.semifinalists ?? []);
   const [finalists, setFinalists] = useState<number[]>(initial?.finalists ?? []);
   const [champion, setChampion] = useState<number | null>(initial?.champion ?? null);
+  const [authState, setAuthState] = useState<"checking" | "authed" | "guest" | "unknown">(
+    authed ? "authed" : "checking",
+  );
+  const [hasSavedBracket, setHasSavedBracket] = useState(!!initial);
   const [error, setError] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
   const [pending, startTransition] = useTransition();
+  const dirtyRef = useRef(false);
 
   const byId = useMemo(() => {
     const m = new Map<number, GroupTeam>();
@@ -27,7 +32,33 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
     return m;
   }, [groups]);
 
+  useEffect(() => {
+    let alive = true;
+    getBracketAction()
+      .then((res) => {
+        if (!alive) return;
+        if (!res.ok) {
+          setAuthState(res.error === "unauth" ? "guest" : "unknown");
+          return;
+        }
+        setAuthState("authed");
+        if (res.bracket && !dirtyRef.current) {
+          setSemis(res.bracket.semifinalists);
+          setFinalists(res.bracket.finalists);
+          setChampion(res.bracket.champion);
+          setHasSavedBracket(true);
+        }
+      })
+      .catch(() => {
+        if (alive) setAuthState("unknown");
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   function toggleSemi(id: number) {
+    dirtyRef.current = true;
     setError(null);
     setSavedOk(false);
     if (semifinalists.includes(id)) {
@@ -40,6 +71,7 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
   }
 
   function toggleFinalist(id: number) {
+    dirtyRef.current = true;
     setError(null);
     setSavedOk(false);
     if (finalists.includes(id)) {
@@ -57,10 +89,15 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
     if (!complete) return;
     setError(null);
     startTransition(async () => {
-      const res = await saveBracketAction({ semifinalists, finalists, champion });
+      const res = await saveBracketAction({ semifinalists, finalists, champion }).catch(
+        () => ({ ok: false as const, error: "generic" as const }),
+      );
       if (res.ok) {
         setSavedOk(true);
+        setAuthState("authed");
+        setHasSavedBracket(true);
       } else if (res.error === "unauth") {
+        setAuthState("guest");
         setError(t("loginToSave"));
       } else {
         setError(t(`errors.${res.error}`));
@@ -142,6 +179,7 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
                     key={id}
                     type="button"
                     onClick={() => {
+                      dirtyRef.current = true;
                       setChampion(id);
                       setSavedOk(false);
                     }}
@@ -163,15 +201,22 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
         {error && <p className="text-sm text-red-500">{error}</p>}
         {savedOk && <p className="text-sm text-green-600">{t("saved")}</p>}
 
-        {authed ? (
+        {authState === "guest" ? (
+          <Link
+            href="/masuk"
+            className="inline-block rounded-lg bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]"
+          >
+            {t("loginToSave")}
+          </Link>
+        ) : (
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={onSave}
-              disabled={!complete || pending}
+              disabled={!complete || pending || authState === "checking"}
               className="rounded-lg bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)] disabled:opacity-50"
             >
-              {initial ? t("update") : t("save")}
+              {hasSavedBracket ? t("update") : t("save")}
             </button>
             {savedOk && shareText && (
               <a
@@ -184,13 +229,6 @@ export function BracketBuilder({ groups, initial, authed }: Props) {
               </a>
             )}
           </div>
-        ) : (
-          <Link
-            href="/masuk"
-            className="inline-block rounded-lg bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]"
-          >
-            {t("loginToSave")}
-          </Link>
         )}
       </div>
 
