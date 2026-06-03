@@ -30,15 +30,12 @@ export function SiteFooter() {
           </Link>
         </nav>
         <nav className="flex flex-wrap gap-4">
-          {/* Legal pages are static top-level placeholders outside localized routing. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/privacy" className="hover:text-[var(--brand)]">
+          <Link href="/privacy" className="hover:text-[var(--brand)]">
             {t("privacy")}
-          </a>
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/terms" className="hover:text-[var(--brand)]">
+          </Link>
+          <Link href="/terms" className="hover:text-[var(--brand)]">
             {t("terms")}
-          </a>
+          </Link>
         </nav>
         <p>
           {t("contact")}:{" "}

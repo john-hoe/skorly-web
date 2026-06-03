@@ -71,7 +71,11 @@
     "enable": "Alerts",
     "on": "Alerts on",
     "busy": "…",
-    "denied": "Alerts blocked"
+    "denied": "Alerts blocked",
+    "enableLabel": "Enable match alerts",
+    "busyLabel": "Saving alert preference",
+    "onLabel": "Disable match alerts",
+    "deniedLabel": "Match alerts are blocked"
   },
   "share": {
     "label": "Share:",

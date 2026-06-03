@@ -72,7 +72,11 @@
     "enable": "开赛提醒",
     "on": "已开启",
     "busy": "…",
-    "denied": "已屏蔽"
+    "denied": "已屏蔽",
+    "enableLabel": "开启比赛提醒",
+    "busyLabel": "正在保存提醒设置",
+    "onLabel": "关闭比赛提醒",
+    "deniedLabel": "比赛提醒已被屏蔽"
   },
   "share": {
     "label": "分享：",

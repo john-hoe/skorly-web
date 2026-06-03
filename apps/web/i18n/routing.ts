@@ -67,6 +67,8 @@ export const routing = defineRouting({
       en: "/where-to-watch",
       zh: "/zhibo",
     },
+    "/privacy": "/privacy",
+    "/terms": "/terms",
     "/artikel/[slug]": {
       id: "/artikel/[slug]",
       vi: "/bai-viet/[slug]",
