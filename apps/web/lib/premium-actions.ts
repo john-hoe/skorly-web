@@ -25,5 +25,8 @@ export async function getPremiumArticle(
   const prediction = articles.find((a) => a.type === "prediction");
   if (!prediction) return { authorized: false };
 
-  return { authorized: true, html: renderMarkdown(prediction.body) };
+  return {
+    authorized: true,
+    html: renderMarkdown(prediction.body, { headingOffset: 2 }),
+  };
 }

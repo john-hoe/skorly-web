@@ -57,6 +57,18 @@ body {
   font-weight: 700;
   margin: 1.75rem 0 0.75rem;
 }
+.prose-skorly h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.65rem;
+}
+.prose-skorly h4,
+.prose-skorly h5,
+.prose-skorly h6 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.5rem;
+}
 .prose-skorly p {
   margin: 0 0 1rem;
 }

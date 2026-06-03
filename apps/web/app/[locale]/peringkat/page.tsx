@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getLeaderboard } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { ShareButtons } from "@/components/share-buttons";
-import { absoluteUrl, localizedPath } from "@/lib/seo";
+import { absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -20,6 +20,7 @@ export async function generateMetadata({
   return {
     title: t("title"),
     description: t("subtitle"),
+    alternates: buildAlternates("/peringkat", locale),
     openGraph: { title: t("title"), description: t("subtitle"), images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
   };

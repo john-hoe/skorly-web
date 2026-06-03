@@ -179,6 +179,9 @@ export default async function MatchPage({
         <p className="text-center text-sm text-white/80">
           {fixture.groupName ?? fixture.round} &middot; {formatKickoff(fixture.kickoffAt)} WIB
         </p>
+        <h1 className="mt-3 text-center text-2xl font-bold leading-tight">
+          {matchTitle}
+        </h1>
         <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div className="flex flex-col items-center gap-2">
             <TeamBadge name={fixture.home.name} logo={fixture.home.logo} code={fixture.home.code} size={48} showName={false} />
@@ -279,12 +282,14 @@ export default async function MatchPage({
             {type === "prediction" ? (
               <PremiumContent
                 fixtureId={fixture.id}
-                previewHtml={renderMarkdown(previewMd)}
+                previewHtml={renderMarkdown(previewMd, { headingOffset: 2 })}
               />
             ) : (
               <div
                 className="prose-skorly"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(article.body) }}
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(article.body, { headingOffset: 2 }),
+                }}
               />
             )}
           </article>
