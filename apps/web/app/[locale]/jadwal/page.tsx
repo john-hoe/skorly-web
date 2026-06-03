@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAllFixtures, type FixtureView } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -18,10 +18,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale });
-  const title = `${t("team.fixtures")} — ${t("nav.worldCup")} 2026`;
+  const title = `${t("team.fixtures")} — ${t("nav.worldCup")}`;
   return {
     title,
-    description: title,
+    description: pageSeoDescription(locale, "schedule"),
     alternates: buildAlternates("/jadwal", locale),
   };
 }

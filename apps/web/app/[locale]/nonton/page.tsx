@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -18,7 +18,7 @@ export async function generateMetadata({
   const t = await getTranslations({ locale });
   return {
     title: t("watch.title"),
-    description: t("watch.subtitle"),
+    description: pageSeoDescription(locale, "watch"),
     alternates: buildAlternates("/nonton", locale),
   };
 }

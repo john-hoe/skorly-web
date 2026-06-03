@@ -8,7 +8,15 @@ import { SocialEmbed } from "@/components/social-embed";
 import { CommentsSection } from "@/components/comments-section";
 import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
-import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
+import {
+  SITE_NAME,
+  absoluteUrl,
+  buildAlternates,
+  fitMetaDescription,
+  fitMetaTitle,
+  localizedPath,
+  pageSeoDescription,
+} from "@/lib/seo";
 
 type Article = Awaited<ReturnType<typeof getArticleBySlug>>;
 
@@ -53,10 +61,13 @@ export async function generateMetadata({
   const { slug, locale } = await params;
   const article = await getArticleForPage(slug, locale);
   if (!article) return { title: "Artikel" };
-  const description =
-    article.summary ?? article.body.replace(/[#*_>`]/g, "").slice(0, 160).trim();
+  const title = fitMetaTitle(article.title);
+  const description = fitMetaDescription(
+    article.summary ?? article.body,
+    pageSeoDescription(locale, "articles")
+  );
   return {
-    title: article.title,
+    title,
     description,
     alternates: buildAlternates(
       { pathname: "/artikel/[slug]", params: { slug } },
@@ -64,7 +75,7 @@ export async function generateMetadata({
     ),
     openGraph: {
       type: "article",
-      title: article.title,
+      title,
       description,
       publishedTime: article.publishedAt?.toISOString(),
       images: [article.imageUrl ?? "/og.png"],
