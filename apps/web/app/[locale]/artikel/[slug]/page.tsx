@@ -104,6 +104,7 @@ export default async function ArticlePage({
   return (
     <article className="mx-auto max-w-2xl px-4 py-8 space-y-6">
       <JsonLd data={[newsLd, breadcrumbLd]} />
+      <h1 className="text-3xl font-bold leading-tight">{article.title}</h1>
       {article.imageUrl && (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
@@ -114,7 +115,12 @@ export default async function ArticlePage({
       )}
       <div
         className="prose-skorly"
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(article.body) }}
+        dangerouslySetInnerHTML={{
+          __html: renderMarkdown(article.body, {
+            headingOffset: 1,
+            stripLeadingH1: true,
+          }),
+        }}
       />
 
       {embeds.length > 0 && (

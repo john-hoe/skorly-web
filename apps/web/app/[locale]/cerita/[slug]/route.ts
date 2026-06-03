@@ -1,7 +1,7 @@
 import { getFixtureBySlug, getArticlesForFixture, getAllFixtures } from "@skorly/db";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { SITE_NAME, absoluteUrl, localizedPath } from "@/lib/seo";
+import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
 // Pre-render all stories at build; no DB at runtime.
 export const dynamic = "force-static";
@@ -57,9 +57,16 @@ export async function GET(
     `${fixture.home.name} vs ${fixture.away.name} — ${t("nav.worldCup")} 2026.`;
 
   const title = `${fixture.home.name} vs ${fixture.away.name}`;
-  const canonical = absoluteUrl(
-    localizedPath({ pathname: "/cerita/[slug]", params: { slug } }, locale)
+  const alternates = buildAlternates(
+    { pathname: "/cerita/[slug]", params: { slug } },
+    locale
   );
+  const alternateLinks = Object.entries(alternates.languages)
+    .map(
+      ([hreflang, href]) =>
+        `<link rel="alternate" hreflang="${esc(hreflang)}" href="${esc(href)}">`
+    )
+    .join("\n");
   const matchUrl = absoluteUrl(
     localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)
   );
@@ -72,7 +79,8 @@ export async function GET(
 <head>
 <meta charset="utf-8">
 <title>${esc(title)} — ${esc(SITE_NAME)}</title>
-<link rel="canonical" href="${esc(canonical)}">
+<link rel="canonical" href="${esc(alternates.canonical)}">
+${alternateLinks}
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta name="description" content="${esc(blurb).slice(0, 160)}">
 <script async src="https://cdn.ampproject.org/v0.js"></script>
