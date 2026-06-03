@@ -176,6 +176,25 @@ export async function getAllTeamSlugs(): Promise<string[]> {
   return rows.map((r) => r.slug).filter((s): s is string => !!s);
 }
 
+/** All team page header data for build-time SSG. */
+export async function getAllTeamPages(): Promise<TeamPage[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: teams.id,
+      name: teams.name,
+      slug: teams.slug,
+      code: teams.code,
+      country: teams.country,
+      logo: teams.logo,
+      group: standings.groupName,
+    })
+    .from(teams)
+    .leftJoin(standings, eq(standings.teamId, teams.id))
+    .orderBy(asc(teams.name));
+  return rows;
+}
+
 /** Team header data + its group (from standings membership). */
 export async function getTeamBySlug(slug: string): Promise<TeamPage | null> {
   const db = getDb();

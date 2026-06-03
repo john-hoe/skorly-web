@@ -8,6 +8,7 @@ import type {
   RuntimePublicPick,
   RuntimePushKeys,
   RuntimePushTopics,
+  RuntimeTeamGroup,
 } from "./runtime-data";
 import type { ScoreRow } from "./score-types";
 
@@ -128,6 +129,10 @@ export function getLiveScoresApi() {
 
 export function getHomePersonalizationApi() {
   return apiJson<HomePersonalization>("/api/home/personalization");
+}
+
+export function getTeamGroupsApi() {
+  return apiJson<RuntimeTeamGroup[]>("/api/teams/groups");
 }
 
 export function getPremiumArticleApi(fixtureId: number, locale: string) {

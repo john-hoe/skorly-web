@@ -129,6 +129,19 @@ export interface RuntimeTeamOption {
   name: string;
 }
 
+export interface RuntimeGroupTeam {
+  id: number;
+  name: string;
+  slug: string;
+  code: string | null;
+  logo: string | null;
+}
+
+export interface RuntimeTeamGroup {
+  group: string;
+  teams: RuntimeGroupTeam[];
+}
+
 export interface RuntimeUserPredictionRow {
   fixtureId: number;
   slug: string;
@@ -230,6 +243,12 @@ interface StandingRow {
   played: number;
   goals_for: number;
   goals_against: number;
+}
+
+interface GroupedStandingRow {
+  group_name: string;
+  team_id: number;
+  rank: number | null;
 }
 
 interface ProfileRow {
@@ -636,6 +655,29 @@ export async function getRuntimeTeamOptions(): Promise<RuntimeTeamOption[]> {
     order: "is_national.desc,name.asc",
   });
   return rows.map((r) => ({ id: r.id, name: r.name }));
+}
+
+export async function getRuntimeGroupedTeams(): Promise<RuntimeTeamGroup[]> {
+  const rows = await selectRows<GroupedStandingRow>("standings", {
+    select: "group_name,team_id,rank",
+    order: "group_name.asc,rank.asc",
+  });
+  const teams = await teamsById(rows.map((r) => r.team_id));
+  const groups = new Map<string, RuntimeGroupTeam[]>();
+  for (const row of rows) {
+    const team = teams.get(row.team_id);
+    if (!team) continue;
+    const list = groups.get(row.group_name) ?? [];
+    list.push({
+      id: team.id,
+      name: team.name,
+      slug: team.slug,
+      code: team.code,
+      logo: team.logo,
+    });
+    groups.set(row.group_name, list);
+  }
+  return Array.from(groups.entries()).map(([group, teams]) => ({ group, teams }));
 }
 
 export async function getRuntimeUserPredictions(

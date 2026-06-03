@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
-  getAllTeamSlugs,
-  getTeamBySlug,
+  getAllTeamPages,
   getTeamFixtures,
   getTeamSquad,
 } from "@skorly/db";
@@ -22,34 +21,66 @@ import {
   pageSeoDescription,
 } from "@/lib/seo";
 
-type Team = Awaited<ReturnType<typeof getTeamBySlug>>;
-type TeamSlugs = Awaited<ReturnType<typeof getAllTeamSlugs>>;
+type Team = Awaited<ReturnType<typeof getAllTeamPages>>[number] | null;
+type TeamPages = Awaited<ReturnType<typeof getAllTeamPages>>;
 type TeamFixtures = Awaited<ReturnType<typeof getTeamFixtures>>;
 type TeamSquad = Awaited<ReturnType<typeof getTeamSquad>>;
 
-let allTeamSlugsPromise: Promise<TeamSlugs> | undefined;
-const teamCache = new Map<string, Promise<Team>>();
+const OPTIONAL_BUILD_DATA_TIMEOUT_MS = 8_000;
+
+let allTeamPagesPromise: Promise<TeamPages> | undefined;
+let teamBySlugPromise: Promise<Map<string, NonNullable<Team>>> | undefined;
 const teamFixturesCache = new Map<number, Promise<TeamFixtures>>();
 const teamSquadCache = new Map<number, Promise<TeamSquad>>();
 
-function getAllTeamSlugsForBuild(): Promise<TeamSlugs> {
-  allTeamSlugsPromise ??= getAllTeamSlugs().catch(() => []);
-  return allTeamSlugsPromise;
+function getAllTeamPagesForBuild(): Promise<TeamPages> {
+  allTeamPagesPromise ??= getAllTeamPages().catch(() => []);
+  return allTeamPagesPromise;
 }
 
-function getTeamForPage(slug: string): Promise<Team> {
-  let cached = teamCache.get(slug);
-  if (!cached) {
-    cached = getTeamBySlug(slug).catch(() => null);
-    teamCache.set(slug, cached);
+async function getTeamBySlugForBuild() {
+  if (!teamBySlugPromise) {
+    teamBySlugPromise = getAllTeamPagesForBuild().then((teams) => {
+      const map = new Map<string, NonNullable<Team>>();
+      for (const team of teams) map.set(team.slug, team);
+      return map;
+    });
   }
-  return cached;
+  return teamBySlugPromise;
+}
+
+async function getTeamForPage(slug: string): Promise<Team> {
+  const teams = await getTeamBySlugForBuild();
+  return teams.get(slug) ?? null;
+}
+
+function withOptionalBuildTimeout<T>(label: string, work: Promise<T>, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`[team-page] ${label} exceeded ${OPTIONAL_BUILD_DATA_TIMEOUT_MS}ms; rendering fallback.`);
+      resolve(fallback);
+    }, OPTIONAL_BUILD_DATA_TIMEOUT_MS);
+    if (timer && typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+  });
+
+  return Promise.race([
+    work.catch((error) => {
+      console.warn(`[team-page] ${label} failed; rendering fallback.`, error);
+      return fallback;
+    }),
+    timeout,
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 function getTeamFixturesForPage(teamId: number): Promise<TeamFixtures> {
   let cached = teamFixturesCache.get(teamId);
   if (!cached) {
-    cached = getTeamFixtures(teamId).catch(() => []);
+    cached = withOptionalBuildTimeout(`fixtures for team ${teamId}`, getTeamFixtures(teamId), []);
     teamFixturesCache.set(teamId, cached);
   }
   return cached;
@@ -58,7 +89,7 @@ function getTeamFixturesForPage(teamId: number): Promise<TeamFixtures> {
 function getTeamSquadForPage(teamId: number): Promise<TeamSquad> {
   let cached = teamSquadCache.get(teamId);
   if (!cached) {
-    cached = getTeamSquad(teamId).catch(() => []);
+    cached = withOptionalBuildTimeout(`squad for team ${teamId}`, getTeamSquad(teamId), []);
     teamSquadCache.set(teamId, cached);
   }
   return cached;
@@ -69,8 +100,8 @@ function getTeamSquadForPage(teamId: number): Promise<TeamSquad> {
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const slugs = await getAllTeamSlugsForBuild();
-  return routing.locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })));
+  const teams = await getAllTeamPagesForBuild();
+  return routing.locales.flatMap((locale) => teams.map((team) => ({ locale, slug: team.slug })));
 }
 
 export async function generateMetadata({
