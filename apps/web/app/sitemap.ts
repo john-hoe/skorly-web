@@ -42,41 +42,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
 
   const entries: MetadataRoute.Sitemap = [];
+  const generatedAt = new Date();
 
   // Static hubs
-  entries.push(...withAlternates("/", new Date(), { changeFrequency: "daily", priority: 1 }));
+  entries.push(...withAlternates("/", generatedAt, { changeFrequency: "daily", priority: 1 }));
   entries.push(
-    ...withAlternates("/piala-dunia-2026", new Date(), {
+    ...withAlternates("/piala-dunia-2026", generatedAt, {
       changeFrequency: "daily",
       priority: 0.9,
     })
   );
   entries.push(
-    ...withAlternates("/berita", new Date(), { changeFrequency: "daily", priority: 0.8 })
+    ...withAlternates("/berita", generatedAt, { changeFrequency: "daily", priority: 0.8 })
   );
   entries.push(
-    ...withAlternates("/arsip", new Date(), { changeFrequency: "daily", priority: 0.7 })
+    ...withAlternates("/arsip", generatedAt, { changeFrequency: "daily", priority: 0.7 })
   );
   entries.push(
-    ...withAlternates("/skor", new Date(), { changeFrequency: "hourly", priority: 0.9 })
+    ...withAlternates("/skor", generatedAt, { changeFrequency: "hourly", priority: 0.9 })
   );
   entries.push(
-    ...withAlternates("/jadwal", new Date(), { changeFrequency: "daily", priority: 0.8 })
+    ...withAlternates("/jadwal", generatedAt, { changeFrequency: "daily", priority: 0.8 })
   );
   entries.push(
-    ...withAlternates("/tim", new Date(), { changeFrequency: "weekly", priority: 0.7 })
+    ...withAlternates("/tim", generatedAt, { changeFrequency: "weekly", priority: 0.7 })
   );
   entries.push(
-    ...withAlternates("/peringkat", new Date(), { changeFrequency: "daily", priority: 0.6 })
+    ...withAlternates("/peringkat", generatedAt, { changeFrequency: "daily", priority: 0.6 })
   );
   entries.push(
-    ...withAlternates("/prediksi", new Date(), { changeFrequency: "weekly", priority: 0.6 })
+    ...withAlternates("/prediksi", generatedAt, { changeFrequency: "weekly", priority: 0.6 })
   );
   entries.push(
-    ...withAlternates("/cerita", new Date(), { changeFrequency: "daily", priority: 0.6 })
+    ...withAlternates("/cerita", generatedAt, { changeFrequency: "daily", priority: 0.6 })
   );
   entries.push(
-    ...withAlternates("/nonton", new Date(), { changeFrequency: "weekly", priority: 0.6 })
+    ...withAlternates("/nonton", generatedAt, { changeFrequency: "weekly", priority: 0.6 })
   );
 
   // AMP Web Stories per fixture (Discover surface)
@@ -84,7 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entries.push(
       ...withAlternates(
         { pathname: "/cerita/[slug]", params: { slug: f.slug } },
-        f.kickoffAt ?? undefined,
+        generatedAt,
         { changeFrequency: "daily", priority: 0.5 }
       )
     );
@@ -95,7 +96,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entries.push(
       ...withAlternates(
         { pathname: "/tim/[slug]", params: { slug } },
-        new Date(),
+        generatedAt,
         { changeFrequency: "weekly", priority: 0.6 }
       )
     );
@@ -107,7 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entries.push(
       ...withAlternates(
         { pathname: "/piala-dunia-2026/grup/[group]", params: { group } },
-        new Date(),
+        generatedAt,
         { changeFrequency: "daily", priority: 0.7 }
       )
     );
@@ -118,7 +119,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entries.push(
       ...withAlternates(
         { pathname: "/pertandingan/[slug]", params: { slug: f.slug } },
-        f.kickoffAt ?? undefined,
+        generatedAt,
         { changeFrequency: "daily", priority: 0.6 }
       )
     );
