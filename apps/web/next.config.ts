@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@skorly/db",
     "@skorly/api-football",
+    "@skorly/predict-model",
     "@skorly/types",
     "@skorly/ui",
   ],

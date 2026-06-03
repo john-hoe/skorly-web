@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { upsertSubscriber } from "@skorly/db";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { sendEmail, optInEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/seo";
+import { upsertRuntimeSubscriber } from "@/lib/runtime-data";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOCALES = new Set(["id", "vi", "en", "zh"]);
@@ -47,7 +47,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   const confirmToken = crypto.randomUUID();
   try {
-    const res = await upsertSubscriber({
+    const res = await upsertRuntimeSubscriber({
       email,
       whatsappNumber: whatsapp || null,
       locale,

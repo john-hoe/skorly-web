@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getMyMiniLeagues } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { getSessionUser } from "@/lib/supabase/server";
 import { LeagueCreate } from "@/components/league-create";
+import { getRuntimeMyMiniLeagues } from "@/lib/runtime-data";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function LeaguesPage({
   const t = await getTranslations("league");
 
   const user = await getSessionUser().catch(() => null);
-  const leagues = user ? await getMyMiniLeagues(user.id).catch(() => []) : [];
+  const leagues = user ? await getRuntimeMyMiniLeagues(user.id).catch(() => []) : [];
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 space-y-8">

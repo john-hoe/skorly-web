@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getLiveFixtures, getResultsFixtures } from "@skorly/db";
 import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
 import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import { getRuntimeLiveFixtures, getRuntimeResultsFixtures } from "@/lib/runtime-data";
 
 // Live score data should be read at request time. Static generation can block
 // production builds when the Supabase pooler stalls.
@@ -66,10 +66,10 @@ export default async function ScoresPage({
 
   const t = await getTranslations("scores");
   const [live, results] = await Promise.all([
-    withScoreDataTimeout("getLiveFixtures", getLiveFixtures().then((rows) => rows.map(toScoreRow))),
+    withScoreDataTimeout("getLiveFixtures", getRuntimeLiveFixtures().then((rows) => rows.map(toScoreRow))),
     withScoreDataTimeout(
       "getResultsFixtures",
-      getResultsFixtures(40).then((rows) => rows.map(toScoreRow))
+      getRuntimeResultsFixtures(40).then((rows) => rows.map(toScoreRow))
     ),
   ]);
 

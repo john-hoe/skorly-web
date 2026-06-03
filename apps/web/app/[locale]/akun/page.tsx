@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import {
-  getProfile,
-  getTeamOptions,
-  getUserPredictionStats,
-  getUserPredictions,
-} from "@skorly/db";
 import { Link, redirect } from "@/i18n/navigation";
 import { getSessionUser } from "@/lib/supabase/server";
 import { AccountForm } from "@/components/auth/account-form";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import {
+  getRuntimeProfile,
+  getRuntimeTeamOptions,
+  getRuntimeUserPredictionStats,
+  getRuntimeUserPredictions,
+} from "@/lib/runtime-data";
 
 const ACCOUNT_DATA_TIMEOUT_MS = 8_000;
 
@@ -67,10 +67,10 @@ export default async function AccountPage({
 
   const t = await getTranslations("account");
   const [profile, teams, stats, myPredictions] = await Promise.all([
-    withAccountTimeout("getProfile", getProfile(user!.id), null),
-    withAccountTimeout("getTeamOptions", getTeamOptions(), []),
-    withAccountTimeout("getUserPredictionStats", getUserPredictionStats(user!.id), null),
-    withAccountTimeout("getUserPredictions", getUserPredictions(user!.id, 20), []),
+    withAccountTimeout("getProfile", getRuntimeProfile(user!.id), null),
+    withAccountTimeout("getTeamOptions", getRuntimeTeamOptions(), []),
+    withAccountTimeout("getUserPredictionStats", getRuntimeUserPredictionStats(user!.id), null),
+    withAccountTimeout("getUserPredictions", getRuntimeUserPredictions(user!.id, 20), []),
   ]);
 
   const meta = (user!.user_metadata ?? {}) as Record<string, string>;

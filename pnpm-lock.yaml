@@ -48,6 +48,9 @@ importers:
       '@skorly/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@skorly/predict-model':
+        specifier: workspace:*
+        version: link:../../packages/predict-model
       '@skorly/types':
         specifier: workspace:*
         version: link:../../packages/types

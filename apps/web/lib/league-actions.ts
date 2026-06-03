@@ -1,12 +1,12 @@
 "use server";
 
 import {
-  createMiniLeague,
-  joinMiniLeague,
-  getMiniLeagueStandings,
-  type MiniLeague,
-  type LeagueStanding,
-} from "@skorly/db";
+  createRuntimeMiniLeague,
+  getRuntimeMiniLeagueStandings,
+  joinRuntimeMiniLeague,
+  type RuntimeLeagueStanding,
+  type RuntimeMiniLeague,
+} from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 import { rateLimit } from "./ratelimit";
 
@@ -21,7 +21,7 @@ export async function createLeague(name: string): Promise<CreateLeagueResult> {
   if (!name || name.trim().length < 2) return { ok: false, error: "invalid" };
   const rl = await rateLimit(`league:create:${user.id}`, 5, 3600);
   if (!rl.success) return { ok: false, error: "rateLimited" };
-  const league = await createMiniLeague(user.id, name).catch(() => null);
+  const league = await createRuntimeMiniLeague(user.id, name).catch(() => null);
   if (!league) return { ok: false, error: "generic" };
   return { ok: true, slug: league.slug };
 }
@@ -34,22 +34,25 @@ export type JoinLeagueActionResult =
 export async function joinLeague(slug: string): Promise<JoinLeagueActionResult> {
   const user = await getSessionUser().catch(() => null);
   if (!user) return { ok: false, error: "unauth" };
-  const res = await joinMiniLeague(slug, user.id).catch(() => null);
+  const res = await joinRuntimeMiniLeague(slug, user.id).catch(() => null);
   if (!res) return { ok: false, error: "generic" };
   if (!res.ok) return { ok: false, error: "notFound" };
   return { ok: true, alreadyMember: res.alreadyMember };
 }
 
 export type LeagueStandingsResult = {
-  standings: LeagueStanding[];
+  standings: RuntimeLeagueStanding[];
   meId: string | null;
 };
 
 /** Standings for a league (client island refresh). */
 export async function leagueStandings(campaignId: number): Promise<LeagueStandingsResult> {
   const user = await getSessionUser().catch(() => null);
-  const standings = await getMiniLeagueStandings(campaignId).catch(() => []);
+  const standings = await getRuntimeMiniLeagueStandings(campaignId).catch(() => []);
   return { standings, meId: user?.id ?? null };
 }
 
-export type { MiniLeague, LeagueStanding };
+export type {
+  RuntimeMiniLeague as MiniLeague,
+  RuntimeLeagueStanding as LeagueStanding,
+};

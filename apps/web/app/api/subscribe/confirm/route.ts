@@ -1,5 +1,5 @@
-import { confirmSubscriber } from "@skorly/db";
 import { SITE_URL } from "@/lib/seo";
+import { confirmRuntimeSubscriber } from "@/lib/runtime-data";
 
 const LOCALES = new Set(["id", "vi", "en", "zh"]);
 
@@ -35,6 +35,6 @@ export async function GET(req: Request): Promise<Response> {
   const lRaw = url.searchParams.get("l") ?? "id";
   const locale = LOCALES.has(lRaw) ? lRaw : "id";
 
-  const result = await confirmSubscriber(token).catch(() => null);
+  const result = await confirmRuntimeSubscriber(token).catch(() => null);
   return page(locale, !!result);
 }

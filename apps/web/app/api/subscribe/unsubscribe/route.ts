@@ -1,5 +1,5 @@
-import { unsubscribeByToken } from "@skorly/db";
 import { SITE_URL } from "@/lib/seo";
+import { unsubscribeRuntimeByToken } from "@/lib/runtime-data";
 
 const LOCALES = new Set(["id", "vi", "en", "zh"]);
 
@@ -35,6 +35,6 @@ export async function GET(req: Request): Promise<Response> {
   const lRaw = url.searchParams.get("l") ?? "id";
   const locale = LOCALES.has(lRaw) ? lRaw : "id";
 
-  const ok = await unsubscribeByToken(token).catch(() => false);
+  const ok = await unsubscribeRuntimeByToken(token).catch(() => false);
   return page(locale, ok);
 }

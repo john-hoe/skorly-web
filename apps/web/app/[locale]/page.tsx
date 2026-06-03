@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getUpcomingFixtures, getLatestArticles, getLeaderboard } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { Countdown } from "@/components/countdown";
 import { MatchCard } from "@/components/match-card";
@@ -8,6 +7,11 @@ import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { HomePersonalized } from "@/components/home-personalized";
 import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import {
+  getRuntimeLatestArticles,
+  getRuntimeLeaderboard,
+  getRuntimeUpcomingFixtures,
+} from "@/lib/runtime-data";
 
 export const revalidate = 300;
 
@@ -35,9 +39,9 @@ export default async function HomePage({
   const tCommon = await getTranslations("common");
 
   const [fixtures, articles, leaders] = await Promise.all([
-    getUpcomingFixtures(6).catch(() => []),
-    getLatestArticles(locale, 6).catch(() => []),
-    getLeaderboard(5).catch(() => []),
+    getRuntimeUpcomingFixtures(6).catch(() => []),
+    getRuntimeLatestArticles(locale, 6).catch(() => []),
+    getRuntimeLeaderboard(5).catch(() => []),
   ]);
   const nextMatch = fixtures[0] ?? null;
 

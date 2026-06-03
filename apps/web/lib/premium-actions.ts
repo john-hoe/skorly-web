@@ -1,6 +1,6 @@
 "use server";
 
-import { getArticlesForFixture } from "@skorly/db";
+import { getRuntimeArticlesForFixture } from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 import { renderMarkdown } from "./markdown";
 
@@ -21,7 +21,7 @@ export async function getPremiumArticle(
   const user = await getSessionUser().catch(() => null);
   if (!user) return { authorized: false };
 
-  const articles = await getArticlesForFixture(fixtureId, locale).catch(() => []);
+  const articles = await getRuntimeArticlesForFixture(fixtureId, locale).catch(() => []);
   const prediction = articles.find((a) => a.type === "prediction");
   if (!prediction) return { authorized: false };
 
