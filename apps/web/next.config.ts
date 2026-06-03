@@ -10,10 +10,10 @@ const nextConfig: NextConfig = {
     "@skorly/types",
     "@skorly/ui",
   ],
-  // Cap SSG worker parallelism: default fans out to ~all CPUs (15 here) and the
-  // 1.3k-page static export then OOM-kills the build on a memory-tight machine.
-  // Single worker = lowest peak memory (slower, but this is a one-shot deploy).
-  experimental: { cpus: 1 },
+  // Cap SSG worker parallelism: default fans out to ~all CPUs (15 here) and can
+  // OOM-kill memory-tight builds. Three workers keep peak usage bounded while
+  // letting cached static generation finish materially faster than one worker.
+  experimental: { cpus: 3 },
   // Each static page queries Supabase at build time and occasionally hits a
   // flaky DB connection stall. Lower the per-page timeout from the 600s default
   // so a stalled page fails fast and Next retries it quickly (retries succeed

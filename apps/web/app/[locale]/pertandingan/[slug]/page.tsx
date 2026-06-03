@@ -16,11 +16,74 @@ import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
 
-// Fully static: prerendered at build, no DB at runtime.
+type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
+type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
+type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
+type HeadToHead = Awaited<ReturnType<typeof getHeadToHead>>;
+type Poster = Awaited<ReturnType<typeof getFixturePoster>>;
+
+let allFixturesPromise: Promise<FixtureList> | undefined;
+const fixtureCache = new Map<string, Promise<Fixture>>();
+const fixtureArticlesCache = new Map<string, Promise<FixtureArticles>>();
+const h2hCache = new Map<string, Promise<HeadToHead>>();
+const posterCache = new Map<string, Promise<Poster>>();
+
+function getAllFixturesForBuild(): Promise<FixtureList> {
+  allFixturesPromise ??= getAllFixtures().catch(() => []);
+  return allFixturesPromise;
+}
+
+function getFixtureForPage(slug: string): Promise<Fixture> {
+  let cached = fixtureCache.get(slug);
+  if (!cached) {
+    cached = getFixtureBySlug(slug).catch(() => null);
+    fixtureCache.set(slug, cached);
+  }
+  return cached;
+}
+
+function getFixtureArticlesForPage(fixtureId: number, locale: string): Promise<FixtureArticles> {
+  const key = `${locale}:${fixtureId}`;
+  let cached = fixtureArticlesCache.get(key);
+  if (!cached) {
+    cached = getArticlesForFixture(fixtureId, locale).catch(() => []);
+    fixtureArticlesCache.set(key, cached);
+  }
+  return cached;
+}
+
+function getHeadToHeadForPage(teamA: number, teamB: number): Promise<HeadToHead> {
+  const key = [teamA, teamB].sort((a, b) => a - b).join(":");
+  let cached = h2hCache.get(key);
+  if (!cached) {
+    cached = getHeadToHead(teamA, teamB).catch(() => ({
+      total: 0,
+      homeWins: 0,
+      awayWins: 0,
+      draws: 0,
+      meetings: [],
+    }));
+    h2hCache.set(key, cached);
+  }
+  return cached;
+}
+
+function getFixturePosterForPage(fixtureId: number, kind: string): Promise<Poster> {
+  const key = `${fixtureId}:${kind}`;
+  let cached = posterCache.get(key);
+  if (!cached) {
+    cached = getFixturePoster(fixtureId, kind).catch(() => null);
+    posterCache.set(key, cached);
+  }
+  return cached;
+}
+
+// Fully static for SEO and OpenNext/Cloudflare stability. Build-time DB reads
+// are cached and optional fixture data is loaded in parallel.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const fixtures = await getAllFixtures().catch(() => []);
+  const fixtures = await getAllFixturesForBuild();
   return routing.locales.flatMap((locale) =>
     fixtures.map((f) => ({ locale, slug: f.slug }))
   );
@@ -34,7 +97,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const fixture = await getFixtureBySlug(slug).catch(() => null);
+  const fixture = await getFixtureForPage(slug);
   if (!fixture) return { title: "Pertandingan" };
   const title = `${fixture.home.name} vs ${fixture.away.name}`;
   const finished = fixture.status === "finished";
@@ -77,23 +140,25 @@ export default async function MatchPage({
   setRequestLocale(locale);
   const t = await getTranslations("match");
 
-  const fixture = await getFixtureBySlug(slug).catch(() => null);
+  const fixture = await getFixtureForPage(slug);
   if (!fixture) notFound();
 
-  const articles = await getArticlesForFixture(fixture.id, locale).catch(() => []);
+  const articlesPromise = getFixtureArticlesForPage(fixture.id, locale);
+  const h2hPromise =
+    fixture.home.id != null && fixture.away.id != null
+      ? getHeadToHeadForPage(fixture.home.id, fixture.away.id)
+      : Promise.resolve(null);
+  const posterPromise = getFixturePosterForPage(
+    fixture.id,
+    fixture.status === "finished" ? "result_card" : "prematch_poster"
+  );
+  const [articles, h2h, poster] = await Promise.all([
+    articlesPromise,
+    h2hPromise,
+    posterPromise,
+  ]);
   const byType = new Map(articles.map((a) => [a.type, a]));
   const finished = fixture.status === "finished";
-
-  const h2h =
-    fixture.home.id != null && fixture.away.id != null
-      ? await getHeadToHead(fixture.home.id, fixture.away.id).catch(() => null)
-      : null;
-
-  // 二期 M6 — exclusive AI poster (prematch versus / post-match result card).
-  const poster = await getFixturePoster(
-    fixture.id,
-    finished ? "result_card" : "prematch_poster",
-  ).catch(() => null);
 
   const eventLd = {
     "@context": "https://schema.org",
