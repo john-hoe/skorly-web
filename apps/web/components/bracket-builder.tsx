@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getBracketApi, saveBracketApi } from "@/lib/runtime-api-client";
+import { getBracketApi, getTeamGroupsApi, saveBracketApi } from "@/lib/runtime-api-client";
 import type { TeamGroup, GroupTeam, BracketPicks } from "@skorly/db";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 
 export function BracketBuilder({ groups, initial, authed = false }: Props) {
   const t = useTranslations("bracket");
+  const [teamGroups, setTeamGroups] = useState<TeamGroup[]>(groups);
   const [semifinalists, setSemis] = useState<number[]>(initial?.semifinalists ?? []);
   const [finalists, setFinalists] = useState<number[]>(initial?.finalists ?? []);
   const [champion, setChampion] = useState<number | null>(initial?.champion ?? null);
@@ -28,9 +29,24 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
 
   const byId = useMemo(() => {
     const m = new Map<number, GroupTeam>();
-    for (const g of groups) for (const tm of g.teams) m.set(tm.id, tm);
+    for (const g of teamGroups) for (const tm of g.teams) m.set(tm.id, tm);
     return m;
-  }, [groups]);
+  }, [teamGroups]);
+
+  useEffect(() => {
+    if (groups.length > 0) return;
+    let active = true;
+    getTeamGroupsApi()
+      .then((res) => {
+        if (active) setTeamGroups(res);
+      })
+      .catch(() => {
+        if (active) setTeamGroups([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [groups.length]);
 
   useEffect(() => {
     let alive = true;
@@ -112,6 +128,10 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
           champion: byId.get(champion)?.name ?? "",
         })
       : "";
+
+  if (teamGroups.length === 0) {
+    return <div className="h-72 animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden />;
+  }
 
   return (
     <div className="space-y-6">
@@ -235,7 +255,7 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
       {/* Team picker */}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-[var(--muted)]">{t("chooseTeams")}</h2>
-        {groups.map((g) => (
+        {teamGroups.map((g) => (
           <div key={g.group} className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">
               {g.group}

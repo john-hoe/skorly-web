@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getGroupedTeams } from "@skorly/db";
 import { BracketBuilder } from "@/components/bracket-builder";
 import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
@@ -30,7 +29,6 @@ export default async function BracketPage({
   setRequestLocale(locale);
 
   const t = await getTranslations("bracket");
-  const groups = await getGroupedTeams().catch(() => []);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 space-y-6">
@@ -39,7 +37,7 @@ export default async function BracketPage({
         <p className="text-sm text-[var(--muted)]">{t("subtitle")}</p>
       </header>
 
-      <BracketBuilder groups={groups} initial={null} />
+      <BracketBuilder groups={[]} initial={null} />
     </div>
   );
 }
