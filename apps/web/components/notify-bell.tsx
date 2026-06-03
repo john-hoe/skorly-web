@@ -102,25 +102,38 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
 
   if (state === "denied") {
     return (
-      <span className={`${base} text-[var(--muted)]`} title={t("denied")}>
+      <span
+        className={`${base} text-[var(--muted)]`}
+        title={t("deniedLabel")}
+        aria-label={t("deniedLabel")}
+      >
         🔕 {compact ? "" : t("denied")}
       </span>
     );
   }
 
   if (state === "subscribed") {
+    const label = t("onLabel");
     return (
-      <button onClick={disable} className={`${base} hover:border-[var(--brand)]`}>
+      <button
+        onClick={disable}
+        className={`${base} hover:border-[var(--brand)]`}
+        aria-label={label}
+        title={label}
+      >
         🔔 {compact ? "" : t("on")}
       </button>
     );
   }
 
+  const label = state === "busy" ? t("busyLabel") : t("enableLabel");
   return (
     <button
       onClick={enable}
       disabled={state === "busy"}
       className={`${base} hover:border-[var(--brand)] disabled:opacity-60`}
+      aria-label={label}
+      title={label}
     >
       🔔 {compact ? "" : state === "busy" ? t("busy") : t("enable")}
     </button>

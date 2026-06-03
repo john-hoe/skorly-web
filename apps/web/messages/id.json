@@ -71,7 +71,11 @@
     "enable": "Notifikasi",
     "on": "Notif aktif",
     "busy": "…",
-    "denied": "Notif diblokir"
+    "denied": "Notif diblokir",
+    "enableLabel": "Aktifkan notifikasi pertandingan",
+    "busyLabel": "Menyimpan preferensi notifikasi",
+    "onLabel": "Nonaktifkan notifikasi pertandingan",
+    "deniedLabel": "Notifikasi pertandingan diblokir"
   },
   "share": {
     "label": "Bagikan:",

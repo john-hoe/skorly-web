@@ -71,7 +71,11 @@
     "enable": "Thông báo",
     "on": "Đã bật",
     "busy": "…",
-    "denied": "Đã chặn"
+    "denied": "Đã chặn",
+    "enableLabel": "Bật thông báo trận đấu",
+    "busyLabel": "Đang lưu tùy chọn thông báo",
+    "onLabel": "Tắt thông báo trận đấu",
+    "deniedLabel": "Thông báo trận đấu đã bị chặn"
   },
   "share": {
     "label": "Chia sẻ:",
