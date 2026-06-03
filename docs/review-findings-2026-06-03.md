@@ -422,6 +422,116 @@ HTTP/1.1 307 Temporary Redirect
 location: http://localhost:3000/id/masuk?error=auth
 ```
 
+### P0-4 Team detail pages return Worker 1101 in production
+
+Actual, reported by the SEO review session after PR #1/#2 were created:
+
+```text
+/id/tim/* sitemap sample
+48 URLs total
+2 returned 200
+45 returned 500
+1 timed out after 5s
+500 body: error code: 1101
+```
+
+Cause:
+
+- PR #1 changed public team routes to runtime rendering:
+  - `apps/web/app/[locale]/tim/page.tsx`
+  - `apps/web/app/[locale]/tim/[slug]/page.tsx`
+- `/tim/[slug]` then performed Supabase reads at Cloudflare Worker runtime for team, fixtures, and squad data.
+- This moved the previous build-time DB stall risk into public SEO runtime traffic and recreated the same Worker 1101 failure class seen on other DB-backed public pages.
+
+Fix 2026-06-03:
+
+- Fixed.
+- Restored team list and team detail pages to full SSG with `dynamicParams = false`.
+- Added module-level promise caches for build-time reads:
+  - `getGroupedTeams()`
+  - `getAllTeamSlugs()`
+  - `getTeamBySlug(slug)`
+  - `getTeamFixtures(teamId)`
+  - `getTeamSquad(teamId)`
+- Metadata and page rendering now share cached team reads, and fixtures/squad reads remain parallel.
+- Public team pages no longer require Supabase access at Cloudflare Worker runtime.
+
+Verification 2026-06-03:
+
+```text
+pnpm --filter @skorly/web typecheck
+> @skorly/web@0.1.0 typecheck /Users/johnmacmini/workspace/Football site/apps/web
+> tsc --noEmit
+Exit status: 0
+
+pnpm typecheck
+packages/types typecheck: Done
+packages/predict-model typecheck: Done
+packages/ui typecheck: Done
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck: Done
+Exit status: 0
+
+pnpm cf:deploy
+✓ Generating static pages using 3 workers (1890/1890) in 3.6min
+├ ● /[locale]/tim
+│ ├ /id/tim
+│ ├ /vi/tim
+│ ├ /en/tim
+│ └ /zh/tim
+├ ● /[locale]/tim/[slug]
+│ ├ /id/tim/brazil
+│ ├ /id/tim/uruguay
+│ ├ /id/tim/colombia
+│ └ [+189 more paths]
+Current Version ID: d4162c7c-a97f-48c5-93a4-b73cb3b59511
+Exit status: 0
+
+Production /id/tim/* sitemap recheck, first post-deploy pass
+total: 48
+ok: 48
+bad: 0
+p75ms: 1831
+p95ms: 2067
+maxms: 2088
+
+Production /id/tim/* sitemap recheck, warm-cache pass
+total: 48
+ok: 48
+bad: 0
+p75ms: 1282
+p95ms: 1340
+maxms: 1938
+
+Production all-locale team detail sitemap recheck
+total: 192
+ok: 192
+bad: 0
+p75ms: 1401
+p95ms: 1516
+maxms: 2208
+id: total=48 ok=48 bad=0 p95=1322ms max=1369ms
+vi: total=48 ok=48 bad=0 p95=1477ms max=2021ms
+en: total=48 ok=48 bad=0 p95=1498ms max=2140ms
+zh: total=48 ok=48 bad=0 p95=1813ms max=2208ms
+
+Production team detail SEO sample
+https://skorly.cc/id/tim/brazil 200 canonical=true hrefLang=5 jsonLd=4 h1=1 body=true
+https://skorly.cc/vi/doi-tuyen/brazil 200 canonical=true hrefLang=5 jsonLd=4 h1=1 body=true
+https://skorly.cc/en/team/brazil 200 canonical=true hrefLang=5 jsonLd=4 h1=1 body=true
+https://skorly.cc/zh/qiudui/brazil 200 canonical=true hrefLang=5 jsonLd=4 h1=1 body=true
+
+Production nonexistent team slug check
+https://skorly.cc/id/tim/nonexistent-team-build-fix-20260603 404 1.392563
+https://skorly.cc/vi/doi-tuyen/nonexistent-team-build-fix-20260603 404 1.192859
+https://skorly.cc/en/team/nonexistent-team-build-fix-20260603 404 1.223407
+https://skorly.cc/zh/qiudui/nonexistent-team-build-fix-20260603 404 1.228217
+```
+
 ## P1 Findings
 
 ### P1-1 Lint script is invalid for current Next version
