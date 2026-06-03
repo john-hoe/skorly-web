@@ -231,14 +231,6 @@ export default async function MatchPage({
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
       <JsonLd data={faqLd ? [eventLd, breadcrumbLd, faqLd] : [eventLd, breadcrumbLd]} />
-      {poster?.url && (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={poster.url}
-          alt={`${fixture.home.name} vs ${fixture.away.name}`}
-          className="w-full rounded-2xl border border-[var(--border)] object-cover"
-        />
-      )}
       {/* Score header */}
       <header className="rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] p-6 text-white">
         <p className="text-center text-sm text-white/80">
@@ -266,6 +258,15 @@ export default async function MatchPage({
           </p>
         )}
       </header>
+
+      {poster?.url && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={poster.url}
+          alt={`${fixture.home.name} vs ${fixture.away.name}`}
+          className="w-full rounded-2xl border border-[var(--border)] object-cover"
+        />
+      )}
 
       {/* Predict & win + statistical forecast (client islands — keep this
           page statically cached while showing live data). */}

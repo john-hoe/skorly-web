@@ -23,23 +23,33 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
   const [state, setState] = useState<State>("idle");
 
   useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      !("serviceWorker" in navigator) ||
-      !("PushManager" in window) ||
-      !VAPID
-    ) {
-      setState("unsupported");
-      return;
+    let active = true;
+    async function syncState() {
+      if (
+        typeof window === "undefined" ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window) ||
+        !VAPID
+      ) {
+        if (active) setState("unsupported");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        if (active) setState("denied");
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (active) setState(sub ? "subscribed" : "idle");
+      } catch {
+        if (active) setState("idle");
+      }
     }
-    if (Notification.permission === "denied") {
-      setState("denied");
-      return;
-    }
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setState(sub ? "subscribed" : "idle"))
-      .catch(() => setState("idle"));
+    void syncState();
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function enable() {

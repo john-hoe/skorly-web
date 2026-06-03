@@ -82,6 +82,19 @@ function titleOf(markdown: string, fallback: string): string {
   return markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || fallback;
 }
 
+function summaryOf(markdown: string, fallback: string): string {
+  const cleaned = markdown
+    .replace(/^#\s+.+$/m, "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[[^\]]+]\([^)]*\)/g, (match) => match.match(/\[([^\]]+)]/)?.[1] ?? " ")
+    .replace(/[#*_>`~|[\]{}()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const base = cleaned.length >= 40 ? cleaned : fallback;
+  return base.length > 180 ? `${base.slice(0, 177).trimEnd()}...` : base;
+}
+
 function slugify(s: string): string {
   return s
     .toLowerCase()
@@ -191,16 +204,17 @@ async function main() {
       console.log(`  ${webNote}`);
     }
     const baseTitle = titleOf(finalBody, base.title || topic.title);
+    const baseSummary = summaryOf(finalBody, sheet.summary);
 
     await insertArticle({
       slug,
       locale: BASE_LOCALE,
       type: "news",
       title: baseTitle,
-      summary: sheet.summary,
+      summary: baseSummary,
       body: finalBody,
       topicId: topic.id,
-      imageUrl: categoryImage(baseTitle, sheet.summary),
+      imageUrl: categoryImage(baseTitle, baseSummary),
       sources,
       embeds,
       status: finalStatus,
@@ -223,6 +237,7 @@ async function main() {
     await Promise.all(
       TARGET_LOCALES.map(async (locale) => {
         const translated = await translateArticle(finalBody, locale);
+        const localizedSummary = summaryOf(translated, baseSummary);
         const bt = await backTranslateCheck(translated, teams).catch(() => ({ ok: true, missing: [] as string[] }));
         const status = bt.ok ? "published" : "draft";
         await insertArticle({
@@ -230,10 +245,10 @@ async function main() {
           locale,
           type: "news",
           title: titleOf(translated, baseTitle),
-          summary: sheet.summary,
+          summary: localizedSummary,
           body: translated,
           topicId: topic.id,
-          imageUrl: categoryImage(baseTitle, sheet.summary),
+          imageUrl: categoryImage(baseTitle, baseSummary),
           sources,
           embeds,
           status,

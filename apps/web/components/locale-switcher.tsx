@@ -15,7 +15,8 @@ const LABELS: Record<Locale, string> = {
 
 /** Dynamic segment names from App Router (exclude locale prefix). */
 function routeParams(params: Record<string, string | string[] | undefined>) {
-  const { locale: _locale, ...rest } = params;
+  const rest = { ...params };
+  delete rest.locale;
   return rest;
 }
 

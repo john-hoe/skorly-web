@@ -4,7 +4,14 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Turnstile } from "@/components/auth/turnstile";
 
-type Status = "idle" | "loading" | "success" | "error";
+type Status = "idle" | "loading" | "success";
+type ErrorKey = "invalid" | "captcha" | "rateLimited" | "generic";
+
+function normalizeError(value: unknown): ErrorKey {
+  return value === "invalid" || value === "captcha" || value === "rateLimited"
+    ? value
+    : "generic";
+}
 
 /**
  * Lead-capture card: email + optional WhatsApp + marketing consent.
@@ -15,10 +22,12 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
   const t = useTranslations("subscribe");
   const locale = useLocale();
   const [status, setStatus] = useState<Status>("idle");
+  const [error, setError] = useState<ErrorKey | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("loading");
+    setError(null);
     const form = new FormData(e.currentTarget);
     try {
       const res = await fetch("/api/subscribe", {
@@ -33,9 +42,16 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
           locale,
         }),
       });
-      setStatus(res.ok ? "success" : "error");
+      if (res.ok) {
+        setStatus("success");
+        return;
+      }
+      const payload = (await res.json().catch(() => null)) as { error?: unknown } | null;
+      setStatus("idle");
+      setError(normalizeError(payload?.error));
     } catch {
-      setStatus("error");
+      setStatus("idle");
+      setError("generic");
     }
   }
 
@@ -80,8 +96,8 @@ export function SubscribeGiftCard({ source = "unknown" }: { source?: string }) {
       >
         {t("submit")}
       </button>
-      {status === "error" && (
-        <p className="text-xs text-red-500">{t("error")}</p>
+      {error && (
+        <p className="text-xs text-red-500">{t(`errors.${error}`)}</p>
       )}
     </form>
   );

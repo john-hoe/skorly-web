@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://skorly.cc").replace(/\/$/, "");
+
 interface Props {
   /** Absolute or root-relative URL to share. */
   url: string;
@@ -13,8 +15,7 @@ interface Props {
 
 function absolute(url: string): string {
   if (url.startsWith("http")) return url;
-  if (typeof window !== "undefined") return window.location.origin + url;
-  return url;
+  return `${SITE_URL}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 export function ShareButtons({ url, text, compact = false }: Props) {

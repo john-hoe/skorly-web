@@ -552,6 +552,27 @@ Fix direction:
 - Replace `next lint` with a supported ESLint setup for Next 16, or remove root lint until ESLint config exists.
 - Add actual lint config if linting is expected to be part of CI.
 
+Status 2026-06-03:
+
+- Fixed.
+- Added `apps/web/eslint.config.mjs` using the Next 16 ESLint flat config presets.
+- Changed `apps/web` lint script from the removed `next lint` command to `eslint .`.
+- Added the required ESLint dev dependencies to `apps/web/package.json` / `pnpm-lock.yaml`.
+
+Verification 2026-06-03:
+
+```text
+pnpm lint
+> skorly@0.1.0 lint /Users/johnmacmini/workspace/Football site
+> pnpm -r lint
+
+Scope: 9 of 10 workspace projects
+apps/web lint$ eslint .
+apps/web lint: Done
+
+Exit status: 0
+```
+
 ### P1-2 Turbopack dev server crashed during route scan
 
 Actual:
@@ -571,6 +592,26 @@ Fix direction:
 - Treat as dev-server stability risk.
 - Reproduce with route scan script before investing too much time.
 - If persistent, prefer `next dev --webpack` for local QA until root cause is understood.
+
+Status 2026-06-03:
+
+- Fixed as a dev-workflow mitigation.
+- Changed the default `apps/web` dev script to `next dev --webpack`.
+- This does not claim the upstream Turbopack `RangeError: Map maximum size exceeded` bug is fixed; it removes Turbopack from the default local QA path so route scans use the stable webpack dev server.
+
+Verification 2026-06-03:
+
+```text
+pnpm --dir apps/web dev --port 3002
+> @skorly/web@0.1.0 dev /Users/johnmacmini/workspace/Football site/apps/web
+> next dev --webpack --port 3002
+
+▲ Next.js 16.2.6 (webpack)
+- Local:         http://localhost:3002
+✓ Ready in 225ms
+
+Exit status after manual Ctrl-C: 0
+```
 
 ### P1-3 Detail pages have high first-load latency
 
@@ -592,6 +633,29 @@ Fix direction:
 - Cache static data for build and request scope.
 - Move slow client-island actions to precomputed/cached data where possible.
 
+Status 2026-06-03:
+
+- Fixed/closed by the earlier full SSG + build-time cache work, and preserved by this P1/P2 pass.
+- No detail page was changed to CSR.
+- Current build still statically generates article, match, story, and team detail pages.
+- The original 12s-25s local-dev first-load symptoms no longer reproduce against the current local production build.
+
+Verification 2026-06-03:
+
+```text
+pnpm build
+✓ Generating static pages using 3 workers (1890/1890) in 4.1min
+Exit status: 0
+
+Local production server: pnpm --dir apps/web exec next start -p 3100
+
+Detail-page latency sample against http://localhost:3100
+{"url":"http://localhost:3100/id/pertandingan/mexico-vs-south-africa-20260611","status":200,"ms":37}
+{"url":"http://localhost:3100/id/artikel/news-226-official-ghana-release-world-cup-squad-by-carlos-queiroz-htt","status":200,"ms":9}
+{"url":"http://localhost:3100/id/tim/mexico","status":200,"ms":5}
+{"url":"http://localhost:3100/id/cerita/mexico-vs-south-africa-20260611","status":200,"ms":3}
+```
+
 ### P1-4 Share buttons produce hydration mismatch
 
 Actual:
@@ -610,6 +674,24 @@ Fix direction:
   - Pass absolute URL from server.
   - Render hrefs only after mount.
   - Use a stable configured site URL instead of `window.location.origin` during initial render.
+
+Status 2026-06-03:
+
+- Fixed.
+- `ShareButtons` now uses a stable configured site URL during initial render and no longer switches from relative server URLs to `window.location.origin` on the client.
+
+Verification 2026-06-03:
+
+```text
+Local production check: http://localhost:3100/id/peringkat
+{"path":"/id/peringkat","status":200,"ok":true,"hasProductionShareUrl":true,"hasLocalhostShareUrl":false}
+
+pnpm --filter @skorly/web typecheck
+> @skorly/web@0.1.0 typecheck /Users/johnmacmini/workspace/Football site/apps/web
+> tsc --noEmit
+
+Exit status: 0
+```
 
 ## P2 Findings
 
@@ -638,6 +720,25 @@ Fix direction:
 - Backfill affected summaries.
 - Decide whether summaries should be generated from localized body instead of upstream source text.
 
+Status 2026-06-03:
+
+- Fixed for future generated news.
+- `apps/jobs/scripts/run-generate-news.ts` now derives summaries from the final article body.
+- Translated articles now derive summaries from the translated body instead of reusing the English source summary.
+- Backfilled existing localized published news summaries in the production database for `id`, `vi`, and `zh`. The original Indonesian issue is now clean by the same 80-article heuristic used during review.
+
+Verification 2026-06-03:
+
+```text
+Production DB backfill result
+id: checked=21 suspectedBefore=21 updated=21 suspectedAfter=0
+vi: checked=21 suspectedBefore=21 updated=21 suspectedAfter=13
+zh: checked=21 suspectedBefore=21 updated=21 suspectedAfter=0
+
+Follow-up production DB sample, latest 80 id published articles
+{"locale":"id","sampled":80,"suspectedEnglish":0,"ok":true}
+```
+
 ### P2-2 Countdown unit labels are hardcoded Indonesian
 
 Actual:
@@ -651,6 +752,27 @@ Relevant file:
 Fix direction:
 
 - Move countdown units into locale message catalogs.
+
+Status 2026-06-03:
+
+- Fixed.
+- Countdown unit labels now come from `home.countdownUnits` in each locale message catalog.
+
+Verification 2026-06-03:
+
+```text
+Message catalog parse
+messages ok
+
+Locale message values
+en: Days / Hours / Minutes / Seconds
+id: Hari / Jam / Menit / Detik
+vi: Ngày / Giờ / Phút / Giây
+zh: 天 / 小时 / 分钟 / 秒
+
+Local production check: http://localhost:3100/vi
+{"check":"vi-countdown-units","status":200,"ok":true,"hasLocalizedUnits":true,"hasIndonesianUnits":false}
+```
 
 ### P2-3 Multiple page titles duplicate `2026`
 
@@ -675,6 +797,20 @@ Fix direction:
 - Do not append `2026` to `t("nav.worldCup")`.
 - Or split message keys into `worldCup` and `worldCupYear`.
 
+Status 2026-06-03:
+
+- Fixed.
+- Removed the extra hardcoded `2026` appended to `t("nav.worldCup")` in schedule, team index, and AMP Web Story output.
+
+Verification 2026-06-03:
+
+```text
+Local production duplicate-title checks
+{"url":"http://localhost:3100/id/jadwal","status":200,"hasDuplicate2026":false,"ok":true}
+{"url":"http://localhost:3100/id/tim","status":200,"hasDuplicate2026":false,"ok":true}
+{"url":"http://localhost:3100/id/cerita/mexico-vs-south-africa-20260611","status":200,"hasDuplicate2026":false,"ok":true}
+```
+
 ### P2-4 Article source list renders internal URNs as blank links
 
 Observed on article detail:
@@ -692,6 +828,21 @@ Fix direction:
 
 - Filter non-http(s) sources from public source list.
 - Optionally render internal provenance in debug/admin surfaces only.
+
+Status 2026-06-03:
+
+- Fixed.
+- Article detail pages now filter public source links to `http:` and `https:` URLs only.
+- Internal provenance URNs remain available in data but are not rendered as public source links.
+
+Verification 2026-06-03:
+
+```text
+Local production check:
+http://localhost:3100/id/artikel/news-101-world-cup-2026-news-and-live-updates-usa-canada-and-mexico-b
+
+{"path":"/id/artikel/news-101-world-cup-2026-news-and-live-updates-usa-canada-and-mexico-b","status":200,"ok":true,"hasInternalUrnSource":false}
+```
 
 ### P2-5 Match page has weak above-the-fold hierarchy
 
@@ -715,6 +866,21 @@ Fix direction:
 - Put match title/score as the page H1/header before or over the poster.
 - Avoid article body H1s creating multiple competing H1s inside the same match page.
 
+Status 2026-06-03:
+
+- Fixed.
+- Match detail pages now render the match score/title header before the poster image.
+- The match title is the single page-level `h1`.
+
+Verification 2026-06-03:
+
+```text
+Local production check:
+http://localhost:3100/id/pertandingan/mexico-vs-south-africa-20260611
+
+{"check":"match-header-above-poster","status":200,"ok":true,"h1Index":8213,"posterIndex":9831,"h1Count":1}
+```
+
 ### P2-6 Web Stories index card text is cramped and partly English-style
 
 Observed:
@@ -731,6 +897,19 @@ Fix direction:
 
 - Add spacing around VS.
 - Use locale-aware separator and labels.
+
+Status 2026-06-03:
+
+- Fixed.
+- Web Stories index cards now use the locale `common.vs` label and render spaced match text.
+- Cards also have a stable minimum height and centered content to reduce cramped text.
+
+Verification 2026-06-03:
+
+```text
+Local production check: http://localhost:3100/id/cerita
+{"check":"story-index-vs-spacing","status":200,"ok":true,"hasSpacedVs":true,"hasCrammedVs":false}
+```
 
 ### P2-7 Subscribe form error message is too generic for captcha failures
 
@@ -749,6 +928,64 @@ Fix direction:
 
 - Surface specific captcha/rate-limit/invalid errors.
 - Keep generic fallback for unknown server errors.
+
+Status 2026-06-03:
+
+- Fixed.
+- Subscribe form now maps API errors to specific localized UI messages for `invalid`, `captcha`, `rateLimited`, and `generic`.
+- The API contract stayed unchanged.
+
+Verification 2026-06-03:
+
+```text
+Local production API check without Turnstile token
+{"check":"subscribe-captcha-error-code","status":403,"body":"{\"ok\":false,\"error\":\"captcha\"}"}
+
+Message catalog parse
+messages ok
+```
+
+## P1/P2 Gate Verification
+
+Status 2026-06-03:
+
+- P1 and P2 fixes are complete on branch `codex/p1-p2-review-fixes`.
+- Root lint, root typecheck, and `@skorly/web` typecheck passed after the fixes.
+- A full production build passed after the code changes before this document-only update.
+
+Verification 2026-06-03:
+
+```text
+pnpm lint
+> skorly@0.1.0 lint /Users/johnmacmini/workspace/Football site
+> pnpm -r lint
+
+Scope: 9 of 10 workspace projects
+apps/web lint$ eslint .
+apps/web lint: Done
+Exit status: 0
+
+pnpm typecheck
+packages/types typecheck: Done
+packages/predict-model typecheck: Done
+packages/ui typecheck: Done
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck: Done
+Exit status: 0
+
+pnpm --filter @skorly/web typecheck
+> @skorly/web@0.1.0 typecheck /Users/johnmacmini/workspace/Football site/apps/web
+> tsc --noEmit
+Exit status: 0
+
+pnpm build
+✓ Generating static pages using 3 workers (1890/1890) in 4.1min
+Exit status: 0
+```
 
 ## Verified Working Areas
 

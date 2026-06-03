@@ -39,9 +39,21 @@ export function PredictScore({
   const [away, setAway] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const kickoffPassed = kickoffAt ? new Date(kickoffAt).getTime() <= Date.now() : false;
+  useEffect(() => {
+    const update = () => setNow(Date.now());
+    const first = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 60_000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const kickoffPassed =
+    kickoffAt && now != null ? new Date(kickoffAt).getTime() <= now : false;
   const locked = status !== "scheduled" || kickoffPassed;
   const finished = status === "finished" && homeGoals != null && awayGoals != null;
 

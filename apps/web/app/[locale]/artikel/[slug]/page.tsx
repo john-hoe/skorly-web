@@ -40,6 +40,16 @@ function hostOf(url: string): string {
   }
 }
 
+function isPublicSource(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 // Fully static for SEO and OpenNext/Cloudflare stability. Article DB reads are
 // deduped in-process so metadata and page rendering share the same build query.
 export const dynamicParams = false;
@@ -98,7 +108,7 @@ export default async function ArticlePage({
   if (!article || article.status !== "published") notFound();
 
   const embeds = Array.isArray(article.embeds) ? article.embeds : [];
-  const sources = Array.isArray(article.sources) ? article.sources : [];
+  const sources = Array.isArray(article.sources) ? article.sources.filter(isPublicSource) : [];
 
   const url = absoluteUrl(localizedPath({ pathname: "/artikel/[slug]", params: { slug } }, locale));
   const newsLd = {

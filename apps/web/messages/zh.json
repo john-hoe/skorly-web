@@ -27,6 +27,12 @@
     "latestArticles": "最新文章",
     "upcomingMatches": "即将开赛",
     "countdown": "世界杯倒计时",
+    "countdownUnits": {
+      "days": "天",
+      "hours": "小时",
+      "minutes": "分钟",
+      "seconds": "秒"
+    },
     "predictCta": "竞猜比赛",
     "bracketCta": "晋级图挑战",
     "premiumBadge": "专属",
@@ -107,7 +113,13 @@
     "success": "请查收邮件，指南正在发送中。",
     "checkEmail": "就差一步——请查收邮件！",
     "checkEmailHint": "我们已发送确认链接，点击即可开始接收独家预测。",
-    "error": "出错了，请稍后再试。"
+    "error": "出错了，请稍后再试。",
+    "errors": {
+      "invalid": "请检查邮箱和同意选项，然后重试。",
+      "captcha": "人机验证失败，请完成验证后重试。",
+      "rateLimited": "尝试次数过多，请稍等几分钟。",
+      "generic": "出错了，请稍后再试。"
+    }
   },
   "auth": {
     "login": {
