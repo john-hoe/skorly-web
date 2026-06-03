@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getBracketAction, saveBracketAction } from "@/lib/bracket-actions";
+import { getBracketApi, saveBracketApi } from "@/lib/runtime-api-client";
 import type { TeamGroup, GroupTeam, BracketPicks } from "@skorly/db";
 
 interface Props {
@@ -34,7 +34,7 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
 
   useEffect(() => {
     let alive = true;
-    getBracketAction()
+    getBracketApi()
       .then((res) => {
         if (!alive) return;
         if (!res.ok) {
@@ -89,7 +89,7 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
     if (!complete) return;
     setError(null);
     startTransition(async () => {
-      const res = await saveBracketAction({ semifinalists, finalists, champion }).catch(
+      const res = await saveBracketApi({ semifinalists, finalists, champion }).catch(
         () => ({ ok: false as const, error: "generic" as const }),
       );
       if (res.ok) {

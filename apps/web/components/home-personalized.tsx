@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getHomePersonalization, type HomePersonalization } from "@/lib/home-actions";
+import { getHomePersonalizationApi, type HomePersonalization } from "@/lib/runtime-api-client";
 
 export function HomePersonalized() {
   const t = useTranslations("home");
@@ -11,9 +11,13 @@ export function HomePersonalized() {
 
   useEffect(() => {
     let active = true;
-    getHomePersonalization().then((d) => {
-      if (active) setData(d);
-    });
+    getHomePersonalizationApi()
+      .then((d) => {
+        if (active) setData(d);
+      })
+      .catch(() => {
+        if (active) setData({ auth: false });
+      });
     return () => {
       active = false;
     };

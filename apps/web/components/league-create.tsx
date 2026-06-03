@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { createLeague } from "@/lib/league-actions";
+import { createLeagueApi } from "@/lib/runtime-api-client";
 
 export function LeagueCreate() {
   const t = useTranslations("league");
@@ -16,7 +16,7 @@ export function LeagueCreate() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await createLeague(name);
+      const res = await createLeagueApi(name);
       if (res.ok) {
         router.push({ pathname: "/liga/[slug]", params: { slug: res.slug } });
       } else {

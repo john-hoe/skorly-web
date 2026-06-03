@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getEvents } from "@/lib/score-actions";
+import { getEventsApi } from "@/lib/runtime-api-client";
 import type { FixtureEventView } from "@skorly/db";
 
 function icon(type: string | null, detail: string | null): string {
@@ -19,9 +19,13 @@ export function EventsTimeline({ fixtureId }: { fixtureId: number }) {
 
   useEffect(() => {
     let active = true;
-    getEvents(fixtureId).then((e) => {
-      if (active) setEvents(e);
-    });
+    getEventsApi(fixtureId)
+      .then((e) => {
+        if (active) setEvents(e);
+      })
+      .catch(() => {
+        if (active) setEvents([]);
+      });
     return () => {
       active = false;
     };

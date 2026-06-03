@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getPicks } from "@/lib/prediction-actions";
+import { getPicksApi } from "@/lib/runtime-api-client";
 import type { PublicPick } from "@skorly/db";
 
 export function PublicPicks({ fixtureId }: { fixtureId: number }) {
@@ -11,7 +11,9 @@ export function PublicPicks({ fixtureId }: { fixtureId: number }) {
 
   useEffect(() => {
     let active = true;
-    getPicks(fixtureId).then((res) => active && setPicks(res));
+    getPicksApi(fixtureId)
+      .then((res) => active && setPicks(res))
+      .catch(() => active && setPicks([]));
     return () => {
       active = false;
     };

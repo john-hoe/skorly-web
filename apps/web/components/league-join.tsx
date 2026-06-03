@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, Link } from "@/i18n/navigation";
-import { joinLeague } from "@/lib/league-actions";
+import { joinLeagueApi } from "@/lib/runtime-api-client";
 
 interface Props {
   slug: string;
@@ -30,7 +30,7 @@ export function LeagueJoin({ slug, authed }: Props) {
   function join() {
     setMsg(null);
     startTransition(async () => {
-      const res = await joinLeague(slug);
+      const res = await joinLeagueApi(slug);
       if (res.ok) {
         setMsg(res.alreadyMember ? t("alreadyMember") : t("joined"));
         router.refresh();
