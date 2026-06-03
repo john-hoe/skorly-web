@@ -1,9 +1,46 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getGroupNames, getUpcomingFixtures } from "@skorly/db";
+import { getGroupNames, getUpcomingFixtures, type FixtureView } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
 import { buildAlternates } from "@/lib/seo";
+
+// This hub performs live DB reads. Keep it out of SSG so one stalled Supabase
+// query cannot fail the production build's static generation worker.
+export const dynamic = "force-dynamic";
+
+const HUB_DATA_TIMEOUT_MS = 10_000;
+
+async function withHubDataTimeout<T>(
+  label: string,
+  work: Promise<T>,
+  fallback: T
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[world-cup-hub] ${label} exceeded ${HUB_DATA_TIMEOUT_MS}ms; rendering fallback data.`
+      );
+      resolve(fallback);
+    }, HUB_DATA_TIMEOUT_MS);
+    if (timer && typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+  });
+
+  try {
+    return await Promise.race([
+      work.catch((error) => {
+        console.warn(`[world-cup-hub] ${label} failed; rendering fallback data.`, error);
+        return fallback;
+      }),
+      timeout,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -29,8 +66,8 @@ export default async function WorldCupHubPage({
   const t = await getTranslations();
 
   const [groups, fixtures] = await Promise.all([
-    getGroupNames().catch(() => []),
-    getUpcomingFixtures(8).catch(() => []),
+    withHubDataTimeout<string[]>("getGroupNames", getGroupNames(), []),
+    withHubDataTimeout<FixtureView[]>("getUpcomingFixtures", getUpcomingFixtures(8), []),
   ]);
 
   return (

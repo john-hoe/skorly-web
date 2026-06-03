@@ -6,6 +6,17 @@ import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
 import { buildAlternates } from "@/lib/seo";
 
+type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
+
+let groupedTeamsPromise: Promise<TeamGroups> | undefined;
+
+function getGroupedTeamsForBuild(): Promise<TeamGroups> {
+  groupedTeamsPromise ??= getGroupedTeams().catch(() => []);
+  return groupedTeamsPromise;
+}
+
+// Fully static for public SEO stability. Team data is cached during build so
+// this route does not hit Supabase at Cloudflare Worker runtime.
 export const dynamicParams = false;
 
 export function generateStaticParams() {
@@ -36,7 +47,7 @@ export default async function TeamsIndexPage({
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  const groups = await getGroupedTeams().catch(() => []);
+  const groups = await getGroupedTeamsForBuild();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 space-y-8">

@@ -11,6 +11,39 @@ import { getSessionUser } from "@/lib/supabase/server";
 import { AccountForm } from "@/components/auth/account-form";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
+const ACCOUNT_DATA_TIMEOUT_MS = 8_000;
+
+async function withAccountTimeout<T>(
+  label: string,
+  work: Promise<T>,
+  fallback: T
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[account-page] ${label} exceeded ${ACCOUNT_DATA_TIMEOUT_MS}ms; rendering fallback data.`
+      );
+      resolve(fallback);
+    }, ACCOUNT_DATA_TIMEOUT_MS);
+    if (timer && typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+  });
+
+  try {
+    return await Promise.race([
+      work.catch((error) => {
+        console.warn(`[account-page] ${label} failed; rendering fallback data.`, error);
+        return fallback;
+      }),
+      timeout,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -29,15 +62,15 @@ export default async function AccountPage({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  const user = await getSessionUser();
+  const user = await withAccountTimeout("getSessionUser", getSessionUser(), null);
   if (!user) redirect({ href: "/masuk", locale });
 
   const t = await getTranslations("account");
   const [profile, teams, stats, myPredictions] = await Promise.all([
-    getProfile(user!.id).catch(() => null),
-    getTeamOptions().catch(() => []),
-    getUserPredictionStats(user!.id).catch(() => null),
-    getUserPredictions(user!.id, 20).catch(() => []),
+    withAccountTimeout("getProfile", getProfile(user!.id), null),
+    withAccountTimeout("getTeamOptions", getTeamOptions(), []),
+    withAccountTimeout("getUserPredictionStats", getUserPredictionStats(user!.id), null),
+    withAccountTimeout("getUserPredictions", getUserPredictions(user!.id, 20), []),
   ]);
 
   const meta = (user!.user_metadata ?? {}) as Record<string, string>;

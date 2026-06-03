@@ -1,13 +1,47 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getLiveFixtures, getResultsFixtures } from "@skorly/db";
+import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
 import { buildAlternates } from "@/lib/seo";
 
-// Live data — short ISR window; the live section also self-polls on the client.
-export const revalidate = 60;
+// Live score data should be read at request time. Static generation can block
+// production builds when the Supabase pooler stalls.
+export const dynamic = "force-dynamic";
+
+const SCORE_DATA_TIMEOUT_MS = 10_000;
+
+async function withScoreDataTimeout(
+  label: string,
+  work: Promise<ScoreRowData[]>
+): Promise<ScoreRowData[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<ScoreRowData[]>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[scores-page] ${label} exceeded ${SCORE_DATA_TIMEOUT_MS}ms; rendering fallback data.`
+      );
+      resolve([]);
+    }, SCORE_DATA_TIMEOUT_MS);
+    if (timer && typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+  });
+
+  try {
+    return await Promise.race([
+      work.catch((error) => {
+        console.warn(`[scores-page] ${label} failed; rendering fallback data.`, error);
+        return [];
+      }),
+      timeout,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -33,11 +67,12 @@ export default async function ScoresPage({
 
   const t = await getTranslations("scores");
   const [live, results] = await Promise.all([
-    getLiveFixtures().catch(() => []),
-    getResultsFixtures(40).catch(() => []),
+    withScoreDataTimeout("getLiveFixtures", getLiveFixtures().then((rows) => rows.map(toScoreRow))),
+    withScoreDataTimeout(
+      "getResultsFixtures",
+      getResultsFixtures(40).then((rows) => rows.map(toScoreRow))
+    ),
   ]);
-  const initialLive = live.map(toScoreRow);
-  const resultRows = results.map(toScoreRow);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 space-y-8">
@@ -51,18 +86,18 @@ export default async function ScoresPage({
           <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
           {t("liveNow")}
         </h2>
-        <LiveScoreboard initial={initialLive} />
+        <LiveScoreboard initial={live} />
       </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">{t("recentResults")}</h2>
-        {resultRows.length === 0 ? (
+        {results.length === 0 ? (
           <p className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 text-center text-sm text-[var(--muted)]">
             {t("noResults")}
           </p>
         ) : (
           <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
-            {resultRows.map((row) => (
+            {results.map((row) => (
               <ScoreRow key={row.id} row={row} />
             ))}
           </div>
