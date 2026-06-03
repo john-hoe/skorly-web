@@ -1,4 +1,4 @@
-import { getNewsSitemapEntries } from "@skorly/db";
+import { getNewsSitemapEntries, type ArticleSitemapEntry } from "@skorly/db";
 import { absoluteUrl, localizedPath, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 const NEWS_LANG: Record<string, string> = { id: "id", vi: "vi", en: "en", zh: "zh-cn" };
 const NEWS_WINDOW_MS = 1000 * 60 * 60 * 48;
-const NEWS_SITEMAP_TIMEOUT_MS = 8_000;
+let lastGoodArticles: ArticleSitemapEntry[] | null = null;
 
 function xmlEscape(s: string): string {
   return s
@@ -14,26 +14,6 @@ function xmlEscape(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-async function withTimeout<T>(work: Promise<T>, fallback: T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(fallback), NEWS_SITEMAP_TIMEOUT_MS);
-    if (timer && typeof timer === "object" && "unref" in timer) timer.unref();
-  });
-
-  try {
-    return await Promise.race([
-      work.catch((error) => {
-        console.warn("[news-sitemap] query failed", error);
-        return fallback;
-      }),
-      timeout,
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
 }
 
 /**
@@ -44,7 +24,26 @@ async function withTimeout<T>(work: Promise<T>, fallback: T): Promise<T> {
  */
 export async function GET() {
   const cutoff = new Date(Date.now() - NEWS_WINDOW_MS);
-  const articles = await withTimeout(getNewsSitemapEntries(cutoff), []);
+  let articles: ArticleSitemapEntry[];
+  let source = "database";
+
+  try {
+    articles = await getNewsSitemapEntries(cutoff);
+    lastGoodArticles = articles;
+  } catch (error) {
+    console.warn("[news-sitemap] query failed", error);
+    if (!lastGoodArticles) {
+      return new Response("News sitemap temporarily unavailable", {
+        status: 503,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    articles = lastGoodArticles;
+    source = "memory-fallback";
+  }
 
   const items = articles
     .filter((a) => a.publishedAt && a.publishedAt >= cutoff)
@@ -76,6 +75,7 @@ ${items}
     headers: {
       "Content-Type": "application/xml",
       "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=60",
+      "X-Skorly-News-Sitemap-Source": source,
     },
   });
 }
