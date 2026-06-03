@@ -13,6 +13,7 @@ import { EventsTimeline } from "@/components/events-timeline";
 import { GoalHighlights } from "@/components/goal-highlights";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { JsonLd } from "@/components/json-ld";
+import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
 
@@ -159,27 +160,24 @@ export default async function MatchPage({
   ]);
   const byType = new Map(articles.map((a) => [a.type, a]));
   const finished = fixture.status === "finished";
-
-  const eventLd = {
-    "@context": "https://schema.org",
-    "@type": "SportsEvent",
-    name: `${fixture.home.name} vs ${fixture.away.name}`,
-    sport: "Soccer",
-    ...(fixture.kickoffAt ? { startDate: fixture.kickoffAt.toISOString() } : {}),
-    eventStatus: finished
-      ? "https://schema.org/EventScheduled"
-      : "https://schema.org/EventScheduled",
-    ...(fixture.venue
-      ? { location: { "@type": "Place", name: fixture.venue, address: fixture.city ?? undefined } }
-      : {}),
-    competitor: [
-      { "@type": "SportsTeam", name: fixture.home.name },
-      { "@type": "SportsTeam", name: fixture.away.name },
-    ],
-    superEvent: { "@type": "SportsEvent", name: "FIFA World Cup 2026" },
-  };
-
   const matchTitle = `${fixture.home.name} vs ${fixture.away.name}`;
+  const eventImage = poster?.url
+    ? absoluteUrl(poster.url)
+    : absoluteUrl(
+        `/og?kind=match&t=${encodeURIComponent(matchTitle)}&s=${encodeURIComponent(
+          finished
+            ? `${fixture.homeGoals ?? 0} - ${fixture.awayGoals ?? 0}`
+            : `${formatKickoff(fixture.kickoffAt)} WIB`
+        )}`
+      );
+
+  const eventLd = buildFixtureSportsEventLd({
+    fixture,
+    url: absoluteUrl(localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)),
+    image: eventImage,
+    description: `${matchTitle} World Cup 2026 match preview, kickoff details, teams, prediction and analysis.`,
+  });
+
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -227,10 +225,13 @@ export default async function MatchPage({
         ],
       }
     : null;
+  const jsonLdData = [eventLd, breadcrumbLd, faqLd].filter(
+    (item): item is Record<string, unknown> => Boolean(item)
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
-      <JsonLd data={faqLd ? [eventLd, breadcrumbLd, faqLd] : [eventLd, breadcrumbLd]} />
+      <JsonLd data={jsonLdData} />
       {/* Score header */}
       <header className="rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] p-6 text-white">
         <p className="text-center text-sm text-white/80">

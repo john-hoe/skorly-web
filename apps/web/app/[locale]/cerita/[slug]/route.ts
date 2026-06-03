@@ -1,6 +1,7 @@
 import { getFixtureBySlug, getArticlesForFixture, getAllFixtures } from "@skorly/db";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
+import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
@@ -112,27 +113,12 @@ export async function GET(
   const poster = absoluteUrl("/og.png");
   const homeLogo = fixture.home.logo ? esc(fixture.home.logo) : "";
   const awayLogo = fixture.away.logo ? esc(fixture.away.logo) : "";
-  const eventLd = {
-    "@context": "https://schema.org",
-    "@type": "SportsEvent",
-    name: title,
-    sport: "Soccer",
-    ...(fixture.kickoffAt ? { startDate: fixture.kickoffAt.toISOString() } : {}),
-    ...(fixture.venue
-      ? {
-          location: {
-            "@type": "Place",
-            name: fixture.venue,
-            address: fixture.city ?? undefined,
-          },
-        }
-      : {}),
-    competitor: [
-      { "@type": "SportsTeam", name: fixture.home.name },
-      { "@type": "SportsTeam", name: fixture.away.name },
-    ],
-    superEvent: { "@type": "SportsEvent", name: "FIFA World Cup 2026" },
-  };
+  const eventLd = buildFixtureSportsEventLd({
+    fixture,
+    url: matchUrl,
+    image: poster,
+    description: `${title} World Cup 2026 story preview with kickoff details, teams and score prediction context.`,
+  });
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -162,7 +148,7 @@ export async function GET(
 ${alternateLinks}
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta name="description" content="${esc(blurb).slice(0, 160)}">
-<script type="application/ld+json">${jsonLd([eventLd, breadcrumbLd])}</script>
+<script type="application/ld+json">${jsonLd([eventLd, breadcrumbLd].filter(Boolean))}</script>
 <script async src="https://cdn.ampproject.org/v0.js"></script>
 <script async custom-element="amp-story" src="https://cdn.ampproject.org/v0/amp-story-1.0.js"></script>
 ${AMP_BOILERPLATE}
