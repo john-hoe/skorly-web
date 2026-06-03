@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 const KICKOFF = new Date("2026-06-11T19:00:00Z").getTime();
 
@@ -14,20 +15,25 @@ function diff() {
 }
 
 export function Countdown({ label }: { label: string }) {
+  const tUnits = useTranslations("home.countdownUnits");
   // Start null so server and client initial render match (avoids hydration
   // mismatch); compute the live value only after mount.
-  const [t, setT] = useState<ReturnType<typeof diff> | null>(null);
+  const [timeLeft, setTimeLeft] = useState<ReturnType<typeof diff> | null>(null);
   useEffect(() => {
-    setT(diff());
-    const id = setInterval(() => setT(diff()), 1000);
-    return () => clearInterval(id);
+    const update = () => setTimeLeft(diff());
+    const first = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 1000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const cells: [number, string][] = [
-    [t?.d ?? 0, "Hari"],
-    [t?.h ?? 0, "Jam"],
-    [t?.m ?? 0, "Menit"],
-    [t?.s ?? 0, "Detik"],
+    [timeLeft?.d ?? 0, tUnits("days")],
+    [timeLeft?.h ?? 0, tUnits("hours")],
+    [timeLeft?.m ?? 0, tUnits("minutes")],
+    [timeLeft?.s ?? 0, tUnits("seconds")],
   ];
 
   return (

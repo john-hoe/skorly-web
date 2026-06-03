@@ -35,6 +35,7 @@ export default async function StoriesIndexPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
+  const vsLabel = t("common.vs");
 
   const fixtures = await getUpcomingFixtures(24).catch(() => []);
 
@@ -50,15 +51,15 @@ export default async function StoriesIndexPage({
           <Link
             key={f.id}
             href={{ pathname: "/cerita/[slug]", params: { slug: f.slug } }}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--brand)]/10 to-transparent p-4 text-center transition hover:border-[var(--brand)]"
+            className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-gradient-to-br from-[var(--brand)]/10 to-transparent p-4 text-center transition hover:border-[var(--brand)]"
           >
             <div className="flex items-center gap-2">
               <TeamBadge name={f.home.name} logo={f.home.logo} code={f.home.code} size={28} showName={false} />
-              <span className="text-xs font-semibold text-[var(--muted)]">VS</span>
+              <span className="text-xs font-semibold uppercase text-[var(--muted)]">{vsLabel}</span>
               <TeamBadge name={f.away.name} logo={f.away.logo} code={f.away.code} size={28} showName={false} />
             </div>
-            <span className="text-sm font-medium leading-tight">
-              {f.home.name} v {f.away.name}
+            <span className="text-sm font-semibold leading-snug">
+              {f.home.name} {vsLabel} {f.away.name}
             </span>
           </Link>
         ))}

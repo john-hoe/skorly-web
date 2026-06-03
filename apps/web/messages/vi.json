@@ -26,6 +26,12 @@
     "latestArticles": "Bài viết mới nhất",
     "upcomingMatches": "Lịch thi đấu sắp tới",
     "countdown": "Đếm ngược World Cup",
+    "countdownUnits": {
+      "days": "Ngày",
+      "hours": "Giờ",
+      "minutes": "Phút",
+      "seconds": "Giây"
+    },
     "predictCta": "Dự đoán trận đấu",
     "bracketCta": "Thử thách nhánh đấu",
     "premiumBadge": "Premium",
@@ -106,7 +112,13 @@
     "success": "Kiểm tra email của bạn! Cẩm nang đang được gửi.",
     "checkEmail": "Sắp xong — kiểm tra email của bạn!",
     "checkEmailHint": "Chúng tôi đã gửi liên kết xác nhận. Nhấn vào đó để bắt đầu nhận dự đoán độc quyền.",
-    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "errors": {
+      "invalid": "Kiểm tra email và đồng ý điều khoản, rồi thử lại.",
+      "captcha": "Xác minh captcha thất bại. Vui lòng hoàn tất xác minh và thử lại.",
+      "rateLimited": "Quá nhiều lần thử. Vui lòng đợi vài phút.",
+      "generic": "Đã xảy ra lỗi. Vui lòng thử lại."
+    }
   },
   "auth": {
     "login": {

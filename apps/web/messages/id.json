@@ -26,6 +26,12 @@
     "latestArticles": "Artikel Terbaru",
     "upcomingMatches": "Jadwal Terdekat",
     "countdown": "Menuju Piala Dunia",
+    "countdownUnits": {
+      "days": "Hari",
+      "hours": "Jam",
+      "minutes": "Menit",
+      "seconds": "Detik"
+    },
     "predictCta": "Tebak laga",
     "bracketCta": "Tantangan bagan",
     "premiumBadge": "Premium",
@@ -106,7 +112,13 @@
     "success": "Cek email kamu! Panduan sedang dikirim.",
     "checkEmail": "Hampir selesai — cek email kamu!",
     "checkEmailHint": "Kami mengirim tautan konfirmasi. Klik untuk mulai menerima prediksi eksklusif.",
-    "error": "Terjadi kesalahan. Coba lagi sebentar lagi."
+    "error": "Terjadi kesalahan. Coba lagi sebentar lagi.",
+    "errors": {
+      "invalid": "Periksa email dan persetujuanmu, lalu coba lagi.",
+      "captcha": "Verifikasi captcha gagal. Selesaikan verifikasi lalu coba lagi.",
+      "rateLimited": "Terlalu banyak percobaan. Tunggu beberapa menit.",
+      "generic": "Terjadi kesalahan. Coba lagi sebentar lagi."
+    }
   },
   "auth": {
     "login": {

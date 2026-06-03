@@ -62,7 +62,7 @@ export default async function SchedulePage({
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
       <header>
         <h1 className="text-3xl font-bold tracking-tight">{t("team.fixtures")}</h1>
-        <p className="mt-1 text-[var(--muted)]">{t("nav.worldCup")} 2026</p>
+        <p className="mt-1 text-[var(--muted)]">{t("nav.worldCup")}</p>
       </header>
 
       {Array.from(byDay.entries()).map(([day, dayFixtures]) => (

@@ -26,6 +26,12 @@
     "latestArticles": "Latest Articles",
     "upcomingMatches": "Upcoming Matches",
     "countdown": "Countdown to World Cup",
+    "countdownUnits": {
+      "days": "Days",
+      "hours": "Hours",
+      "minutes": "Minutes",
+      "seconds": "Seconds"
+    },
     "predictCta": "Predict a match",
     "bracketCta": "Bracket challenge",
     "premiumBadge": "Premium",
@@ -106,7 +112,13 @@
     "success": "Check your email! The guide is on its way.",
     "checkEmail": "Almost there — check your email!",
     "checkEmailHint": "We sent a confirmation link. Click it to start receiving exclusive predictions.",
-    "error": "Something went wrong. Please try again shortly."
+    "error": "Something went wrong. Please try again shortly.",
+    "errors": {
+      "invalid": "Check your email and consent, then try again.",
+      "captcha": "Captcha verification failed. Please complete the check and try again.",
+      "rateLimited": "Too many attempts. Please wait a few minutes.",
+      "generic": "Something went wrong. Please try again shortly."
+    }
   },
   "auth": {
     "login": {

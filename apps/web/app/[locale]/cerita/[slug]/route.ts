@@ -93,7 +93,7 @@ export async function GET(
   const blurb =
     prediction?.summary ??
     prediction?.body.replace(/[#*_>`]/g, "").slice(0, 220).trim() ??
-    `${fixture.home.name} vs ${fixture.away.name} — ${t("nav.worldCup")} 2026.`;
+    `${fixture.home.name} vs ${fixture.away.name} — ${t("nav.worldCup")}.`;
 
   const title = `${fixture.home.name} vs ${fixture.away.name}`;
   const alternates = buildAlternates(
@@ -191,7 +191,7 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
     <amp-story-grid-layer template="fill"><div class="bg" style="width:100%;height:100%"></div></amp-story-grid-layer>
     <amp-story-grid-layer template="vertical">
       <div class="wrap">
-        <p class="kicker">${esc(t("nav.worldCup"))} 2026</p>
+        <p class="kicker">${esc(t("nav.worldCup"))}</p>
         <div class="logos">
           ${homeLogo ? `<amp-img src="${homeLogo}" width="72" height="72" layout="fixed" alt="${esc(fixture.home.name)}"></amp-img>` : ""}
           <span class="vs">VS</span>

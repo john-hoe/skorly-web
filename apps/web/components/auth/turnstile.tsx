@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
   interface Window {
     turnstile?: {
