@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getGroupNames, getUpcomingFixtures, type FixtureView } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
 import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import {
+  getRuntimeGroupNames,
+  getRuntimeUpcomingFixtures,
+  type RuntimeFixtureView,
+} from "@/lib/runtime-data";
 
 // This hub performs live DB reads. Keep it out of SSG so one stalled Supabase
 // query cannot fail the production build's static generation worker.
@@ -65,8 +69,8 @@ export default async function WorldCupHubPage({
   const t = await getTranslations();
 
   const [groups, fixtures] = await Promise.all([
-    withHubDataTimeout<string[]>("getGroupNames", getGroupNames(), []),
-    withHubDataTimeout<FixtureView[]>("getUpcomingFixtures", getUpcomingFixtures(8), []),
+    withHubDataTimeout<string[]>("getGroupNames", getRuntimeGroupNames(), []),
+    withHubDataTimeout<RuntimeFixtureView[]>("getUpcomingFixtures", getRuntimeUpcomingFixtures(8), []),
   ]);
 
   return (

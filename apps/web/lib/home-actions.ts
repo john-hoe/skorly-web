@@ -1,6 +1,6 @@
 "use server";
 
-import { getUserPredictionStats, getUpcomingFixtures } from "@skorly/db";
+import { getRuntimeUpcomingFixtures, getRuntimeUserPredictionStats } from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 
 export type HomePersonalization =
@@ -19,8 +19,8 @@ export async function getHomePersonalization(): Promise<HomePersonalization> {
   if (!user) return { auth: false };
 
   const [stats, upcoming] = await Promise.all([
-    getUserPredictionStats(user.id).catch(() => null),
-    getUpcomingFixtures(1).catch(() => []),
+    getRuntimeUserPredictionStats(user.id).catch(() => null),
+    getRuntimeUpcomingFixtures(1).catch(() => []),
   ]);
 
   const f = upcoming[0];

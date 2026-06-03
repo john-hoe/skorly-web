@@ -2,17 +2,17 @@
 
 import { headers } from "next/headers";
 import {
-  savePushSubscription,
-  deletePushSubscription,
-  type PushKeys,
-  type PushTopics,
-} from "@skorly/db";
+  deleteRuntimePushSubscription,
+  saveRuntimePushSubscription,
+  type RuntimePushKeys,
+  type RuntimePushTopics,
+} from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 import { rateLimit, clientIp } from "./ratelimit";
 
 export interface BrowserSubscription {
   endpoint: string;
-  keys: PushKeys;
+  keys: RuntimePushKeys;
 }
 
 export type SubscribePushResult =
@@ -22,7 +22,7 @@ export type SubscribePushResult =
 /** Persist a browser Push subscription (anonymous allowed; userId backfilled). */
 export async function subscribePush(
   sub: BrowserSubscription,
-  opts?: { locale?: string; topics?: PushTopics },
+  opts?: { locale?: string; topics?: RuntimePushTopics },
 ): Promise<SubscribePushResult> {
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
     return { ok: false, error: "invalid" };
@@ -35,7 +35,7 @@ export async function subscribePush(
   const user = await getSessionUser().catch(() => null);
 
   try {
-    await savePushSubscription({
+    await saveRuntimePushSubscription({
       endpoint: sub.endpoint,
       keys: sub.keys,
       userId: user?.id ?? null,
@@ -53,7 +53,7 @@ export async function subscribePush(
 export async function unsubscribePush(endpoint: string): Promise<{ ok: boolean }> {
   if (!endpoint) return { ok: false };
   try {
-    await deletePushSubscription(endpoint);
+    await deleteRuntimePushSubscription(endpoint);
     return { ok: true };
   } catch {
     return { ok: false };

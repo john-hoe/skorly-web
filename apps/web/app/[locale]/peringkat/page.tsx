@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getLeaderboard } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { ShareButtons } from "@/components/share-buttons";
 import { absoluteUrl, buildAlternates, localizedPath, pageSeoDescription } from "@/lib/seo";
+import { getRuntimeLeaderboard } from "@/lib/runtime-data";
 
 export const revalidate = 300;
 
@@ -39,7 +39,7 @@ export default async function LeaderboardPage({
 
   const t = await getTranslations("leaderboard");
   const tb = await getTranslations("bracket");
-  const rows = await getLeaderboard(100).catch(() => []);
+  const rows = await getRuntimeLeaderboard(100).catch(() => []);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 space-y-6">

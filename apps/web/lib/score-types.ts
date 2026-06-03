@@ -1,4 +1,4 @@
-import type { FixtureView } from "@skorly/db";
+import type { RuntimeFixtureView } from "./runtime-data";
 
 /** Serializable score row for client islands (Date → ISO string). */
 export interface ScoreRow {
@@ -15,7 +15,7 @@ export interface ScoreRow {
   away: { name: string; code: string | null; logo: string | null };
 }
 
-export function toScoreRow(f: FixtureView): ScoreRow {
+export function toScoreRow(f: RuntimeFixtureView): ScoreRow {
   return {
     id: f.id,
     slug: f.slug,

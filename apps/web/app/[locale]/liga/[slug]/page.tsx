@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getMiniLeagueBySlug, getMiniLeagueStandings } from "@skorly/db";
 import { getSessionUser } from "@/lib/supabase/server";
 import { LeagueInvite } from "@/components/league-invite";
 import { LeagueJoin } from "@/components/league-join";
 import { absoluteUrl, localizedPath } from "@/lib/seo";
+import { getRuntimeMiniLeagueBySlug, getRuntimeMiniLeagueStandings } from "@/lib/runtime-data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const league = await getMiniLeagueBySlug(slug).catch(() => null);
+  const league = await getRuntimeMiniLeagueBySlug(slug).catch(() => null);
   const t = await getTranslations({ locale, namespace: "league" });
   return {
     title: league ? league.name : t("title"),
@@ -31,7 +31,7 @@ export default async function LeagueDetailPage({
   setRequestLocale(locale);
   const t = await getTranslations("league");
 
-  const league = await getMiniLeagueBySlug(slug).catch(() => null);
+  const league = await getRuntimeMiniLeagueBySlug(slug).catch(() => null);
   const user = await getSessionUser().catch(() => null);
 
   if (!league) {
@@ -42,7 +42,7 @@ export default async function LeagueDetailPage({
     );
   }
 
-  const standings = await getMiniLeagueStandings(league.id).catch(() => []);
+  const standings = await getRuntimeMiniLeagueStandings(league.id).catch(() => []);
   const isMember = !!user && standings.some((s) => s.userId === user.id);
   const inviteUrl = absoluteUrl(
     localizedPath({ pathname: "/liga/[slug]", params: { slug } }, locale),

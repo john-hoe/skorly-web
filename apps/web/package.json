@@ -15,6 +15,7 @@
   "dependencies": {
     "@skorly/api-football": "workspace:*",
     "@skorly/db": "workspace:*",
+    "@skorly/predict-model": "workspace:*",
     "@skorly/types": "workspace:*",
     "@skorly/ui": "workspace:*",
     "@supabase/ssr": "^0.10.3",

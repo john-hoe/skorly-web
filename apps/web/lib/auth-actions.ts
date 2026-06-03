@@ -1,8 +1,8 @@
 "use server";
 
 import { headers } from "next/headers";
-import { updateProfile } from "@skorly/db";
 import { createSupabaseServerClient, getSessionUser } from "./supabase/server";
+import { updateRuntimeProfile } from "./runtime-data";
 import { verifyTurnstile } from "./turnstile";
 import { rateLimit, clientIp } from "./ratelimit";
 
@@ -141,7 +141,7 @@ export async function updateProfileAction(formData: FormData): Promise<ActionRes
   const favoriteTeamRaw = String(formData.get("favoriteTeamId") ?? "").trim();
   const favoriteTeamId = favoriteTeamRaw ? Number(favoriteTeamRaw) : null;
 
-  await updateProfile(user.id, {
+  await updateRuntimeProfile(user.id, {
     displayName: displayName || null,
     whatsappNumber: whatsappNumber || null,
     favoriteTeamId: Number.isFinite(favoriteTeamId as number) ? favoriteTeamId : null,

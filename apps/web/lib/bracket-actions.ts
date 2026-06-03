@@ -1,11 +1,15 @@
 "use server";
 
-import { getBracket, saveBracket, type BracketPicks } from "@skorly/db";
+import {
+  getRuntimeBracket,
+  saveRuntimeBracket,
+  type RuntimeBracketPicks,
+} from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 import { rateLimit } from "./ratelimit";
 
 export type GetBracketActionResult =
-  | { ok: true; bracket: BracketPicks | null }
+  | { ok: true; bracket: RuntimeBracketPicks | null }
   | { ok: false; error: "unauth" | "generic" };
 
 export type SaveBracketActionResult =
@@ -18,7 +22,7 @@ export async function getBracketAction(): Promise<GetBracketActionResult> {
   if (!user) return { ok: false, error: "unauth" };
 
   try {
-    return { ok: true, bracket: await getBracket(user.id) };
+    return { ok: true, bracket: await getRuntimeBracket(user.id) };
   } catch {
     return { ok: false, error: "generic" };
   }
@@ -26,7 +30,7 @@ export async function getBracketAction(): Promise<GetBracketActionResult> {
 
 /** Persist the signed-in user's knockout bracket ("road to the final"). */
 export async function saveBracketAction(
-  picks: BracketPicks,
+  picks: RuntimeBracketPicks,
 ): Promise<SaveBracketActionResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: "unauth" };
@@ -35,10 +39,12 @@ export async function saveBracketAction(
     const rl = await rateLimit(`bracket:${user.id}`, 30, 60);
     if (!rl.success) return { ok: false, error: "rateLimited" };
 
-    const res = await saveBracket(user.id, picks);
+    const res = await saveRuntimeBracket(user.id, picks);
     if (res.ok) return { ok: true };
     return { ok: false, error: res.reason === "invalid" ? "invalid" : "generic" };
   } catch {
     return { ok: false, error: "generic" };
   }
 }
+
+export type { RuntimeBracketPicks as BracketPicks };

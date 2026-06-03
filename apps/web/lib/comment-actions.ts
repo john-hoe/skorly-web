@@ -2,13 +2,13 @@
 
 import { headers } from "next/headers";
 import {
-  getComments,
-  addComment,
-  toggleCommentLike,
-  reportComment,
-  type CommentView,
-  type CommentTarget,
-} from "@skorly/db";
+  addRuntimeComment,
+  getRuntimeComments,
+  reportRuntimeComment,
+  toggleRuntimeCommentLike,
+  type RuntimeCommentTargetInput,
+  type RuntimeCommentView,
+} from "./runtime-data";
 import { getSessionUser } from "./supabase/server";
 import { rateLimit, clientIp } from "./ratelimit";
 import { verifyTurnstile } from "./turnstile";
@@ -16,13 +16,13 @@ import { screenComment, type FilterReason } from "./comment-filter";
 
 export type CommentThread = {
   auth: boolean;
-  comments: CommentView[];
+  comments: RuntimeCommentView[];
 };
 
 /** Load the visible thread for a target (article or fixture). */
-export async function loadComments(target: CommentTarget): Promise<CommentThread> {
+export async function loadComments(target: RuntimeCommentTargetInput): Promise<CommentThread> {
   const user = await getSessionUser().catch(() => null);
-  const comments = await getComments(target, user?.id).catch(() => []);
+  const comments = await getRuntimeComments(target, user?.id).catch(() => []);
   return { auth: !!user, comments };
 }
 
@@ -35,7 +35,7 @@ export type PostCommentResult =
 
 /** Post a comment / 1-level reply with auth + Turnstile + rate limit + filter. */
 export async function postComment(input: {
-  target: CommentTarget;
+  target: RuntimeCommentTargetInput;
   body: string;
   parentId?: number | null;
   turnstileToken?: string | null;
@@ -58,7 +58,7 @@ export async function postComment(input: {
   const screen = screenComment(input.body);
   if (!screen.ok) return { ok: false, error: screen.reason ?? "invalid" };
 
-  const res = await addComment({
+  const res = await addRuntimeComment({
     userId: user.id,
     target: input.target,
     body: input.body,
@@ -76,7 +76,7 @@ export async function likeComment(commentId: number): Promise<LikeResult> {
   if (!user) return { ok: false };
   const rl = await rateLimit(`like:${user.id}`, 30, 60);
   if (!rl.success) return { ok: false };
-  const liked = await toggleCommentLike(commentId, user.id).catch(() => null);
+  const liked = await toggleRuntimeCommentLike(commentId, user.id).catch(() => null);
   if (liked == null) return { ok: false };
   return { ok: true, liked };
 }
@@ -87,6 +87,11 @@ export async function flagComment(commentId: number, reason?: string): Promise<{
   const ip = clientIp(await headers());
   const rl = await rateLimit(`report:${user?.id ?? ip}`, 10, 60);
   if (!rl.success) return { ok: false };
-  await reportComment(commentId, user?.id ?? null, reason).catch(() => {});
+  await reportRuntimeComment(commentId, user?.id ?? null, reason).catch(() => {});
   return { ok: true };
 }
+
+export type {
+  RuntimeCommentTargetInput as CommentTarget,
+  RuntimeCommentView as CommentView,
+};
