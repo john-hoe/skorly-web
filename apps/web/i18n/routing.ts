@@ -9,6 +9,10 @@ export const routing = defineRouting({
   locales: ["id", "vi", "en", "zh"],
   defaultLocale: "id",
   localePrefix: "always",
+  // Page metadata and sitemap.xml emit explicit canonical/hreflang signals.
+  // next-intl's automatic response Link header uses app locale ids (e.g. "zh")
+  // and locale-less x-default URLs, which conflicts with those SEO signals.
+  alternateLinks: false,
   pathnames: {
     "/": "/",
     "/piala-dunia-2026": {

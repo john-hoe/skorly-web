@@ -435,6 +435,46 @@ export interface ArticleView {
   publishedAt: Date | null;
 }
 
+function cleanArticleText(markdown: string): string {
+  return markdown
+    .replace(/^#\s+.+$/m, "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[[^\]]+]\([^)]*\)/g, (match) => match.match(/\[([^\]]+)]/)?.[1] ?? " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[#*_>`~|[\]{}()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function excerptFromBody(body: string, fallback: string | null, maxLength = 180): string | null {
+  const cleaned = cleanArticleText(body);
+  const base = cleaned.length >= 40 ? cleaned : fallback?.trim() ?? "";
+  if (!base) return null;
+  return base.length > maxLength ? `${base.slice(0, maxLength - 3).trimEnd()}...` : base;
+}
+
+function normalizeArticleTitle(locale: string, title: string, slug: string, body?: string | null): string {
+  if (locale !== "id" || !/\bASI\b/.test(title)) return title;
+  const context = `${slug} ${body ?? ""}`.toLowerCase();
+  if (!/\b(usa|united states|amerika serikat)\b/.test(context)) return title;
+  return title.replace(/\bASI\b/g, "Amerika Serikat");
+}
+
+function localizeArticleSummary(locale: string, summary: string | null, body?: string | null): string | null {
+  if (locale === "en" || !body) return summary;
+  return excerptFromBody(body, summary);
+}
+
+function localizeArticleView(row: unknown): ArticleView {
+  const article = row as ArticleView;
+  return {
+    ...article,
+    title: normalizeArticleTitle(article.locale, article.title, article.slug, article.body),
+    summary: localizeArticleSummary(article.locale, article.summary, article.body),
+  };
+}
+
 /** Latest published news articles (type='news') for the news feed. */
 export async function getLatestNews(locale = "id", limit = 30): Promise<ArticleView[]> {
   const db = getDb();
@@ -450,7 +490,7 @@ export async function getLatestNews(locale = "id", limit = 30): Promise<ArticleV
     )
     .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
     .limit(limit);
-  return rows as unknown as ArticleView[];
+  return rows.map(localizeArticleView);
 }
 
 export async function getLatestArticles(locale = "id", limit = 10): Promise<ArticleView[]> {
@@ -461,7 +501,7 @@ export async function getLatestArticles(locale = "id", limit = 10): Promise<Arti
     .where(and(eq(articles.locale, locale), eq(articles.status, "published")))
     .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
     .limit(limit);
-  return rows as unknown as ArticleView[];
+  return rows.map(localizeArticleView);
 }
 
 /** Card fields only (no body) for listing/archive pages. */
@@ -493,12 +533,17 @@ export async function getArticleCards(
       type: articles.type,
       title: articles.title,
       summary: articles.summary,
+      body: articles.body,
       imageUrl: articles.imageUrl,
     })
     .from(articles)
     .where(and(...conds))
     .orderBy(desc(articles.publishedAt), desc(articles.createdAt));
-  return rows as ArticleCardData[];
+  return rows.map(({ body, ...row }) => ({
+    ...row,
+    title: normalizeArticleTitle(locale, row.title, row.slug, body),
+    summary: localizeArticleSummary(locale, row.summary, body),
+  }));
 }
 
 export async function getArticlesForFixture(
@@ -516,7 +561,7 @@ export async function getArticlesForFixture(
         eq(articles.status, "published")
       )
     );
-  return rows as unknown as ArticleView[];
+  return rows.map(localizeArticleView);
 }
 
 export interface InsertArticleInput {
@@ -644,6 +689,36 @@ export async function getArticleSitemapEntries(): Promise<ArticleSitemapEntry[]>
   }));
 }
 
+/** Recent published news entries for Google News sitemap. */
+export async function getNewsSitemapEntries(cutoff: Date): Promise<ArticleSitemapEntry[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      slug: articles.slug,
+      locale: articles.locale,
+      title: articles.title,
+      body: articles.body,
+      publishedAt: articles.publishedAt,
+      updatedAt: articles.updatedAt,
+    })
+    .from(articles)
+    .where(
+      and(
+        eq(articles.status, "published"),
+        eq(articles.type, "news"),
+        gte(articles.publishedAt, cutoff)
+      )
+    )
+    .orderBy(desc(articles.publishedAt), desc(articles.createdAt));
+  return rows.map((r) => ({
+    slug: r.slug,
+    locale: r.locale,
+    title: normalizeArticleTitle(r.locale, r.title, r.slug, r.body),
+    publishedAt: safeDate(r.publishedAt),
+    updatedAt: safeDate(r.updatedAt),
+  }));
+}
+
 export async function getArticleBySlug(slug: string, locale = "id"): Promise<ArticleView | null> {
   const db = getDb();
   const rows = await db
@@ -651,7 +726,7 @@ export async function getArticleBySlug(slug: string, locale = "id"): Promise<Art
     .from(articles)
     .where(and(eq(articles.slug, slug), eq(articles.locale, locale)))
     .limit(1);
-  return (rows[0] as unknown as ArticleView) ?? null;
+  return rows[0] ? localizeArticleView(rows[0]) : null;
 }
 
 /* ------------------------------------------------------------------ */
