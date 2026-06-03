@@ -36,9 +36,15 @@ export async function createSupabaseServerClient() {
  * or null. Safe to call in any server context.
  */
 export async function getSessionUser() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ?? null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return null;
+    return data?.user ?? null;
+  } catch {
+    // Transient Supabase/network failure (notably on the Cloudflare Workers
+    // runtime) must not crash the page — degrade to logged-out. This was the
+    // cause of intermittent 500s (Worker 1101) on /prediksi and other pages.
+    return null;
+  }
 }
