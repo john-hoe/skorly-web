@@ -3,27 +3,18 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
-  getAllTeamSlugs,
   getTeamBySlug,
   getTeamFixtures,
   getTeamSquad,
 } from "@skorly/db";
-import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
-import { TeamBadge } from "@/components/team-badge";
 import { JsonLd } from "@/components/json-ld";
 import { SITE_NAME, SITE_URL, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
-// Fully static: prerendered at build, no DB at runtime.
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  const slugs = await getAllTeamSlugs().catch(() => []);
-  return routing.locales.flatMap((locale) =>
-    slugs.map((slug) => ({ locale, slug }))
-  );
-}
+// Team pages perform multiple DB reads. Render on demand so one stalled team
+// query cannot fail the production build.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

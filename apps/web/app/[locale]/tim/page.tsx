@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getGroupedTeams } from "@skorly/db";
-import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
 import { buildAlternates } from "@/lib/seo";
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
-}
+// Team data comes from Supabase. Keep this route out of SSG so a slow DB query
+// cannot block production deploys.
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
