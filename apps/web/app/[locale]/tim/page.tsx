@@ -4,7 +4,7 @@ import { getGroupedTeams } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
 type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
 
@@ -33,7 +33,7 @@ export async function generateMetadata({
   const title = `${t("team.allTeams")} — ${t("nav.worldCup")}`;
   return {
     title,
-    description: title,
+    description: pageSeoDescription(locale, "teams"),
     alternates: buildAlternates("/tim", locale),
   };
 }

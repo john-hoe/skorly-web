@@ -12,7 +12,15 @@ import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
 import { JsonLd } from "@/components/json-ld";
-import { SITE_NAME, SITE_URL, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
+import {
+  SITE_NAME,
+  SITE_URL,
+  absoluteUrl,
+  buildAlternates,
+  fitMetaTitle,
+  localizedPath,
+  pageSeoDescription,
+} from "@/lib/seo";
 
 type Team = Awaited<ReturnType<typeof getTeamBySlug>>;
 type TeamSlugs = Awaited<ReturnType<typeof getAllTeamSlugs>>;
@@ -74,12 +82,11 @@ export async function generateMetadata({
   const team = await getTeamForPage(slug);
   if (!team) return {};
   const t = await getTranslations({ locale });
-  const title = `${team.name} — ${t("team.squad")}, ${t("team.fixtures")} | ${t(
-    "nav.worldCup"
-  )}`;
-  const description = `${team.name} ${t("team.squad")}, ${t(
-    "team.fixtures"
-  )} & ${t("team.recentForm")} — ${SITE_NAME} ${t("nav.worldCup")} 2026.`;
+  const title = fitMetaTitle(
+    `${team.name} — ${t("team.squad")} & ${t("team.fixtures")} 2026`,
+    46
+  );
+  const description = pageSeoDescription(locale, "team", team.name);
   return {
     title,
     description,

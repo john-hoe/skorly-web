@@ -7,7 +7,7 @@ import { MatchCard } from "@/components/match-card";
 import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { HomePersonalized } from "@/components/home-personalized";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -17,10 +17,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "home" });
   return {
-    title: t("heroTitle"),
-    description: t("heroSubtitle"),
+    title: pageSeoTitle(locale, "home"),
+    description: pageSeoDescription(locale, "home"),
     alternates: buildAlternates("/", locale),
   };
 }

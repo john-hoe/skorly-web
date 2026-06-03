@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getGroupNames, getUpcomingFixtures, type FixtureView } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 
 // This hub performs live DB reads. Keep it out of SSG so one stalled Supabase
 // query cannot fail the production build's static generation worker.
@@ -48,10 +48,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale });
   return {
-    title: t("nav.worldCup"),
-    description: t("home.heroSubtitle"),
+    title: pageSeoTitle(locale, "worldCup"),
+    description: pageSeoDescription(locale, "worldCup"),
     alternates: buildAlternates("/piala-dunia-2026", locale),
   };
 }

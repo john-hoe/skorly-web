@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getArticleCards } from "@skorly/db";
 import { ArticleGrid } from "@/components/article-grid";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
 export async function generateMetadata({
   params,
@@ -12,8 +12,8 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale });
   return {
-    title: t("nav.news"),
-    description: `${t("nav.news")} — ${t("site.tagline")}`,
+    title: `${t("nav.news")} — ${t("nav.worldCup")}`,
+    description: pageSeoDescription(locale, "news"),
     alternates: buildAlternates("/berita", locale),
   };
 }

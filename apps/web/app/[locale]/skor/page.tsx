@@ -5,7 +5,7 @@ import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 
 // Live score data should be read at request time. Static generation can block
 // production builds when the Supabase pooler stalls.
@@ -49,10 +49,9 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "scores" });
   return {
-    title: t("title"),
-    description: t("subtitle"),
+    title: pageSeoTitle(locale, "scores"),
+    description: pageSeoDescription(locale, "scores"),
     alternates: buildAlternates("/skor", locale),
   };
 }

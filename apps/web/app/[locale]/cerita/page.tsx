@@ -4,7 +4,7 @@ import { getUpcomingFixtures } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
-import { buildAlternates } from "@/lib/seo";
+import { buildAlternates, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -19,10 +19,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale });
-  const title = `${t("stories.title")} — ${t("nav.worldCup")} 2026`;
+  const title = `${t("stories.title")} — ${t("nav.worldCup")}`;
   return {
     title,
-    description: t("stories.subtitle"),
+    description: pageSeoDescription(locale, "stories"),
     alternates: buildAlternates("/cerita", locale),
   };
 }

@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getLeaderboard } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
 import { ShareButtons } from "@/components/share-buttons";
-import { absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
+import { absoluteUrl, buildAlternates, localizedPath, pageSeoDescription } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -14,14 +14,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "leaderboard" });
+  const tg = await getTranslations({ locale });
+  const title = `${t("title")} — ${tg("nav.worldCup")}`;
+  const description = pageSeoDescription(locale, "leaderboard");
   const ogImage = absoluteUrl(
-    `/og?kind=leaderboard&t=${encodeURIComponent(t("title"))}&s=${encodeURIComponent(t("subtitle"))}`
+    `/og?kind=leaderboard&t=${encodeURIComponent(title)}&s=${encodeURIComponent(description)}`
   );
   return {
-    title: t("title"),
-    description: t("subtitle"),
+    title,
+    description,
     alternates: buildAlternates("/peringkat", locale),
-    openGraph: { title: t("title"), description: t("subtitle"), images: [ogImage] },
+    openGraph: { title, description, images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
   };
 }
