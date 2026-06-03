@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { subscribePush, unsubscribePush } from "@/lib/push-actions";
+import { subscribePushApi, unsubscribePushApi } from "@/lib/runtime-api-client";
 
 const VAPID = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -70,7 +70,7 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
         setState("idle");
         return;
       }
-      const res = await subscribePush(
+      const res = await subscribePushApi(
         { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } },
         { locale },
       );
@@ -86,7 +86,7 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await unsubscribePush(sub.endpoint);
+        await unsubscribePushApi(sub.endpoint);
         await sub.unsubscribe();
       }
       setState("idle");

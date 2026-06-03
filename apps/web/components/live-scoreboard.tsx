@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getLiveScores } from "@/lib/score-actions";
+import { getLiveScoresApi } from "@/lib/runtime-api-client";
 import { ScoreRow } from "@/components/score-row";
 import type { ScoreRow as Row } from "@/lib/score-types";
 
@@ -15,7 +15,7 @@ export function LiveScoreboard({ initial }: { initial: Row[] }) {
   useEffect(() => {
     let active = true;
     const tick = () => {
-      getLiveScores()
+      getLiveScoresApi()
         .then((r) => {
           if (active) setRows(r);
         })

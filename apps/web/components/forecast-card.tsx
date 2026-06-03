@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getForecast } from "@/lib/prediction-actions";
+import { getForecastApi } from "@/lib/runtime-api-client";
 import type { MatchForecastView } from "@skorly/db";
 
 export function ForecastCard({ fixtureId }: { fixtureId: number }) {
@@ -11,9 +11,13 @@ export function ForecastCard({ fixtureId }: { fixtureId: number }) {
 
   useEffect(() => {
     let active = true;
-    getForecast(fixtureId).then((d) => {
-      if (active) setData(d);
-    });
+    getForecastApi(fixtureId)
+      .then((d) => {
+        if (active) setData(d);
+      })
+      .catch(() => {
+        if (active) setData(null);
+      });
     return () => {
       active = false;
     };

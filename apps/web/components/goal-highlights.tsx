@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getEvents } from "@/lib/score-actions";
+import { getEventsApi } from "@/lib/runtime-api-client";
 import { SocialEmbed } from "@/components/social-embed";
 import type { FixtureEventView } from "@skorly/db";
 
@@ -29,9 +29,13 @@ export function GoalHighlights({
 
   useEffect(() => {
     let active = true;
-    getEvents(fixtureId).then((e) => {
-      if (active) setEvents(e);
-    });
+    getEventsApi(fixtureId)
+      .then((e) => {
+        if (active) setEvents(e);
+      })
+      .catch(() => {
+        if (active) setEvents([]);
+      });
     return () => {
       active = false;
     };

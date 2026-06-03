@@ -5,11 +5,11 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Turnstile } from "@/components/auth/turnstile";
 import {
-  loadComments,
-  postComment,
-  likeComment,
-  flagComment,
-} from "@/lib/comment-actions";
+  flagCommentApi,
+  likeCommentApi,
+  loadCommentsApi,
+  postCommentApi,
+} from "@/lib/runtime-api-client";
 import type { CommentView, CommentTarget } from "@skorly/db";
 
 interface Props {
@@ -23,18 +23,29 @@ export function CommentsSection({ target }: Props) {
   const [replyTo, setReplyTo] = useState<number | null>(null);
 
   const refresh = () =>
-    loadComments(target).then((res) => {
-      setAuth(res.auth);
-      setItems(res.comments);
-    });
+    loadCommentsApi(target)
+      .then((res) => {
+        setAuth(res.auth);
+        setItems(res.comments);
+      })
+      .catch(() => {
+        setAuth(false);
+        setItems([]);
+      });
 
   useEffect(() => {
     let active = true;
-    loadComments(target).then((res) => {
-      if (!active) return;
-      setAuth(res.auth);
-      setItems(res.comments);
-    });
+    loadCommentsApi(target)
+      .then((res) => {
+        if (!active) return;
+        setAuth(res.auth);
+        setItems(res.comments);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAuth(false);
+        setItems([]);
+      });
     return () => {
       active = false;
     };
@@ -125,7 +136,7 @@ function CommentForm({
       ? (new FormData(formRef.current).get("cf-turnstile-response") as string | null)
       : null;
     startTransition(async () => {
-      const res = await postComment({ target, body, parentId, turnstileToken: token });
+      const res = await postCommentApi({ target, body, parentId, turnstileToken: token });
       if (res.ok) {
         setBody("");
         onPosted();
@@ -196,7 +207,7 @@ function CommentItem({
     setLiked(next);
     setLikes((n) => n + (next ? 1 : -1));
     startTransition(async () => {
-      const res = await likeComment(comment.id);
+      const res = await likeCommentApi(comment.id);
       if (!res.ok) {
         setLiked(!next);
         setLikes((n) => n + (next ? -1 : 1));
@@ -209,7 +220,7 @@ function CommentItem({
   function report() {
     setReported(true);
     startTransition(async () => {
-      await flagComment(comment.id);
+      await flagCommentApi(comment.id);
       onChange();
     });
   }

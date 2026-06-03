@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getMyPrediction, submitPrediction } from "@/lib/prediction-actions";
+import { getMyPredictionApi, submitPredictionApi } from "@/lib/runtime-api-client";
 import { ShareButtons } from "@/components/share-buttons";
 
 interface Props {
@@ -59,23 +59,27 @@ export function PredictScore({
 
   useEffect(() => {
     let active = true;
-    getMyPrediction(fixtureId).then((res) => {
-      if (!active) return;
-      if (!res.auth) {
-        setAuth(false);
-        return;
-      }
-      setAuth(true);
-      if (res.prediction) {
-        setSaved({
-          home: res.prediction.homeGoalsPred,
-          away: res.prediction.awayGoalsPred,
-          points: res.prediction.pointsAwarded,
-        });
-        setHome(String(res.prediction.homeGoalsPred));
-        setAway(String(res.prediction.awayGoalsPred));
-      }
-    });
+    getMyPredictionApi(fixtureId)
+      .then((res) => {
+        if (!active) return;
+        if (!res.auth) {
+          setAuth(false);
+          return;
+        }
+        setAuth(true);
+        if (res.prediction) {
+          setSaved({
+            home: res.prediction.homeGoalsPred,
+            away: res.prediction.awayGoalsPred,
+            points: res.prediction.pointsAwarded,
+          });
+          setHome(String(res.prediction.homeGoalsPred));
+          setAway(String(res.prediction.awayGoalsPred));
+        }
+      })
+      .catch(() => {
+        if (active) setAuth(false);
+      });
     return () => {
       active = false;
     };
@@ -91,7 +95,7 @@ export function PredictScore({
       return;
     }
     startTransition(async () => {
-      const res = await submitPrediction(fixtureId, h, a);
+      const res = await submitPredictionApi(fixtureId, h, a);
       if (res.ok) {
         setSaved({ home: h, away: a, points: null });
         setJustSaved(true);

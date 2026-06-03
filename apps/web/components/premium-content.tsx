@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { getPremiumArticle } from "@/lib/premium-actions";
+import { getPremiumArticleApi } from "@/lib/runtime-api-client";
 
 interface Props {
   fixtureId: number;
@@ -29,7 +29,7 @@ export function PremiumContent({ fixtureId, previewHtml }: Props) {
 
   useEffect(() => {
     let active = true;
-    getPremiumArticle(fixtureId, locale)
+    getPremiumArticleApi(fixtureId, locale)
       .then((res) => {
         if (!active) return;
         setState(res.authorized ? { kind: "unlocked", html: res.html } : { kind: "locked" });
