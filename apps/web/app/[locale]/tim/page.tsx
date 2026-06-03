@@ -1,13 +1,27 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getGroupedTeams } from "@skorly/db";
+import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
 import { buildAlternates } from "@/lib/seo";
 
-// Team data comes from Supabase. Keep this route out of SSG so a slow DB query
-// cannot block production deploys.
-export const dynamic = "force-dynamic";
+type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
+
+let groupedTeamsPromise: Promise<TeamGroups> | undefined;
+
+function getGroupedTeamsForBuild(): Promise<TeamGroups> {
+  groupedTeamsPromise ??= getGroupedTeams().catch(() => []);
+  return groupedTeamsPromise;
+}
+
+// Fully static for public SEO stability. Team data is cached during build so
+// this route does not hit Supabase at Cloudflare Worker runtime.
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export async function generateMetadata({
   params,
@@ -33,7 +47,7 @@ export default async function TeamsIndexPage({
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  const groups = await getGroupedTeams().catch(() => []);
+  const groups = await getGroupedTeamsForBuild();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 space-y-8">

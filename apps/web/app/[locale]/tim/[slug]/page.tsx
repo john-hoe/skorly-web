@@ -3,18 +3,67 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
+  getAllTeamSlugs,
   getTeamBySlug,
   getTeamFixtures,
   getTeamSquad,
 } from "@skorly/db";
+import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
 import { JsonLd } from "@/components/json-ld";
 import { SITE_NAME, SITE_URL, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
-// Team pages perform multiple DB reads. Render on demand so one stalled team
-// query cannot fail the production build.
-export const dynamic = "force-dynamic";
+type Team = Awaited<ReturnType<typeof getTeamBySlug>>;
+type TeamSlugs = Awaited<ReturnType<typeof getAllTeamSlugs>>;
+type TeamFixtures = Awaited<ReturnType<typeof getTeamFixtures>>;
+type TeamSquad = Awaited<ReturnType<typeof getTeamSquad>>;
+
+let allTeamSlugsPromise: Promise<TeamSlugs> | undefined;
+const teamCache = new Map<string, Promise<Team>>();
+const teamFixturesCache = new Map<number, Promise<TeamFixtures>>();
+const teamSquadCache = new Map<number, Promise<TeamSquad>>();
+
+function getAllTeamSlugsForBuild(): Promise<TeamSlugs> {
+  allTeamSlugsPromise ??= getAllTeamSlugs().catch(() => []);
+  return allTeamSlugsPromise;
+}
+
+function getTeamForPage(slug: string): Promise<Team> {
+  let cached = teamCache.get(slug);
+  if (!cached) {
+    cached = getTeamBySlug(slug).catch(() => null);
+    teamCache.set(slug, cached);
+  }
+  return cached;
+}
+
+function getTeamFixturesForPage(teamId: number): Promise<TeamFixtures> {
+  let cached = teamFixturesCache.get(teamId);
+  if (!cached) {
+    cached = getTeamFixtures(teamId).catch(() => []);
+    teamFixturesCache.set(teamId, cached);
+  }
+  return cached;
+}
+
+function getTeamSquadForPage(teamId: number): Promise<TeamSquad> {
+  let cached = teamSquadCache.get(teamId);
+  if (!cached) {
+    cached = getTeamSquad(teamId).catch(() => []);
+    teamSquadCache.set(teamId, cached);
+  }
+  return cached;
+}
+
+// Fully static for public SEO stability. Build-time DB reads are cached across
+// metadata/page rendering and across locales, avoiding runtime Supabase reads.
+export const dynamicParams = false;
+
+export async function generateStaticParams() {
+  const slugs = await getAllTeamSlugsForBuild();
+  return routing.locales.flatMap((locale) => slugs.map((slug) => ({ locale, slug })));
+}
 
 export async function generateMetadata({
   params,
@@ -22,7 +71,7 @@ export async function generateMetadata({
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const team = await getTeamBySlug(slug).catch(() => null);
+  const team = await getTeamForPage(slug);
   if (!team) return {};
   const t = await getTranslations({ locale });
   const title = `${team.name} — ${t("team.squad")}, ${t("team.fixtures")} | ${t(
@@ -50,13 +99,13 @@ export default async function TeamPage({
   const { locale, slug } = await params;
   setRequestLocale(locale);
 
-  const team = await getTeamBySlug(slug).catch(() => null);
+  const team = await getTeamForPage(slug);
   if (!team) notFound();
 
   const t = await getTranslations();
   const [fixtures, squad] = await Promise.all([
-    getTeamFixtures(team.id).catch(() => []),
-    getTeamSquad(team.id).catch(() => []),
+    getTeamFixturesForPage(team.id),
+    getTeamSquadForPage(team.id),
   ]);
 
   const groupLabel = team.group
