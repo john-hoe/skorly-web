@@ -3,12 +3,47 @@ import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
-// Pre-render all stories at build; no DB at runtime.
-export const dynamic = "force-static";
+type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
+type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
+type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
+
+let allFixturesPromise: Promise<FixtureList> | undefined;
+const fixtureCache = new Map<string, Promise<Fixture>>();
+const fixtureArticlesCache = new Map<string, Promise<FixtureArticles>>();
+
+function getAllFixturesForBuild(): Promise<FixtureList> {
+  allFixturesPromise ??= getAllFixtures().catch(() => []);
+  return allFixturesPromise;
+}
+
+function getFixtureForStory(slug: string): Promise<Fixture> {
+  let cached = fixtureCache.get(slug);
+  if (!cached) {
+    cached = getFixtureBySlug(slug).catch(() => null);
+    fixtureCache.set(slug, cached);
+  }
+  return cached;
+}
+
+function getFixtureArticlesForStory(
+  fixtureId: number,
+  locale: string
+): Promise<FixtureArticles> {
+  const key = `${locale}:${fixtureId}`;
+  let cached = fixtureArticlesCache.get(key);
+  if (!cached) {
+    cached = getArticlesForFixture(fixtureId, locale).catch(() => []);
+    fixtureArticlesCache.set(key, cached);
+  }
+  return cached;
+}
+
+// Fully static for SEO and OpenNext/Cloudflare stability. Fixture/article reads
+// are cached during build so AMP story generation does not repeat DB work.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const fixtures = await getAllFixtures().catch(() => []);
+  const fixtures = await getAllFixturesForBuild();
   return routing.locales.flatMap((locale) =>
     fixtures.map((f) => ({ locale, slug: f.slug }))
   );
@@ -20,6 +55,10 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function jsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
 function kickoff(d: Date | null): string {
@@ -42,13 +81,13 @@ export async function GET(
   { params }: { params: Promise<{ locale: string; slug: string }> }
 ) {
   const { locale, slug } = await params;
-  const fixture = await getFixtureBySlug(slug).catch(() => null);
+  const fixture = await getFixtureForStory(slug);
   if (!fixture) {
     return new Response("Not found", { status: 404 });
   }
 
   const t = await getTranslations({ locale });
-  const articles = await getArticlesForFixture(fixture.id, locale).catch(() => []);
+  const articles = await getFixtureArticlesForStory(fixture.id, locale);
   const byType = new Map(articles.map((a) => [a.type, a]));
   const prediction = byType.get("prediction") ?? byType.get("preview");
   const blurb =
@@ -73,6 +112,46 @@ export async function GET(
   const poster = absoluteUrl("/og.png");
   const homeLogo = fixture.home.logo ? esc(fixture.home.logo) : "";
   const awayLogo = fixture.away.logo ? esc(fixture.away.logo) : "";
+  const eventLd = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    name: title,
+    sport: "Soccer",
+    ...(fixture.kickoffAt ? { startDate: fixture.kickoffAt.toISOString() } : {}),
+    ...(fixture.venue
+      ? {
+          location: {
+            "@type": "Place",
+            name: fixture.venue,
+            address: fixture.city ?? undefined,
+          },
+        }
+      : {}),
+    competitor: [
+      { "@type": "SportsTeam", name: fixture.home.name },
+      { "@type": "SportsTeam", name: fixture.away.name },
+    ],
+    superEvent: { "@type": "SportsEvent", name: "FIFA World Cup 2026" },
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: SITE_NAME,
+        item: absoluteUrl(localizedPath("/", locale)),
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: t("stories.title"),
+        item: absoluteUrl(localizedPath("/cerita", locale)),
+      },
+      { "@type": "ListItem", position: 3, name: title },
+    ],
+  };
 
   const html = `<!doctype html>
 <html ⚡ lang="${esc(locale)}">
@@ -83,6 +162,7 @@ export async function GET(
 ${alternateLinks}
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
 <meta name="description" content="${esc(blurb).slice(0, 160)}">
+<script type="application/ld+json">${jsonLd([eventLd, breadcrumbLd])}</script>
 <script async src="https://cdn.ampproject.org/v0.js"></script>
 <script async custom-element="amp-story" src="https://cdn.ampproject.org/v0/amp-story-1.0.js"></script>
 ${AMP_BOILERPLATE}

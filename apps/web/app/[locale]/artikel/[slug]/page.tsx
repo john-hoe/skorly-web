@@ -10,6 +10,20 @@ import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
 
+type Article = Awaited<ReturnType<typeof getArticleBySlug>>;
+
+const articleCache = new Map<string, Promise<Article>>();
+
+function getArticleForPage(slug: string, locale: string): Promise<Article> {
+  const key = `${locale}:${slug}`;
+  let cached = articleCache.get(key);
+  if (!cached) {
+    cached = getArticleBySlug(slug, locale).catch(() => null);
+    articleCache.set(key, cached);
+  }
+  return cached;
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -18,7 +32,8 @@ function hostOf(url: string): string {
   }
 }
 
-// Fully static: prerendered at build, no DB at runtime. Rebuild to publish new content.
+// Fully static for SEO and OpenNext/Cloudflare stability. Article DB reads are
+// deduped in-process so metadata and page rendering share the same build query.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
@@ -36,7 +51,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
   const { slug, locale } = await params;
-  const article = await getArticleBySlug(slug, locale).catch(() => null);
+  const article = await getArticleForPage(slug, locale);
   if (!article) return { title: "Artikel" };
   const description =
     article.summary ?? article.body.replace(/[#*_>`]/g, "").slice(0, 160).trim();
@@ -68,7 +83,7 @@ export default async function ArticlePage({
   const t = await getTranslations("common");
   const tNav = await getTranslations("nav");
 
-  const article = await getArticleBySlug(slug, locale).catch(() => null);
+  const article = await getArticleForPage(slug, locale);
   if (!article || article.status !== "published") notFound();
 
   const embeds = Array.isArray(article.embeds) ? article.embeds : [];
