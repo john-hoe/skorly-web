@@ -21,6 +21,7 @@ RULES:
 - Translate faithfully. Do NOT add, remove, or change any fact, name, number, club, position, date or score.
 - Do NOT add background or context that is not in the source.
 - Use correct ${lang} football terminology. Keep official team/player names accurate.
+- Preserve country abbreviations accurately. In Indonesian, translate "USA" as "Amerika Serikat" or keep "USA"; never write "ASI".
 - Preserve the markdown structure (the first line stays an H1 "# ..." headline, translated).
 Return only the translated article in markdown.`,
     user: baseMarkdown,
