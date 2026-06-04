@@ -62,6 +62,9 @@ Linked finding: <如失败，填 P0/P1/P2 编号；否则 none>
 | E-32 | SEO And Platform Endpoints / `/BingSiteAuth.xml` | prod | Pass | none |
 | E-33 | SEO And Platform Endpoints / `/e3cb02d1aa682eff2ac76b05153b4b9b.txt` | prod | Pass | none |
 | E-34 | Fix Session / P0-1 review branch P0 runtime baseline alignment | local + prod | Pass | P0-1 |
+| E-35 | Post-deploy P0 runtime smoke | prod | Pass | none |
+| E-36 | SEO/API endpoint `/api/subscribe`; API, Security, Privacy Matrix / Subscribe API; User Flow / Subscribe invalid input | prod | Fail | P1-1 |
+| E-37 | Fix Session / P1-1 subscribe Turnstile fail-closed and production verification | local + prod | Pass | P1-1 |
 
 ## Evidence Entries
 
@@ -555,6 +558,94 @@ apps/web/components/premium-content.tsx imports getPremiumArticle from "@/lib/pr
 ```
 Verdict vs acceptance: `docs/review/review-findings-2026-06-03.md` states P0-5 was fixed by PR #11 `c8951ab83f24ac18e0f3758192e6f2f6d0b5d864` and PR #12 `ed4e09c08a4711481a8413baec12272b205abf8e`, moving client islands to explicit JSON Route Handlers. The current review branch `codex/review` does not contain either commit, `apps/web/app/api` contains only subscribe routes, and client components still import `"use server"` action modules for the P0-5 surfaces. Production Chrome in E-6 passes against the deployed site, but that does not prove the current review branch contains the deployed P0-5 fix.
 Linked finding: P0-1
+
+### E-35 Post-deploy P0 runtime smoke
+Matrix row: User Flow Matrix / Score prediction save; User Flow Matrix / Bracket save; User Flow Matrix / Mini league create; post-deploy P0 runtime smoke
+Env: prod
+Time (UTC): 2026-06-04T07:45:15Z
+Method: Chrome authenticated session against `https://skorly.cc` after PR #15 deploy, while `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` was running. Checked account, match prediction/forecast/comments, score prediction save, bracket save, `/id/liga` x5, mini-league create/detail, and `/zh/shishi-bifen`.
+Raw output:
+```text
+git fetch --all --prune
+origin/main: ed7018e Merge pull request #15 from john-hoe/codex/review
+
+wrangler tail command:
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+tail output during Chrome window:
+<no JSON error event lines before Ctrl-C>
+Worker error events observed: 0
+
+Chrome account:
+requestedUrl=https://skorly.cc/id/akun
+finalUrl=https://skorly.cc/id/akun
+title=Akun saya | Skorly
+h1=Akun saya
+ms=5649
+skeletonCount=0
+worker1101Text=false
+visibleRuntimeErrors=[]
+
+Chrome match prediction / forecast / comments:
+requestedUrl=https://skorly.cc/id/pertandingan/mexico-vs-south-africa-20260611
+finalUrl=https://skorly.cc/id/pertandingan/mexico-vs-south-africa-20260611
+title=Mexico vs South Africa | Skorly
+h1=Mexico vs South Africa
+ms=7472
+skeletonCount=0
+hasForecast=true
+hasComments=true
+worker1101Text=false
+visibleRuntimeErrors=[]
+
+Chrome score prediction save:
+clicked=true
+buttonText=Ubah tebakan
+hasSavedPrediction=true
+worker1101Text=false
+
+Chrome bracket page and save:
+requestedUrl=https://skorly.cc/id/prediksi
+title=Prediksi bagan — Piala Dunia 2026 | Skorly
+h1=Prediksi bagan
+ms=7563
+skeletonCount=0
+worker1101Text=false
+visibleRuntimeErrors=[]
+clicked=true
+buttonText=Ubah bagan
+hasSavedBracket=true
+
+Chrome /id/liga repeated authenticated GET:
+run 1: ms=3746, title="Liga mini privat | Skorly", h1="Liga mini privat", skeletonCount=0, worker1101Text=false, visibleRuntimeErrors=[]
+run 2: ms=3806, title="Liga mini privat | Skorly", h1="Liga mini privat", skeletonCount=0, worker1101Text=false, visibleRuntimeErrors=[]
+run 3: ms=3714, title="Liga mini privat | Skorly", h1="Liga mini privat", skeletonCount=0, worker1101Text=false, visibleRuntimeErrors=[]
+run 4: ms=3724, title="Liga mini privat | Skorly", h1="Liga mini privat", skeletonCount=0, worker1101Text=false, visibleRuntimeErrors=[]
+run 5: ms=3789, title="Liga mini privat | Skorly", h1="Liga mini privat", skeletonCount=0, worker1101Text=false, visibleRuntimeErrors=[]
+
+Chrome mini-league create/detail:
+attempted=true
+button=Buat liga
+leagueName=P0 deploy smoke 1780559166178
+finalUrl=https://skorly.cc/id/liga/lg-c5884d
+title=P0 deploy smoke 1780559166178 | Skorly
+h1=P0 deploy smoke 1780559166178
+worker1101Text=false
+
+Chrome live score:
+requestedUrl=https://skorly.cc/zh/shishi-bifen
+title=2026 世界杯实时比分与赛果 | Skorly
+h1=实时比分与赛果
+ms=7611
+skeletonCount=1
+note: the remaining `.animate-pulse` element is the live-status dot in the active-match section; visible text reports no active matches.
+worker1101Text=false
+visibleRuntimeErrors=[]
+
+Chrome console errors after filtering Cloudflare challenge frames:
+[]
+```
+Verdict vs acceptance: The deployed production site after PR #15 has no observed Worker error events during the checked authenticated runtime window. Account, match, prediction save, bracket save, repeated league page renders, mini-league create/detail, and live-score page all completed without 1101/500 runtime text. Score prediction, bracket save, and mini-league create each reached their expected saved/detail state.
+Linked finding: none
 
 ### E-8 Route and interactive inventory coverage pass
 Matrix row: Phase 1/1.5 / route and interactive inventory
@@ -1100,3 +1191,213 @@ Production SEO smoke output:
 ```
 Verdict vs acceptance: `codex/review` now contains the two fixed P0 runtime commits and preserves the event structured data commit `5056b2e`. The affected P0 client runtime modules import `runtime-api-client`, the route-handler inventory contains prediction, forecast, live score, events, comments, bracket, mini league, push, premium, team groups, and home personalization API routes, and the scoped legacy Server Action import scan for those runtime modules has no output. Local gates passed: `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm --filter @skorly/api-football test`. `@skorly/predict-model` has no `test` script; no test pass is claimed for that package. Production Chrome runtime checks completed with Worker error events observed = 0, no visible 1101/500 error text, and no loading text. SEO smoke returned no failures and confirmed SportsEvent JSON-LD coverage on the sampled match page.
 Linked finding: P0-1
+
+### E-36 Subscribe API accepts missing or fake Turnstile token
+Matrix row: SEO And Platform Endpoints / `/api/subscribe`; API, Security, Privacy Matrix / Subscribe API; User Flow Matrix / Subscribe invalid input
+Env: prod
+Time (UTC): 2026-06-04T08:09:11.541Z
+Method: Production POST requests to `https://skorly.cc/api/subscribe` with valid non-CAPTCHA fields and missing/fake `turnstileToken`; `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` was running during the request window; `pnpm --dir apps/web exec wrangler secret list --name skorly-web` listed production Worker secret names only.
+Raw output:
+```text
+node <<'NODE'
+const base = 'https://skorly.cc';
+const ts = new Date().toISOString();
+const cases = [
+  {
+    name: 'subscribe-valid-missing-turnstile',
+    body: { email: `codex-review-missing-${Date.now()}@example.com`, locale: 'id', consent: true, source: 'review-api-smoke' },
+  },
+  {
+    name: 'subscribe-valid-fake-turnstile',
+    body: { email: `codex-review-fake-${Date.now()}@example.com`, locale: 'id', consent: true, source: 'review-api-smoke', turnstileToken: 'invalid-token' },
+  },
+];
+console.log(JSON.stringify({ timestampUtc: ts, base }));
+for (const c of cases) {
+  const started = Date.now();
+  const res = await fetch(base + '/api/subscribe', {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(c.body),
+  });
+  const body = await res.text();
+  console.log(JSON.stringify({
+    name: c.name,
+    request: { email: c.body.email, locale: c.body.locale, consent: c.body.consent, source: c.body.source, turnstileToken: c.body.turnstileToken ?? null },
+    status: res.status,
+    contentType: res.headers.get('content-type'),
+    ms: Date.now() - started,
+    worker1101Text: body.includes('Worker threw exception') || body.includes('1101'),
+    secretLeakText: /SUPABASE|SERVICE_ROLE|TURNSTILE|RESEND|AUTH_SECRET/i.test(body),
+    body: body.replace(/\s+/g, ' ').slice(0, 260),
+  }));
+}
+NODE
+
+{"timestampUtc":"2026-06-04T08:09:11.541Z","base":"https://skorly.cc"}
+{"name":"subscribe-valid-missing-turnstile","request":{"email":"codex-review-missing-1780560551542@example.com","locale":"id","consent":true,"source":"review-api-smoke","turnstileToken":null},"status":200,"contentType":"application/json","ms":2405,"worker1101Text":false,"secretLeakText":false,"body":"{\"ok\":true,\"pending\":true}"}
+{"name":"subscribe-valid-fake-turnstile","request":{"email":"codex-review-fake-1780560551542@example.com","locale":"id","consent":true,"source":"review-api-smoke","turnstileToken":"invalid-token"},"status":200,"contentType":"application/json","ms":1576,"worker1101Text":false,"secretLeakText":false,"body":"{\"ok\":true,\"pending\":true}"}
+
+pnpm --dir apps/web exec wrangler secret list --name skorly-web
+[
+  {
+    "name": "SUPABASE_SERVICE_ROLE_KEY",
+    "type": "secret_text"
+  }
+]
+
+sed -n '1,40p' apps/web/lib/turnstile.ts
+export async function verifyTurnstile(
+  token: string | null | undefined,
+  ip?: string | null,
+): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return true; // not configured (local/dev) -> skip
+  if (!token) return false;
+  ...
+}
+
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no JSON event lines emitted during the 2026-06-04T08:09:11Z API request window>
+
+ps -ax -o pid=,command= | rg "wrangler tail skorly-web"
+82858 /bin/zsh -c ps -ax -o pid=,command= | rg "wrangler tail skorly-web"
+82860 rg wrangler tail skorly-web
+```
+Verdict vs acceptance: Fails. With `email` valid, `consent=true`, and `locale=id`, the missing-token request returned `200 {"ok":true,"pending":true}` and the fake-token request returned `200 {"ok":true,"pending":true}`. The endpoint acceptance requires missing CAPTCHA to return 4xx and the security/privacy row requires stable validation without private leakage. The Worker secret-name list contains `SUPABASE_SERVICE_ROLE_KEY` and does not contain `TURNSTILE_SECRET_KEY`; the source returns true when that secret is absent, which matches the production response.
+Linked finding: P1-1
+
+### E-37 P1-1 subscribe Turnstile fail-closed and production verification
+Matrix row: SEO/API endpoint `/api/subscribe`; API, Security, Privacy Matrix / Subscribe API; User Flow / Subscribe invalid input
+Env: local + prod
+Time (UTC): 2026-06-04T08:40:59Z
+Method: Code change in `apps/web/lib/turnstile.ts`; runtime site-key fallback in `apps/web/components/auth/turnstile.tsx` and `apps/web/app/api/turnstile/site-key/route.ts`; Cloudflare Worker secret configuration; local helper checks; `pnpm lint`; `pnpm typecheck`; `pnpm build`; direct production deploy; production API checks; Chrome real subscribe flow; `wrangler tail --status error` with a temporary DNS override for `tail.developers.workers.dev`.
+Raw output:
+```text
+Code change:
+apps/web/lib/turnstile.ts
+const secret = process.env.TURNSTILE_SECRET_KEY;
+if (!secret) return false;
+if (!token) return false;
+
+apps/web/components/auth/turnstile.tsx
+BUILD_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null
+If build-time site key is absent, fetch("/api/turnstile/site-key") and render Turnstile after a non-empty siteKey response.
+
+apps/web/app/api/turnstile/site-key/route.ts
+GET returns 200 {"ok":true,"siteKey":...} when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY` is configured; returns 404 notConfigured otherwise.
+
+pnpm --dir apps/web exec wrangler secret put TURNSTILE_SECRET_KEY --name skorly-web
+✨ Success! Uploaded secret TURNSTILE_SECRET_KEY
+
+pnpm --dir apps/web exec wrangler secret put TURNSTILE_SITE_KEY --name skorly-web
+✨ Success! Uploaded secret TURNSTILE_SITE_KEY
+
+pnpm --dir apps/web exec wrangler secret list --name skorly-web
+[
+  { "name": "SUPABASE_SERVICE_ROLE_KEY", "type": "secret_text" },
+  { "name": "TURNSTILE_SECRET_KEY", "type": "secret_text" },
+  { "name": "TURNSTILE_SITE_KEY", "type": "secret_text" }
+]
+
+env -u TURNSTILE_SECRET_KEY pnpm exec tsx -e "<verifyTurnstile check>"
+{"missingSecretMissingToken":false,"missingSecretFakeToken":false}
+
+set -a; . ./.env; set +a; pnpm exec tsx -e "<verifyTurnstile check>"
+{"configuredMissingToken":false,"configuredFakeToken":false}
+
+pnpm lint
+apps/web lint$ eslint .
+apps/web lint: Done
+Exit status: 0
+
+pnpm typecheck
+packages/predict-model typecheck: Done
+packages/types typecheck: Done
+packages/ui typecheck: Done
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck: Done
+Exit status: 0
+
+pnpm build
+✓ Generating static pages using 3 workers (1922/1922) in 3.5min
+Route table includes: ƒ /api/turnstile/site-key
+Exit status: 0
+
+Static page count explanation:
+The build count changed from 1921/1921 to 1922/1922 because the fix adds one dynamic route: /api/turnstile/site-key.
+
+pnpm --filter @skorly/web cf:deploy
+✓ Generating static pages using 3 workers (1922/1922) in 3.3min
+✨ Success! Uploaded 1595 files (444 already uploaded) (90.96 sec)
+Total Upload: 14914.41 KiB / gzip: 2862.57 KiB
+Worker Startup Time: 27 ms
+Uploaded skorly-web (112.16 sec)
+Deployed skorly-web triggers (5.25 sec)
+Current Version ID: 7ce09fcd-1084-46d2-846f-d13edcb328ad
+```
+
+Production API output:
+```text
+GET https://skorly.cc/api/turnstile/site-key
+{"name":"site-key-route","status":200,"ms":2210,"contentType":"application/json","bodyHasSiteKey":true,"siteKeyLength":24,"bodyWithoutSiteKey":{"ok":true,"siteKey":"<redacted-public-site-key>"},"secretLeakText":false,"worker1101Text":false}
+
+POST https://skorly.cc/api/subscribe without turnstileToken
+{"name":"missing-token-connected-tail","status":403,"ms":2543,"body":"{\"ok\":false,\"error\":\"captcha\"}","secretLeakText":false,"worker1101Text":false}
+
+POST https://skorly.cc/api/subscribe with turnstileToken="invalid-token"
+{"name":"fake-token-connected-tail","status":403,"ms":583,"body":"{\"ok\":false,\"error\":\"captcha\"}","secretLeakText":false,"worker1101Text":false}
+```
+
+Chrome real subscribe output:
+```text
+URL: https://skorly.cc/id
+email: codex-p1-real-connected-1780562398128@example.com
+tokenPollLast:
+  tokenLength: 816
+  turnstileDivCount: 1
+  formCount: 1
+submitResult:
+  submitted: true
+  buttonText: Kirim Panduan Saya
+post-submit:
+  formCount: 0
+  successTextPresent: true
+  captchaErrorText: false
+  rateLimitedText: false
+  worker1101Text: false
+timestampUtc: 2026-06-04T08:40:17.082Z
+```
+
+wrangler tail output:
+```text
+System resolver diagnostic:
+dig +short tail.developers.workers.dev
+64.13.192.74
+
+dig @1.1.1.1 +short tail.developers.workers.dev
+172.67.133.177
+104.21.5.179
+
+wrangler tail without DNS override:
+Successfully created tail, expires at 2026-06-04T12:21:53Z
+Error [ERR_TLS_CERT_ALTNAME_INVALID]: Hostname/IP does not match certificate's altnames:
+Host: tail.developers.workers.dev. is not in the cert's altnames: DNS:*.facebook.com, ...
+
+NODE_OPTIONS="--require=/tmp/cf-tail-dns-override.XXXXXX.cjs" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-04T12:21:53Z
+Connected to skorly-web, waiting for logs...
+
+During the connected tail window, the missing-token API request, fake-token API request, and Chrome real subscribe flow above were executed.
+
+tail stop output:
+^C
+Worker error event lines observed during connected tail window: 0
+```
+Verdict vs acceptance: Pass. Production has `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` configured. The server verifier returns false when the secret is absent, missing token returns 403 captcha, fake token returns 403 captcha, and the response bodies checked do not contain private secret names or secret values. The Chrome flow rendered a real Turnstile widget through the runtime site-key fallback, produced a token with length 816, submitted the subscribe form, and replaced the form with the success state. `wrangler tail --status error` was connected during the production API and Chrome checks and emitted 0 error event lines. The local build added one route, so static generation changed from 1921 to 1922 pages.
+Linked finding: P1-1

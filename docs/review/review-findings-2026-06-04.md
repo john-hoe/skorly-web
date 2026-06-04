@@ -52,6 +52,7 @@ Verification (修复后回填):
 | ID | Severity | Title | Module / Route | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | P0-1 | P0 | Review branch omits fixed production runtime P0 commits | `codex/review` / logged-in runtime surfaces | Fixed | E-7, E-34 |
+| P1-1 | P1 | Subscribe API bypasses Turnstile when production secret is missing | `/api/subscribe` / Worker secrets | Fixed | E-36, E-37 |
 | P2-1 | P2 | Predict-model test gate executes zero tests | `packages/predict-model` | Open | E-2 |
 
 ## P0 Findings
@@ -103,6 +104,50 @@ Verification (修复后回填):
 ## P1 Findings
 
 <!-- 在此追加 P1 finding -->
+
+### P1-1 Subscribe API bypasses Turnstile when production secret is missing
+
+Status:
+- Fixed
+
+Evidence:
+- E-36: production POST to `https://skorly.cc/api/subscribe` with valid `email`, `locale`, `consent=true`, and missing `turnstileToken` returned `200 {"ok":true,"pending":true}`.
+- E-36: production POST to the same endpoint with valid non-CAPTCHA fields and `turnstileToken="invalid-token"` returned `200 {"ok":true,"pending":true}`.
+- E-36: `pnpm --dir apps/web exec wrangler secret list --name skorly-web` returned only `SUPABASE_SERVICE_ROLE_KEY`; `TURNSTILE_SECRET_KEY` was not present in the secret-name list.
+- E-36: `apps/web/lib/turnstile.ts` returns true when `process.env.TURNSTILE_SECRET_KEY` is absent.
+- E-37: `apps/web/lib/turnstile.ts` now returns false when `TURNSTILE_SECRET_KEY` is absent, production has `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` configured, and `/api/turnstile/site-key` provides the public site key when the client bundle lacks a build-time key.
+
+Impact:
+- Security / abuse / compliance impact. An unauthenticated caller can create pending subscribers and trigger confirmation-email sending without a valid CAPTCHA challenge.
+- Abuse is still bounded by the route's IP rate limit: `rateLimit(\`subscribe:${ip}\`, 5, 600)` allows 5 subscribe attempts per 600 seconds per client IP before 429. That rate limit reduces volume from one IP, but it does not validate human interaction and can be bypassed by distributed IPs.
+- The double opt-in flow prevents immediate premium/content unlock from this evidence alone; no account takeover, data disclosure, or premium authorization bypass is proven by E-36. Severity is P1, not P0, on the current evidence.
+
+Reproduce:
+- Run `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error`.
+- POST to `https://skorly.cc/api/subscribe` with JSON `{ "email": "codex-review-missing-<timestamp>@example.com", "locale": "id", "consent": true, "source": "review-api-smoke" }`.
+- POST to `https://skorly.cc/api/subscribe` with JSON `{ "email": "codex-review-fake-<timestamp>@example.com", "locale": "id", "consent": true, "source": "review-api-smoke", "turnstileToken": "invalid-token" }`.
+- Run `pnpm --dir apps/web exec wrangler secret list --name skorly-web` and confirm the secret-name inventory.
+
+Fix acceptance:
+- Production Worker has a configured `TURNSTILE_SECRET_KEY` secret, or production code fails closed when the secret is absent.
+- Valid non-CAPTCHA subscribe requests with missing `turnstileToken` return `403 {"ok":false,"error":"captcha"}`.
+- Valid non-CAPTCHA subscribe requests with fake `turnstileToken` return `403 {"ok":false,"error":"captcha"}`.
+- A real browser subscribe flow with a valid Turnstile token returns `200` and sends a confirmation email.
+- `wrangler tail skorly-web --format json --status error` emits 0 Worker error events during the missing-token, fake-token, and real-token verification window.
+- The response bodies do not expose `SUPABASE`, `SERVICE_ROLE`, `TURNSTILE`, `RESEND`, or auth secret text.
+
+Verification (修复后回填):
+- E-37 / local + prod / 2026-06-04T08:40:59Z:
+  - `pnpm --dir apps/web exec wrangler secret list --name skorly-web` returned `SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, and `TURNSTILE_SITE_KEY`.
+  - Local helper checks returned `{"missingSecretMissingToken":false,"missingSecretFakeToken":false}` and `{"configuredMissingToken":false,"configuredFakeToken":false}`.
+  - `pnpm lint` passed; `pnpm typecheck` passed; `pnpm build` passed with `✓ Generating static pages using 3 workers (1922/1922) in 3.5min`.
+  - Static page count changed from `1921/1921` to `1922/1922` because the fix adds one dynamic route: `/api/turnstile/site-key`.
+  - Production deploy completed with Worker version `7ce09fcd-1084-46d2-846f-d13edcb328ad`.
+  - `GET https://skorly.cc/api/turnstile/site-key` returned 200 with a redacted public site key, `secretLeakText=false`, and `worker1101Text=false`.
+  - `POST https://skorly.cc/api/subscribe` without `turnstileToken` returned `403 {"ok":false,"error":"captcha"}` with `secretLeakText=false` and `worker1101Text=false`.
+  - `POST https://skorly.cc/api/subscribe` with `turnstileToken="invalid-token"` returned `403 {"ok":false,"error":"captcha"}` with `secretLeakText=false` and `worker1101Text=false`.
+  - Chrome production subscribe flow on `https://skorly.cc/id` rendered Turnstile via the runtime fallback: `turnstileDivCount=1`, token length `816`, submit button `Kirim Panduan Saya`, post-submit `formCount=0`, `successTextPresent=true`, `captchaErrorText=false`, `rateLimitedText=false`, and `worker1101Text=false`.
+  - `wrangler tail skorly-web --format pretty --status error --ip self` needed a temporary DNS override because the system resolver mapped `tail.developers.workers.dev` to a Meta IP with an invalid certificate. With the override, tail printed `Connected to skorly-web, waiting for logs...`; during the missing-token, fake-token, and Chrome real subscribe checks, tail emitted 0 error event lines before `^C`.
 
 ## P2 Findings
 

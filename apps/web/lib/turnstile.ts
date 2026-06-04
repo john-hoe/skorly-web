@@ -1,14 +1,15 @@
 /**
  * Verify a Cloudflare Turnstile token server-side.
- * Returns true when valid, or when no secret is configured (so local dev
- * without Turnstile still works). Never trust the client result alone.
+ * Returns true only when Cloudflare verifies the token. Never trust the
+ * client result alone, and never bypass verification when server config is
+ * missing.
  */
 export async function verifyTurnstile(
   token: string | null | undefined,
   ip?: string | null,
 ): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return true; // not configured (local/dev) -> skip
+  if (!secret) return false;
   if (!token) return false;
 
   try {
