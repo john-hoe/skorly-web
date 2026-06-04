@@ -110,13 +110,15 @@ export async function GET(
   const matchUrl = absoluteUrl(
     localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)
   );
-  const poster = absoluteUrl("/og.png");
+  const eventImage = absoluteUrl("/og.png");
+  const publisherLogo = absoluteUrl("/icon-512.png");
+  const storyPoster = absoluteUrl("/story-poster-portrait.jpg");
   const homeLogo = fixture.home.logo ? esc(fixture.home.logo) : "";
   const awayLogo = fixture.away.logo ? esc(fixture.away.logo) : "";
   const eventLd = buildFixtureSportsEventLd({
     fixture,
     url: matchUrl,
-    image: poster,
+    image: eventImage,
     description: `${title} World Cup 2026 story preview with kickoff details, teams and score prediction context.`,
   });
   const breadcrumbLd = {
@@ -170,8 +172,8 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 <amp-story standalone
   title="${esc(title)}"
   publisher="${esc(SITE_NAME)}"
-  publisher-logo-src="${esc(poster)}"
-  poster-portrait-src="${esc(poster)}">
+  publisher-logo-src="${esc(publisherLogo)}"
+  poster-portrait-src="${esc(storyPoster)}">
 
   <amp-story-page id="cover">
     <amp-story-grid-layer template="fill"><div class="bg" style="width:100%;height:100%"></div></amp-story-grid-layer>
