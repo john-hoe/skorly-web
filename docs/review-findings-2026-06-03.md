@@ -725,6 +725,34 @@ Browser verification note:
 - After restarting the local production server from the final build, the same Browser surface loaded http://127.0.0.1:3100/id as an internal "This page couldn't load" error page while still reporting the page title.
 - System Chrome / Playwright also hit local browser-surface failures; the Playwright bundled headless shell exited on launch with TargetClosedError.
 - Browser screenshots were not used as passing evidence.
+
+Production verification 2026-06-04:
+- PR #14 was marked ready and merged to `main`.
+- Deployed app commit: `30a360c155512a742bc40da0a7d2c5b71908bffb`.
+- Deploy run: `https://github.com/john-hoe/skorly-web/actions/runs/26933296887`.
+- Worker version: `aa2d3874-62a7-45a3-be86-4e026754942d`.
+
+```text
+Production viewport check with in-app Browser:
+https://skorly.cc/id @ 375x844
+innerWidth=375
+scrollWidth=375
+overflowPx=0
+offenderCount=0
+hasMobileMenu=true
+summaryText=Menu
+
+https://skorly.cc/id @ 390x844
+innerWidth=390
+scrollWidth=390
+overflowPx=0
+offenderCount=0
+hasMobileMenu=true
+summaryText=Menu
+
+Screenshot evidence:
+/tmp/skorly-prod-mobile-390.png
+```
 ```
 
 ## P2 Findings
@@ -1012,6 +1040,41 @@ Build route classification:
 
 Authenticated redirect still requires a real browser session after deploy:
 - Passing criterion: authenticated production Chrome visit to https://skorly.cc/id/masuk and https://skorly.cc/id/daftar redirects to /id/akun.
+
+Production verification 2026-06-04:
+- PR #14 was marked ready and merged to `main`.
+- Deployed app commit: `30a360c155512a742bc40da0a7d2c5b71908bffb`.
+- Deploy run: `https://github.com/john-hoe/skorly-web/actions/runs/26933296887`.
+- Worker version: `aa2d3874-62a7-45a3-be86-4e026754942d`.
+
+```text
+Unauthenticated production HTTP check:
+https://skorly.cc/id/masuk
+status=200
+noindex=true
+h1=1
+
+https://skorly.cc/id/daftar
+status=200
+noindex=true
+h1=1
+
+Authenticated production Chrome check:
+https://skorly.cc/id/akun
+finalUrl=https://skorly.cc/id/akun
+title=Akun saya | Skorly
+h1=Akun saya
+
+Requested https://skorly.cc/id/masuk
+finalUrl=https://skorly.cc/id/akun
+title=Akun saya | Skorly
+h1=Akun saya
+
+Requested https://skorly.cc/id/daftar
+finalUrl=https://skorly.cc/id/akun
+title=Akun saya | Skorly
+h1=Akun saya
+```
 ```
 
 ## P1/P2 Gate Verification
@@ -1061,6 +1124,50 @@ Exit status: 0
 
 git diff --check
 Exit status: 0
+
+Production deployment verification 2026-06-04:
+- Local Wrangler deploy attempted after merge, but failed with Cloudflare API `Authentication error [code: 10000]` from the local token. This was not marked as deployed.
+- Existing GitHub Actions `Daily News` workflow was dispatched with `count=0` and `skip_radar=true`, so it skipped radar and produced no new news before build/deploy.
+- A scheduled older run on `88fc1ea44fc8369102d65e60c28e0c5fbd0860d2` was already in progress and finished first. The follow-up deployment run below then deployed app commit `30a360c155512a742bc40da0a7d2c5b71908bffb`.
+
+```text
+GitHub Actions run:
+https://github.com/john-hoe/skorly-web/actions/runs/26933296887
+
+Checkout:
+fetch origin +30a360c155512a742bc40da0a7d2c5b71908bffb:refs/remotes/origin/main
+
+Build:
+Next.js 16.2.6
+Compiled successfully in 6.7s
+Finished TypeScript in 7.8s
+Generating static pages using 3 workers (1921/1921) in 63s
+
+Deploy:
+Uploaded 1655 files (384 already uploaded) (23.34 sec)
+Total Upload: 14890.50 KiB / gzip: 2864.92 KiB
+Worker Startup Time: 29 ms
+Uploaded skorly-web (33.16 sec)
+Deployed skorly-web triggers (1.20 sec)
+Current Version ID: aa2d3874-62a7-45a3-be86-4e026754942d
+
+Production HTTP SEO/auth smoke:
+https://skorly.cc/id
+status=200 canonical=true hreflang=5 jsonLd=true h1=1 noindex=false
+warm repeat timings: 918ms, 713ms, 720ms, 705ms
+
+https://skorly.cc/id/tim
+status=200 canonical=true hreflang=5 jsonLd=true h1=1 noindex=false ttfb=517ms
+
+https://skorly.cc/id/pertandingan/mexico-vs-south-africa-20260611
+status=200 canonical=true hreflang=5 jsonLd=true h1=1 noindex=false ttfb=421ms
+
+https://skorly.cc/id/masuk
+status=200 noindex=true h1=1
+
+https://skorly.cc/id/daftar
+status=200 noindex=true h1=1
+```
 ```
 
 Status 2026-06-03:
