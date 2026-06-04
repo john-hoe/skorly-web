@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 declare global {
   interface Window {
     turnstile?: {
@@ -14,17 +14,37 @@ declare global {
 const SCRIPT_ID = "cf-turnstile-script";
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const BUILD_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null;
 
 /**
  * Cloudflare Turnstile widget. Explicitly rendered so it works after client
  * navigation. Injects a hidden `cf-turnstile-response` input into its parent
  * <form>, which the server action verifies. Renders nothing if no site key is
- * configured (local dev), and the server verifier fails open accordingly.
+ * configured; production server verification still fails closed without a
+ * valid token.
  */
 export function Turnstile() {
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const [siteKey, setSiteKey] = useState<string | null>(BUILD_SITE_KEY);
   const ref = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (siteKey) return;
+    let cancelled = false;
+
+    fetch("/api/turnstile/site-key")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload: { siteKey?: unknown } | null) => {
+        if (!cancelled && typeof payload?.siteKey === "string" && payload.siteKey) {
+          setSiteKey(payload.siteKey);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [siteKey]);
 
   useEffect(() => {
     if (!siteKey) return;
