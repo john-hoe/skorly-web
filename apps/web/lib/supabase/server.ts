@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "./cookies";
 
 /**
  * Supabase client for Server Components, Route Handlers and Server Actions.
@@ -20,13 +21,14 @@ export async function createSupabaseServerClient() {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, withSupabaseAuthCookieOptions(options));
             }
           } catch {
             // Called from a Server Component — middleware handles refresh.
           }
         },
       },
+      cookieOptions: supabaseAuthCookieOptions,
     },
   );
 }

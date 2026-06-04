@@ -69,6 +69,13 @@ Linked finding: <如失败，填 P0/P1/P2 编号；否则 none>
 | E-39 | SEO/API endpoints `/api/subscribe/confirm` and `/api/subscribe/unsubscribe`; API, Security, Privacy Matrix / Confirm/unsubscribe | prod | Pass | none |
 | E-40 | SEO/API endpoint `/auth/callback`; User Flow / Email confirmation | prod | Fail | P0-2 |
 | E-41 | Fix Session / P0-2 auth callback signup verification | local + prod | Pass | P0-2 |
+| E-42 | Final main deploy / P0-2 auth callback production recheck | prod | Pass | P0-2 |
+| E-43 | Review Session / Independent P0-2 auth callback recheck | prod | Pass | P0-2 |
+| E-44 | User Flow / Logout; User Flow / Logged-in auth pages; API, Security, Privacy Matrix / Auth session refresh; Interactive Inventory / sign-out button | prod | Pass | none |
+| E-45 | Interactive Inventory / `auth/account-form.tsx`; User Flow / Account update | prod | Pass | none |
+| E-46 | API, Security, Privacy Matrix / Session cookie attributes | prod | Fail | P1-2 |
+| E-47 | Fix Session / P1-2 auth cookie hardening | local + prod | Pass | P1-2 |
+| E-48 | Fix Session / P1-2 Chrome automation recheck | prod Chrome automation | Blocked | P1-2 |
 
 ## Evidence Entries
 
@@ -1763,6 +1770,167 @@ NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.wo
 Verdict vs acceptance: Fails. Invalid and malicious `next` callback inputs redirect safely to `https://skorly.cc/id/masuk?error=auth`, but real Supabase-generated signup verification tokens fail the production callback. Three generated signup-token attempts returned HTTP 500, emitted no session cookies, and left the associated Supabase users with `emailConfirmedAtExists=false` and `lastSignInAtExists=false`. This fails the callback acceptance that a real email token creates a production session and the email-confirmation flow acceptance that the confirmed user can access `/id/akun`.
 Linked finding: P0-2
 
+### E-43 Independent P0-2 auth callback recheck
+Matrix row: SEO/API endpoint `/auth/callback`; User Flow Matrix / Email confirmation
+Env: prod
+Time (UTC): 2026-06-04T11:34:20.027Z
+Method: Verified `origin/main` at PR #18, checked production deployment version, generated fresh Supabase signup verification tokens with token values redacted, hit production `/auth/callback` via HTTP, followed another fresh callback in Playwright-driven Chrome with a temporary profile, checked Supabase user state, and ran DNS-overridden `wrangler tail` during both callback windows.
+Raw output:
+```text
+git log --oneline --decorate -8 origin/main
+0d8b1a5 (HEAD -> codex/p0-auth-callback, origin/main, origin/HEAD, main) Merge pull request #18 from john-hoe/codex/p0-auth-callback
+8f10351 Document auth callback verification
+aa86b0a Fix auth callback cookie redirect
+c6b97f2 Merge pull request #17 from john-hoe/codex/fix-organizer-url-structured-data
+aef1c02 fix sports event organizer url
+9a95cc1 Merge pull request #16 from john-hoe/codex/p1-subscribe-turnstile
+
+git diff --stat HEAD..origin/main
+<no output>
+
+pnpm --dir apps/web exec wrangler deployments list --name skorly-web
+Created:     2026-06-04T10:12:29.335Z
+Version(s):  (100%) 0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655
+                 Created:  2026-06-04T10:12:26.382Z
+
+apps/web/app/auth/callback/route.ts
+successResponse = noStoreRedirect(`${origin}${next}`)
+createServerClient(..., {
+  cookies: {
+    getAll() { return request.cookies.getAll(); },
+    setAll(cookiesToSet, headers) {
+      for (const { name, value, options } of cookiesToSet) {
+        successResponse.cookies.set(name, value, options);
+      }
+      for (const [key, value] of Object.entries(headers)) {
+        successResponse.headers.set(key, value);
+      }
+    },
+  },
+})
+
+HTTP callback verification:
+{
+  "timestampUtc": "2026-06-04T11:29:52.665Z",
+  "base": "https://skorly.cc",
+  "originMain": "0d8b1a5",
+  "generated": {
+    "email": "codex-p0-auth-verify-1780572587921@example.com",
+    "userIdExists": true,
+    "hashedTokenLength": 56,
+    "verificationType": "signup",
+    "redirectToHost": "skorly.cc",
+    "redirectToPath": "/auth/callback"
+  },
+  "invalidChecks": [
+    {
+      "name": "auth-callback-missing",
+      "status": 307,
+      "location": "https://skorly.cc/id/masuk?error=auth",
+      "setCookieCount": 0,
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+      "worker1101Text": false,
+      "secretLeakText": false
+    },
+    {
+      "name": "auth-callback-fake-code",
+      "status": 307,
+      "location": "https://skorly.cc/id/masuk?error=auth",
+      "setCookieCount": 0,
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+      "worker1101Text": false,
+      "secretLeakText": false
+    },
+    {
+      "name": "auth-callback-bad-next",
+      "status": 307,
+      "location": "https://skorly.cc/id/masuk?error=auth",
+      "setCookieCount": 0,
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+      "worker1101Text": false,
+      "secretLeakText": false
+    },
+    {
+      "name": "auth-callback-double-slash-next",
+      "status": 307,
+      "location": "https://skorly.cc/id/masuk?error=auth",
+      "setCookieCount": 0,
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+      "worker1101Text": false,
+      "secretLeakText": false
+    }
+  ],
+  "realCallback": {
+    "name": "auth-callback-real-signup-token",
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "ms": 1101,
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"],
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "worker1101Text": false,
+    "secretLeakText": false
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  }
+}
+
+Playwright-driven Chrome callback verification:
+{
+  "timestampUtc": "2026-06-04T11:34:20.027Z",
+  "browserName": "chrome",
+  "email": "codex-p0-auth-browser-1780572838112@example.com",
+  "generated": {
+    "userIdExists": true,
+    "hashedTokenLength": 56,
+    "verificationType": "signup",
+    "redirectToHost": "skorly.cc",
+    "redirectToPath": "/auth/callback"
+  },
+  "navigation": {
+    "initialResponseStatus": 200,
+    "finalUrl": "https://skorly.cc/id/akun",
+    "title": "Akun saya | Skorly",
+    "h1": "Akun saya",
+    "ms": 17646,
+    "bodyHasExpectedEmail": false,
+    "bodyHasAccountText": true,
+    "bodyHasLoginError": false,
+    "bodyHasRuntimeError": false
+  },
+  "cookies": {
+    "count": 3,
+    "names": ["sb-majrlaxktengachwrskk-auth-token"],
+    "authCookieCount": 1
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  },
+  "consoleErrors": []
+}
+
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+
+wrangler tail output during HTTP callback window:
+Successfully created tail, expires at 2026-06-04T12:21:53Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+wrangler tail output during Playwright-driven Chrome callback window:
+Successfully created tail, expires at 2026-06-04T12:21:53Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+```
+Verdict vs acceptance: Pass. Invalid params, fake code, malicious absolute `next`, and protocol-relative `next` still redirect to the localized login error page without external redirect. A fresh Supabase signup verification token now returns `307` to `https://skorly.cc/id/akun`, sets one Supabase auth cookie, and leaves the generated user with `emailConfirmedAtExists=true` and `lastSignInAtExists=true`. Playwright-driven Chrome with a temporary profile followed a fresh real callback to `https://skorly.cc/id/akun`, rendered `Akun saya | Skorly` with `h1="Akun saya"`, had one auth cookie, no login/runtime error text, and no console errors. DNS-overridden `wrangler tail --status error` was connected during both callback verification windows and emitted no error event lines.
+Linked finding: P0-2
+
 ### E-41 P0-2 auth callback signup verification fix
 Matrix row: SEO/API endpoint `/auth/callback`; User Flow Matrix / Email confirmation
 Env: local + prod
@@ -1942,3 +2110,604 @@ Production SEO smoke:
 ```
 Verdict vs acceptance: Pass. Invalid and malicious callback inputs redirect to the localized login error page without an external redirect. Fresh signup verification tokens redirect to `/id/akun`, set the Supabase auth cookie, and set `email_confirmed_at` / `last_sign_in_at`. Chrome followed a real callback URL to `https://skorly.cc/id/akun` with no 500/1101/runtime error text and no console errors. The controlled `wrangler tail --status error` window produced 0 bytes / 0 JSON error events during a fresh successful callback. SEO smoke had `failures=[]`. `@skorly/predict-model` has no `test` script, so no test pass is claimed for that package.
 Linked finding: P0-2
+
+### E-42 Final main deploy P0-2 auth callback production recheck
+Matrix row: SEO/API endpoint `/auth/callback`; User Flow Matrix / Email confirmation
+Env: prod
+Time (UTC): 2026-06-04T10:14:37.780Z
+Method: After PR #18 merge, fast-forwarded the clean `main` deploy worktree to merge commit `0d8b1a52c595a8add18cf191c53e9079e01b42fb`, deployed with OpenNext/Cloudflare, then reran production HTTP callback checks, Chrome real callback navigation, Supabase admin user-state check, `wrangler tail --status error`, and SEO smoke.
+Raw output:
+```text
+Main deploy worktree:
+git -C '/Users/johnmacmini/workspace/Football site-deploy' pull --ff-only
+Updating c6b97f2..0d8b1a5
+Fast-forward
+0d8b1a52c595a8add18cf191c53e9079e01b42fb
+
+Final main deploy:
+set -a; source '/Users/johnmacmini/workspace/Football site/.env'; set +a; pnpm --filter @skorly/web cf:deploy
+Compiled successfully in 7.4s
+Generating static pages using 3 workers (1922/1922) in 3.5min
+Uploaded skorly-web (109.42 sec)
+Deployed skorly-web triggers (6.29 sec)
+Current Version ID: 0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655
+Exit status: 0
+
+Final production HTTP callback checks:
+{
+  "timestampUtc": "2026-06-04T10:13:22.475Z",
+  "invalid": [
+    {"name":"missing","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0},
+    {"name":"fake-code","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0},
+    {"name":"bad-next","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+  ],
+  "real": {
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"],
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  }
+}
+
+Final Chrome real callback:
+{
+  "timestampUtc": "2026-06-04T10:13:50.788Z",
+  "finalUrl": "https://skorly.cc/id/akun",
+  "title": "Akun saya | Skorly",
+  "workerOrErrorTextCount": 0,
+  "consoleErrorCount": 0,
+  "consoleErrors": []
+}
+
+Final Supabase user state after Chrome callback:
+{
+  "timestampUtc": "2026-06-04T10:14:03.611Z",
+  "idExists": true,
+  "emailConfirmedAtExists": true,
+  "lastSignInAtExists": true
+}
+
+Final wrangler tail window:
+NODE_OPTIONS="<DNS override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no output before Ctrl-C during 2026-06-04T10:13:22Z through 2026-06-04T10:14:03Z callback verification window>
+
+Final production SEO smoke:
+{
+  "timestampUtc": "2026-06-04T10:14:37.780Z",
+  "articleUrl": "https://skorly.cc/id/artikel/news-10-world-cup-2026-how-miners-from-cornwall-brought-football-to-",
+  "failures": [],
+  "results": [
+    {"name":"sitemap","status":200,"expect":200,"worker1101Text":false},
+    {"name":"news-sitemap","status":200,"expect":200,"worker1101Text":false},
+    {"name":"team","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"match","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"article","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"missing-team","status":404,"expect":404,"worker1101Text":false},
+    {"name":"missing-match","status":404,"expect":404,"worker1101Text":false},
+    {"name":"missing-article","status":404,"expect":404,"worker1101Text":false}
+  ]
+}
+```
+Verdict vs acceptance: Pass. Final main commit `0d8b1a52c595a8add18cf191c53e9079e01b42fb` was deployed as Worker version `0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655`. Invalid callback inputs redirect to the localized login error page. A fresh signup verification token redirects to `/id/akun`, sets the Supabase auth cookie, and confirms the user. Chrome followed a real callback URL to `https://skorly.cc/id/akun` with no 500/1101/runtime error text and no console errors. The error-tail window emitted no output during the final callback verification window. SEO smoke had `failures=[]`.
+Linked finding: P0-2
+
+### E-44 Logged-in auth pages and logout/session refresh
+Matrix row: User Flow Matrix / Logout; User Flow Matrix / Logged-in auth pages; API, Security, Privacy Matrix / Auth session refresh; Interactive Inventory Matrix / `auth/sign-out-button.tsx`
+Env: prod
+Time (UTC): 2026-06-04T11:40:16.418Z
+Method: Playwright-driven Chrome with a temporary profile. Created a fresh Supabase signup verification token, followed production `/auth/callback` to establish a session, opened logged-in auth pages, clicked the production sign-out button, revisited protected `/id/akun`, and ran DNS-overridden `wrangler tail --status error --ip self` during the browser window.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-04T12:21:53Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Playwright-driven Chrome output:
+{
+  "timestampUtc": "2026-06-04T11:40:16.418Z",
+  "browserName": "chrome",
+  "email": "codex-auth-session-1780573152345@example.com",
+  "generated": {
+    "userIdExists": true,
+    "hashedTokenLength": 56,
+    "verificationType": "signup"
+  },
+  "logoutClicked": true,
+  "events": [
+    {
+      "label": "after-callback-account",
+      "url": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "bodyHasLoginForm": false,
+      "bodyHasAccountText": true,
+      "bodyHasLogout": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "logged-in-open-login",
+      "url": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "bodyHasLoginForm": false,
+      "bodyHasAccountText": true,
+      "bodyHasLogout": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "logged-in-open-register",
+      "url": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "bodyHasLoginForm": false,
+      "bodyHasAccountText": true,
+      "bodyHasLogout": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "after-logout-click",
+      "url": "https://skorly.cc/id",
+      "title": "Piala Dunia 2026: Jadwal & Prediksi",
+      "h1": "Piala Dunia 2026",
+      "bodyHasLoginForm": false,
+      "bodyHasAccountText": true,
+      "bodyHasLogout": false,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "logged-out-open-account",
+      "url": "https://skorly.cc/id/masuk",
+      "title": "Selamat datang kembali | Skorly",
+      "h1": "Selamat datang kembali",
+      "bodyHasLoginForm": true,
+      "bodyHasAccountText": false,
+      "bodyHasLogout": false,
+      "bodyHasRuntimeError": false
+    }
+  ],
+  "cookiesAfterLogout": {
+    "count": 2,
+    "authCookieCount": 0,
+    "authCookieNames": []
+  },
+  "consoleErrors": [
+    "%c%d font-size:0;color:transparent NaN",
+    "%c%d font-size:0;color:transparent NaN",
+    "Failed to load resource: the server responded with a status of 401 ()"
+  ]
+}
+```
+Verdict vs acceptance: Pass for the listed matrix rows. A logged-in user opening `/id/masuk` and `/id/daftar` was redirected to `/id/akun` with no login/register form shown. The sign-out button was clicked, the browser landed on `/id`, and auth cookies matching `auth-token|supabase|sb-` were absent after logout. A logged-out revisit to protected `/id/akun` landed on `/id/masuk` with the login form visible. No 1101/500/runtime error text was visible, and `wrangler tail --status error` emitted no error event lines. The console entries are recorded here but this evidence is not used to clear the separate console-error/global UI matrix rows.
+Linked finding: none
+
+### E-45 Account profile update production form
+Matrix row: Interactive Inventory Matrix / `auth/account-form.tsx`; User Flow Matrix / Account update
+Env: prod
+Time (UTC): 2026-06-04T12:57:32Z
+Method: DNS-overridden `wrangler tail --status error --ip self` plus Playwright-driven Chrome with a temporary profile. Created a fresh Supabase signup verification token, followed production `/auth/callback` to establish a session, edited the account form, submitted it, reloaded `/id/akun`, and checked the `profiles` row plus Supabase auth user metadata via service-role admin. Token values and secrets were not printed.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-04T18:52:06Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Playwright-driven Chrome output:
+{
+  "testUser": {
+    "email": "codex-account-update-1780577732553@example.com",
+    "userIdPrefix": "6d823086",
+    "verificationType": "signup",
+    "tokenHashLength": 56
+  },
+  "before": {
+    "finalUrl": "https://skorly.cc/id/akun",
+    "title": "Akun saya | Skorly",
+    "h1": "Akun saya",
+    "displayNameValue": "Codex account 732553",
+    "whatsappValue": "",
+    "consentChecked": false
+  },
+  "accountUpdate": {
+    "successTextVisible": true,
+    "selectedTeam": {
+      "value": "36",
+      "text": "Algeria"
+    },
+    "afterReload": {
+      "finalUrl": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "displayNameValue": "Codex saved 732553",
+      "whatsappValue": "+628577732553",
+      "favoriteTeamValue": "36",
+      "consentChecked": true
+    },
+    "databaseProfile": {
+      "email": "codex-account-update-1780577732553@example.com",
+      "display_name": "Codex saved 732553",
+      "whatsapp_number": "+628577732553",
+      "favorite_team_id": 36,
+      "consent_marketing": true
+    },
+    "authUserDisplayName": "Codex saved 732553"
+  },
+  "authCookies": [
+    {
+      "name": "sb-majrlaxktengachwrskk-auth-token",
+      "domain": "skorly.cc",
+      "path": "/",
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax",
+      "expires": 1815137746.584755
+    }
+  ],
+  "bodyHasRuntimeError": false,
+  "consoleErrors": [],
+  "pageErrors": []
+}
+```
+Verdict vs acceptance: Pass for account update. The account form submitted successfully, displayed `Profil kamu sudah disimpan.`, and after reload `/id/akun` still showed display name `Codex saved 732553`, WhatsApp `+628577732553`, favorite team id `36`, and marketing consent checked. The database `profiles` row matched those values, Supabase auth user metadata contained the updated display name, Chrome had no console/page errors, and the Worker error tail emitted no error event lines. Cookie attributes observed during this flow are not cleared by this evidence; they are evaluated separately in E-46.
+Linked finding: none
+
+### E-46 Supabase auth cookie missing HttpOnly and Secure flags
+Matrix row: API, Security, And Privacy Matrix / Session cookie attributes
+Env: prod
+Time (UTC): 2026-06-04T12:57:32Z
+Method: Used the E-45 Playwright-driven Chrome account session to capture production auth cookie attributes, then generated a second fresh Supabase signup verification token and fetched production `/auth/callback` with redirects disabled to summarize the raw `Set-Cookie` attributes without printing token values.
+Raw output:
+```text
+Playwright cookie attributes from E-45:
+[
+  {
+    "name": "sb-majrlaxktengachwrskk-auth-token",
+    "domain": "skorly.cc",
+    "path": "/",
+    "httpOnly": false,
+    "secure": false,
+    "sameSite": "Lax",
+    "expires": 1815137746.584755
+  }
+]
+
+Direct production callback Set-Cookie summary:
+{
+  "email": "codex-cookie-attrs-1780577788739@example.com",
+  "status": 307,
+  "location": "https://skorly.cc/id/akun",
+  "cookieCount": 1,
+  "cookies": [
+    {
+      "name": "sb-majrlaxktengachwrskk-auth-token",
+      "hasHttpOnly": false,
+      "hasSecure": false,
+      "sameSite": "SameSite=lax",
+      "maxAge": "Max-Age=34560000",
+      "attrNames": [
+        "expires",
+        "max-age",
+        "path",
+        "samesite"
+      ]
+    }
+  ]
+}
+```
+Verdict vs acceptance: Fail. The matrix acceptance requires auth cookies to have `HttpOnly`, `Secure`, and `SameSite` set correctly in production. The production auth cookie has `SameSite=lax`, but both independent checks show `HttpOnly=false` and `Secure=false` / `hasHttpOnly=false` and `hasSecure=false`.
+Linked finding: P1-2
+
+### E-47 P1-2 auth cookie hardening fix and production verification
+Matrix row: API, Security, And Privacy Matrix / Session cookie attributes
+Env: local + prod
+Time (UTC): 2026-06-04T13:45:06Z
+Method: Implemented hardened Supabase SSR cookie options at all server write boundaries, replaced the header client-side Supabase session read with a server-mediated `/api/auth/session` route, ran local gates, deployed to Cloudflare, generated fresh Supabase signup verification tokens, fetched production `/auth/callback` with redirects disabled, supplied the returned cookie to production session/account requests, ran production SEO smoke samples, and monitored Worker errors with `wrangler tail --status error`.
+Raw output:
+```text
+Source inventory:
+rg -n "auth\.get(User|Session)|onAuthStateChange|getSession\(|createSupabaseBrowserClient\(|document\.cookie|cookies\.set\(|response\.cookies\.set\(|setAll\(" apps/web
+apps/web/middleware.ts:59:        setAll(cookiesToSet, headers) {
+apps/web/middleware.ts:61:            response.cookies.set(name, value, withSupabaseAuthCookieOptions(options));
+apps/web/middleware.ts:76:    await supabase.auth.getUser();
+apps/web/lib/supabase/client.ts:4:export function createSupabaseBrowserClient() {
+apps/web/lib/supabase/server.ts:21:        setAll(cookiesToSet) {
+apps/web/lib/supabase/server.ts:43:    const { data, error } = await supabase.auth.getUser();
+apps/web/components/auth/oauth-buttons.tsx:16:    const supabase = createSupabaseBrowserClient();
+apps/web/app/auth/callback/route.ts:28:        setAll(cookiesToSet, headers) {
+apps/web/app/auth/callback/route.ts:30:            successResponse.cookies.set(name, value, withSupabaseAuthCookieOptions(options));
+
+@supabase/ssr local package evidence:
+node_modules/.pnpm/@supabase+ssr@0.10.3_@supabase+supabase-js@2.106.2/node_modules/@supabase/ssr/src/utils/constants.ts:
+DEFAULT_COOKIE_OPTIONS = { path: "/", sameSite: "lax", httpOnly: false, maxAge: 400 * 24 * 60 * 60 }
+
+git diff --check
+<no output>
+
+pnpm --filter @skorly/web lint
+> @skorly/web@0.1.0 lint /Users/johnmacmini/workspace/Football site/apps/web
+> eslint .
+
+pnpm --filter @skorly/web typecheck
+> @skorly/web@0.1.0 typecheck /Users/johnmacmini/workspace/Football site/apps/web
+> tsc --noEmit
+
+pnpm lint
+> skorly@0.1.0 lint /Users/johnmacmini/workspace/Football site
+> pnpm -r lint
+Scope: 9 of 10 workspace projects
+apps/web lint$ eslint .
+apps/web lint: Done
+
+pnpm typecheck
+> skorly@0.1.0 typecheck /Users/johnmacmini/workspace/Football site
+> pnpm -r typecheck
+Scope: 9 of 10 workspace projects
+packages/predict-model typecheck$ tsc --noEmit
+packages/types typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/types typecheck: Done
+packages/predict-model typecheck: Done
+packages/ui typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/ai-content typecheck$ tsc --noEmit
+packages/api-football typecheck$ tsc --noEmit
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+apps/web typecheck$ tsc --noEmit
+packages/news typecheck$ tsc --noEmit
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck$ tsc --noEmit
+apps/jobs typecheck: Done
+
+pnpm --filter @skorly/api-football test
+> @skorly/api-football@0.1.0 test /Users/johnmacmini/workspace/Football site/packages/api-football
+> vitest run
+RUN  v3.2.4 /Users/johnmacmini/workspace/Football site/packages/api-football
+✓ src/client.test.ts (2 tests) 4ms
+Test Files  1 passed (1)
+Tests  2 passed (2)
+
+pnpm --dir packages/predict-model run test
+ERR_PNPM_NO_SCRIPT Missing script: test
+Command "test" not found.
+
+pnpm build
+✓ Generating static pages using 3 workers (1923/1923) in 4.0min
+Route table included:
+├ ƒ /api/auth/session
+├ ƒ /auth/callback
+└ ○ /sitemap.xml
+
+Post-build route count checks:
+find apps/web/.next/server/app -name '*.html' | wc -l
+1584
+find apps/web/.next/server/app -path '*/artikel/*' -name '*.html' | wc -l
+1010
+find apps/web/.next/server/app -path '*/pertandingan/*' -name '*.html' | wc -l
+288
+find apps/web/.next/server/app -path '*/cerita/*' -name '*.body' | wc -l
+288
+find apps/web/.next/server/app -path '*/tim/*' -name '*.html' | wc -l
+192
+find apps/web/.next/server/app -path '*api/auth/session*' -maxdepth 8 -type f | sed -n '1,40p'
+apps/web/.next/server/app/api/auth/session/route.js
+apps/web/.next/server/app/api/auth/session/route_client-reference-manifest.js
+apps/web/.next/server/app/api/auth/session/route.js.map
+apps/web/.next/server/app/api/auth/session/route/build-manifest.json
+apps/web/.next/server/app/api/auth/session/route/app-paths-manifest.json
+apps/web/.next/server/app/api/auth/session/route/server-reference-manifest.json
+apps/web/.next/server/app/api/auth/session/route.js.nft.json
+
+Local production callback verification:
+{
+  "environment": "local next start http://localhost:3100",
+  "utc": "2026-06-04T13:26:15.912Z",
+  "generated": {
+    "emailPrefix": "codex-cookie-local-1780579566624-9285af",
+    "tokenHashLength": 56,
+    "verificationType": "signup"
+  },
+  "callback": {
+    "status": 307,
+    "location": "http://localhost:3100/id/akun",
+    "setCookieCount": 1,
+    "authSetCookieCount": 1,
+    "authCookie": {
+      "name": "sb-majrlaxktengachwrskk-auth-token",
+      "hasHttpOnly": true,
+      "hasSecure": true,
+      "sameSite": "SameSite=lax",
+      "hasMaxAge": true,
+      "hasExpires": true,
+      "attrNames": ["expires", "httponly", "max-age", "path", "samesite", "secure"]
+    }
+  },
+  "sessionApi": {
+    "status": 200,
+    "body": { "authenticated": true },
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0"
+  },
+  "accountWithCookie": {
+    "status": 200,
+    "location": null
+  }
+}
+
+Cloudflare deploy:
+pnpm --filter @skorly/web cf:deploy
+✓ Generating static pages using 3 workers (1923/1923) in 4.1min
+Uploaded 1590 files (449 already uploaded) (85.81 sec)
+Deployed skorly-web triggers (6.08 sec)
+  skorly.cc (custom domain)
+  www.skorly.cc (custom domain)
+Current Version ID: b46ac47f-d2e9-41c4-85e2-c7900a3ed214
+
+Production direct callback verification:
+{
+  "environment": "production direct https://skorly.cc",
+  "utc": "2026-06-04T13:34:31.801Z",
+  "generated": {
+    "emailPrefix": "codex-cookie-prod-direct-1780580059680-7f4aed",
+    "tokenHashLength": 56,
+    "verificationType": "signup"
+  },
+  "callback": {
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "setCookieCount": 1,
+    "authSetCookieCount": 1,
+    "authCookie": {
+      "name": "sb-majrlaxktengachwrskk-auth-token",
+      "hasHttpOnly": true,
+      "hasSecure": true,
+      "sameSite": "SameSite=lax",
+      "hasMaxAge": true,
+      "hasExpires": true,
+      "attrNames": ["expires", "httponly", "max-age", "path", "samesite", "secure"]
+    }
+  },
+  "sessionApi": {
+    "status": 200,
+    "body": { "authenticated": true },
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0"
+  },
+  "accountWithCookie": {
+    "status": 200,
+    "location": null
+  },
+  "userState": {
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  }
+}
+
+Production SEO smoke:
+{
+  "utc": "2026-06-04T13:43:31.946Z",
+  "sitemap": { "status": 200, "has1101": false, "has500Text": false },
+  "newsSitemap": { "status": 200, "has1101": false, "has500Text": false },
+  "team": {
+    "status": 200,
+    "checks": { "title": true, "metaDescription": true, "canonical": true, "hreflang": 5, "h1": 1, "jsonLd": { "count": 2, "parsed": 2 } },
+    "has1101": false,
+    "has500Text": false
+  },
+  "match": {
+    "status": 200,
+    "checks": { "title": true, "metaDescription": true, "canonical": true, "hreflang": 5, "h1": 1, "jsonLd": { "count": 2, "parsed": 2 } },
+    "has1101": false,
+    "has500Text": false
+  },
+  "article": {
+    "status": 200,
+    "checks": { "title": true, "metaDescription": true, "canonical": true, "hreflang": 5, "h1": 1, "jsonLd": { "count": 2, "parsed": 2 } },
+    "has1101": false,
+    "has500Text": false
+  },
+  "missingTeam": { "status": 404, "has1101": false, "has500Text": false },
+  "missingMatch": { "status": 404, "has1101": false, "has500Text": false },
+  "missingArticle": { "status": 404, "has1101": false, "has500Text": false }
+}
+
+Worker error tail:
+zsh -lc 'set -a; source .env; set +a; ... pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error'
+Window covered production direct callback and production SEO smoke between 2026-06-04T13:34:31Z and 2026-06-04T13:43:31Z.
+Output:
+<no JSON event lines>
+```
+Verdict vs acceptance: Pass for the original broken control. The production raw `Set-Cookie` reproducer from E-46 no longer reproduces missing `HttpOnly` or `Secure`; the fresh production auth cookie has `HttpOnly`, `Secure`, and `SameSite=lax`. The hardened cookie still authenticates server-mediated requests: `/api/auth/session` returned authenticated, `/id/akun` returned 200, and Supabase admin recorded confirmed email plus last sign-in. Public SEO samples returned expected 200/404 statuses with no 1101/500 text. Worker error tail emitted no error events during the production auth and SEO smoke window. Chrome cookie-store reinspection is separated in E-48 because the Chrome automation control layer could not navigate controlled tabs.
+Linked finding: P1-2
+
+### E-48 Chrome automation recheck blocked at navigation control layer
+Matrix row: API, Security, And Privacy Matrix / Session cookie attributes
+Env: prod Chrome automation
+Time (UTC): 2026-06-04T13:45:06Z
+Method: Used the Chrome skill through the Codex Chrome Extension. Created controlled Chrome tabs, attempted production callback navigation, attempted ordinary public page navigation to `https://skorly.cc/id`, attempted address-bar keyboard navigation, and ran the Chrome plugin diagnostic scripts.
+Raw output:
+```text
+Chrome bootstrap:
+{
+  "ok": true,
+  "tabId": "1378036564",
+  "tabs": 3
+}
+
+Fresh token generation for Chrome attempt:
+{
+  "ok": true,
+  "emailPrefix": "codex-cookie-prod-chrome-1780580366770-301a64",
+  "tokenHashLength": 56,
+  "verificationType": "signup"
+}
+
+Production callback via tab.goto:
+js execution timed out; kernel reset, rerun your request
+
+Production callback via window.location.assign:
+TypeError: window.location.assign is not a function
+
+Bounded tab.goto(callbackUrl):
+{
+  "gotoOutcome": "goto-timeout-20s",
+  "url": "about:blank",
+  "title": "about:blank",
+  "bodyStart": "",
+  "sessionApiError": "Error: TypeError: fetch is not a function...",
+  "consoleErrors": []
+}
+
+Plain public URL navigation control check:
+{
+  "startUrl": "about:blank",
+  "gotoTimeoutMs": 15000,
+  "finalUrl": "about:blank",
+  "title": "about:blank",
+  "bodyStart": ""
+}
+
+Address-bar keyboard navigation check:
+{
+  "startUrl": "about:blank",
+  "afterUrl": "about:blank",
+  "title": "about:blank",
+  "bodyStart": ""
+}
+
+Chrome diagnostics:
+{
+  "chromeIsRunning": "Google Chrome running: yes",
+  "installedBrowsers": {
+    "installed_browsers": [
+      {
+        "name": "Google Chrome",
+        "path": "/Applications/Google Chrome.app",
+        "version": "149.0.7827.53"
+      }
+    ]
+  },
+  "extension": {
+    "installed": true,
+    "enabled": true,
+    "selectedProfileDirectory": "Default",
+    "exitCode": 0
+  },
+  "nativeHost": {
+    "exists": true,
+    "nameMatches": true,
+    "hasExpectedOrigin": true,
+    "correct": true,
+    "problem": null
+  }
+}
+```
+Verdict vs acceptance: Blocked for Chrome automation only. The Chrome plugin connected and diagnostics passed, but controlled tabs did not navigate away from `about:blank`, including a plain public `https://skorly.cc/id` check. No Chrome cookie-store attribute result is claimed from this evidence. E-47 contains the pass evidence for the production raw `Set-Cookie` reproducer, source inventory, server-mediated session route, deploy, SEO smoke, and Worker error tail.
+Linked finding: P1-2
