@@ -693,6 +693,40 @@ pnpm --filter @skorly/web typecheck
 Exit status: 0
 ```
 
+### P1-6 Mobile header causes horizontal scrolling on core pages
+
+Status 2026-06-04 follow-up:
+
+- Fixed in code.
+- The mobile header no longer renders the full desktop nav, notification bell, auth links, and locale switcher in one row.
+- Below the `lg` breakpoint, the header now renders brand + auth action + a localized native `details` menu.
+- The locale switcher and notification bell moved inside the mobile menu, eliminating the previously measured right-edge overflow from the inline locale buttons.
+
+Relevant files:
+
+- `apps/web/components/site-header.tsx`
+- `apps/web/messages/en.json`
+- `apps/web/messages/id.json`
+- `apps/web/messages/vi.json`
+- `apps/web/messages/zh.json`
+
+Verification 2026-06-04:
+
+```text
+Message catalog parse
+messages ok
+
+SSR HTML check against local production server:
+curl -s http://127.0.0.1:3100/id
+{"status":"html-read","hasHeader":true,"hasMobileDetails":true,"hasMenu":true,"hasDesktopLgNav":true,"hasLocaleSwitcher":true,"hasLogin":true}
+
+Browser verification note:
+- In-app Browser blocked http://localhost:3100 and http://127.0.0.1:3100 with ERR_BLOCKED_BY_CLIENT.
+- After restarting the local production server from the final build, the same Browser surface loaded http://127.0.0.1:3100/id as an internal "This page couldn't load" error page while still reporting the page title.
+- System Chrome / Playwright also hit local browser-surface failures; the Playwright bundled headless shell exited on launch with TargetClosedError.
+- Browser screenshots were not used as passing evidence.
+```
+
 ## P2 Findings
 
 ### P2-1 Indonesian article summaries contain English text
@@ -945,7 +979,89 @@ Message catalog parse
 messages ok
 ```
 
+### P2-8 Logged-in users can still open login/register pages
+
+Status 2026-06-04 follow-up:
+
+- Fixed in code.
+- `/[locale]/masuk` and `/[locale]/daftar` now call the existing server-side Supabase auth helper.
+- If `getSessionUser()` returns a verified user, both pages redirect locale-aware to `/akun`.
+- Unauthenticated users still receive the login/register forms.
+
+Relevant files:
+
+- `apps/web/app/[locale]/masuk/page.tsx`
+- `apps/web/app/[locale]/daftar/page.tsx`
+- `apps/web/lib/supabase/server.ts`
+
+Verification 2026-06-04:
+
+```text
+Supabase current docs check:
+- Current SSR guidance uses @supabase/ssr with cookies for server-side auth.
+- Current docs state getUser() returns an up-to-date user record from the Auth server, while getSession() should not be trusted by itself for server authorization.
+- This fix reuses the existing getSessionUser() helper, which wraps supabase.auth.getUser().
+
+Unauthenticated local production check:
+/id/masuk 200
+/id/daftar 200
+
+Build route classification:
+├ ƒ /[locale]/daftar
+├ ƒ /[locale]/masuk
+
+Authenticated redirect still requires a real browser session after deploy:
+- Passing criterion: authenticated production Chrome visit to https://skorly.cc/id/masuk and https://skorly.cc/id/daftar redirects to /id/akun.
+```
+
 ## P1/P2 Gate Verification
+
+Status 2026-06-04 follow-up:
+
+- P1-6 and P2-8 follow-up fixes are locally green on branch `codex/mobile-auth-followups`.
+- Root lint, root typecheck, `@skorly/web` typecheck, and root build passed.
+- Local production server was started with the existing private `.env` from the main workspace only for verification; no env values were printed or committed.
+
+Verification 2026-06-04:
+
+```text
+pnpm --filter @skorly/web typecheck
+> @skorly/web@0.1.0 typecheck /Users/johnmacmini/workspace/Football site-deploy/apps/web
+> tsc --noEmit
+Exit status: 0
+
+pnpm --filter @skorly/web lint
+> @skorly/web@0.1.0 lint /Users/johnmacmini/workspace/Football site-deploy/apps/web
+> eslint .
+Exit status: 0
+
+pnpm typecheck
+Scope: 9 of 10 workspace projects
+packages/types typecheck: Done
+packages/predict-model typecheck: Done
+packages/ui typecheck: Done
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck: Done
+Exit status: 0
+
+pnpm lint
+Scope: 9 of 10 workspace projects
+apps/web lint: Done
+Exit status: 0
+
+pnpm build
+✓ Compiled successfully in 8.4s
+Finished TypeScript in 2.7s
+✓ Generating static pages using 3 workers (95/95) in 243ms
+Exit status: 0
+
+git diff --check
+Exit status: 0
+```
 
 Status 2026-06-03:
 

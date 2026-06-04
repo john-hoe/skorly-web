@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { getSessionUser } from "@/lib/supabase/server";
 
 export async function generateMetadata({
   params,
@@ -22,6 +24,9 @@ export default async function LoginPage({
   const { locale } = await params;
   const { error } = await searchParams;
   setRequestLocale(locale);
+
+  const user = await getSessionUser();
+  if (user) redirect({ href: "/akun", locale });
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
