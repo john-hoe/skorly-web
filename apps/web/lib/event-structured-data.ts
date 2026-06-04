@@ -81,6 +81,7 @@ export function buildFixtureSportsEventLd({
     organizer: {
       "@type": "Organization",
       name: "FIFA",
+      url: "https://www.fifa.com/",
     },
   };
 }
