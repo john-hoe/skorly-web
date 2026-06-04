@@ -52,7 +52,8 @@ Verification (修复后回填):
 | ID | Severity | Title | Module / Route | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | P0-1 | P0 | Review branch omits fixed production runtime P0 commits | `codex/review` / logged-in runtime surfaces | Fixed | E-7, E-34 |
-| P1-1 | P1 | Subscribe API bypasses Turnstile when production secret is missing | `/api/subscribe` / Worker secrets | Fixed | E-36, E-37 |
+| P0-2 | P0 | Auth callback returns 500 for real signup verification token | `/auth/callback` / Supabase Auth | Fixed | E-40, E-41 |
+| P1-1 | P1 | Subscribe API bypasses Turnstile when production secret is missing | `/api/subscribe` / Worker secrets | Fixed | E-36, E-37, E-38 |
 | P2-1 | P2 | Predict-model test gate executes zero tests | `packages/predict-model` | Open | E-2 |
 
 ## P0 Findings
@@ -101,6 +102,52 @@ Verification (修复后回填):
   - The Chrome outputs for the checked runtime pages had `worker1101Text=false` and `visibleErrorCount=0`.
   - SEO smoke returned `failures=[]`: `/sitemap.xml` 200, `/news-sitemap.xml` 200, valid team/match/article URLs 200, nonexistent team/match/article slugs 404, canonical/hreflang/title/meta description/JSON-LD present on sampled 200 pages, and sampled match SportsEvent JSON-LD had `startDate`, `location`, `image`, `description`, `performer`, `organizer`, and `eventStatus`.
 
+### P0-2 Auth callback returns 500 for real signup verification token
+
+Status:
+- Fixed
+
+Evidence:
+- E-40: invalid `/auth/callback` inputs redirect safely to `https://skorly.cc/id/masuk?error=auth`, including malicious `next=https://evil.example/` and `next=//evil.example/`.
+- E-40: Supabase admin `generateLink` produced signup verification tokens with `hashedTokenLength=56`, `verificationType="signup"`, and callback host/path `skorly.cc` / `/auth/callback`.
+- E-40: three production callback attempts with generated signup verification tokens returned HTTP 500, response body length 0, `setCookieCount=0`, `emailConfirmedAtExists=false`, and `lastSignInAtExists=false`.
+- E-40: normal `wrangler tail` failed before TLS connection with `ECONNRESET`; DNS-overridden tail emitted no JSON event lines during one fresh callback request window. No Worker error log body is available from this evidence.
+- E-41: `apps/web/app/auth/callback/route.ts` now uses a callback-scoped `@supabase/ssr` server client and writes Supabase auth cookies plus no-store cache headers onto the exact redirect response returned by the route.
+- E-41: local and production fresh signup verification tokens returned HTTP 307 to `/id/akun`, emitted `sb-majrlaxktengachwrskk-auth-token`, and set Supabase `email_confirmed_at` plus `last_sign_in_at`.
+- E-41: Chrome followed a real production callback URL to `https://skorly.cc/id/akun`; page title was `Akun saya | Skorly`; `workerOrErrorTextCount=0`; `consoleErrorCount=0`.
+- E-41: controlled `wrangler tail skorly-web --format json --status error` window produced `TAIL_LOG_BYTES=0` during a fresh successful callback.
+- E-41: production SEO smoke had `failures=[]` for `/sitemap.xml`, `/news-sitemap.xml`, sampled team/match/article pages, and missing team/match/article slugs.
+
+Impact:
+- User / auth impact. New users who receive a Supabase signup verification token cannot complete email confirmation through `https://skorly.cc/auth/callback`, do not receive a production session cookie, and remain unconfirmed in Supabase.
+- Core onboarding impact. The `Email confirmation` flow cannot close, so registration cannot reliably produce an account session through the production callback.
+
+Reproduce:
+- Generate a Supabase signup verification link with service-role admin for a fresh test email and `redirectTo=https://skorly.cc/auth/callback?next=/id/akun`.
+- Build the callback URL with the generated `hashed_token` and `type=signup`.
+- GET `https://skorly.cc/auth/callback?token_hash=<redacted>&type=signup&next=%2Fid%2Fakun` with redirects disabled.
+- Observe HTTP 500, no `Location` header, no `Set-Cookie` header, and the Supabase user still has `email_confirmed_at` unset.
+
+Fix acceptance:
+- Missing params, fake code, and malicious absolute or protocol-relative `next` still redirect to the localized login error page without external redirect.
+- A fresh Supabase signup verification token returns a redirect to `https://skorly.cc/id/akun`.
+- The callback response sets the Supabase auth session cookies needed by production.
+- The associated Supabase user has `email_confirmed_at` set after callback.
+- Chrome follows the real callback URL and lands on `/id/akun` with no visible 500/1101/runtime error text.
+- `wrangler tail skorly-web --format json --status error` captures 0 Worker error events during the successful real-token callback window.
+
+Verification (修复后回填):
+- E-41 / local + prod / 2026-06-04T10:00:56.712Z:
+  - `pnpm lint` passed; `pnpm typecheck` passed; `pnpm --filter @skorly/api-football test` passed with 2 tests; `pnpm build` passed with `Generating static pages using 3 workers (1922/1922) in 3.3min`.
+  - `pnpm --dir packages/predict-model run test` returned `ERR_PNPM_NO_SCRIPT Missing script: test`; no test pass is claimed for that package.
+  - Static page count stayed at `1922/1922`, matching the current main baseline; this auth callback route is dynamic and did not add or remove public SSG route families.
+  - Direct production deploy completed with `Current Version ID: 6bb071d3-3f04-4743-87db-477705c2d226`.
+  - Production invalid callbacks returned 307 to `https://skorly.cc/id/masuk?error=auth` for missing params, fake code, malicious absolute `next`, and protocol-relative `next`.
+  - Three fresh production signup-token callbacks returned 307 to `https://skorly.cc/id/akun`, included `setCookieCount=1`, and had `emailConfirmedAtExists=true` plus `lastSignInAtExists=true`.
+  - Chrome real callback ended at `https://skorly.cc/id/akun`, title `Akun saya | Skorly`, `workerOrErrorTextCount=0`, `consoleErrorCount=0`.
+  - `wrangler tail --status error` produced `TAIL_LOG_BYTES=0` during a fresh successful callback window.
+  - Production SEO smoke returned `failures=[]`: sitemap/news-sitemap 200, sampled team/match/article 200 with canonical/hreflang/title/meta description/JSON-LD, and nonexistent team/match/article slugs 404.
+
 ## P1 Findings
 
 <!-- 在此追加 P1 finding -->
@@ -116,6 +163,7 @@ Evidence:
 - E-36: `pnpm --dir apps/web exec wrangler secret list --name skorly-web` returned only `SUPABASE_SERVICE_ROLE_KEY`; `TURNSTILE_SECRET_KEY` was not present in the secret-name list.
 - E-36: `apps/web/lib/turnstile.ts` returns true when `process.env.TURNSTILE_SECRET_KEY` is absent.
 - E-37: `apps/web/lib/turnstile.ts` now returns false when `TURNSTILE_SECRET_KEY` is absent, production has `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` configured, and `/api/turnstile/site-key` provides the public site key when the client bundle lacks a build-time key.
+- E-38: independent review-session verification confirmed current production Worker version `916217ff-ebe3-47c1-acd0-b2c72cd76406`, missing/fake token `403 captcha`, Chrome real subscribe success text, and Worker error event lines observed = 0 during API and Chrome windows.
 
 Impact:
 - Security / abuse / compliance impact. An unauthenticated caller can create pending subscribers and trigger confirmation-email sending without a valid CAPTCHA challenge.
@@ -148,6 +196,14 @@ Verification (修复后回填):
   - `POST https://skorly.cc/api/subscribe` with `turnstileToken="invalid-token"` returned `403 {"ok":false,"error":"captcha"}` with `secretLeakText=false` and `worker1101Text=false`.
   - Chrome production subscribe flow on `https://skorly.cc/id` rendered Turnstile via the runtime fallback: `turnstileDivCount=1`, token length `816`, submit button `Kirim Panduan Saya`, post-submit `formCount=0`, `successTextPresent=true`, `captchaErrorText=false`, `rateLimitedText=false`, and `worker1101Text=false`.
   - `wrangler tail skorly-web --format pretty --status error --ip self` needed a temporary DNS override because the system resolver mapped `tail.developers.workers.dev` to a Meta IP with an invalid certificate. With the override, tail printed `Connected to skorly-web, waiting for logs...`; during the missing-token, fake-token, and Chrome real subscribe checks, tail emitted 0 error event lines before `^C`.
+- E-38 / prod / 2026-06-04T09:02:06.543Z:
+  - `pnpm --dir apps/web exec wrangler deployments list --name skorly-web` showed latest deployment version `916217ff-ebe3-47c1-acd0-b2c72cd76406`, created `2026-06-04T08:47:55.747Z`.
+  - `pnpm --dir apps/web exec wrangler secret list --name skorly-web` returned `SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, and `TURNSTILE_SITE_KEY`.
+  - `GET https://skorly.cc/api/turnstile/site-key` returned status 200, redacted site key length 24, `worker1101Text=false`, and `secretLeakText=false`.
+  - `POST https://skorly.cc/api/subscribe` without `turnstileToken` returned `403 {"ok":false,"error":"captcha"}` with `worker1101Text=false` and `secretLeakText=false`.
+  - `POST https://skorly.cc/api/subscribe` with `turnstileToken="invalid-token"` returned `403 {"ok":false,"error":"captcha"}` with `worker1101Text=false` and `secretLeakText=false`.
+  - Chrome production subscribe flow on `https://skorly.cc/zh` had pre-submit token length `816`, submitted `codex-review-ui-1780563806919@example.com`, removed the form after submit, and displayed `就差一步——请查收邮件！` plus `我们已发送确认链接，点击即可开始接收独家预测。`.
+  - `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` emitted no JSON event lines during the independent API window and no JSON event lines during the independent Chrome submit window.
 
 ## P2 Findings
 

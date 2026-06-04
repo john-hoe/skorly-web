@@ -65,6 +65,10 @@ Linked finding: <如失败，填 P0/P1/P2 编号；否则 none>
 | E-35 | Post-deploy P0 runtime smoke | prod | Pass | none |
 | E-36 | SEO/API endpoint `/api/subscribe`; API, Security, Privacy Matrix / Subscribe API; User Flow / Subscribe invalid input | prod | Fail | P1-1 |
 | E-37 | Fix Session / P1-1 subscribe Turnstile fail-closed and production verification | local + prod | Pass | P1-1 |
+| E-38 | Review Session / Independent P1-1 post-deploy verification | prod | Pass | P1-1 |
+| E-39 | SEO/API endpoints `/api/subscribe/confirm` and `/api/subscribe/unsubscribe`; API, Security, Privacy Matrix / Confirm/unsubscribe | prod | Pass | none |
+| E-40 | SEO/API endpoint `/auth/callback`; User Flow / Email confirmation | prod | Fail | P0-2 |
+| E-41 | Fix Session / P0-2 auth callback signup verification | local + prod | Pass | P0-2 |
 
 ## Evidence Entries
 
@@ -1401,3 +1405,540 @@ Worker error event lines observed during connected tail window: 0
 ```
 Verdict vs acceptance: Pass. Production has `TURNSTILE_SECRET_KEY` and `TURNSTILE_SITE_KEY` configured. The server verifier returns false when the secret is absent, missing token returns 403 captcha, fake token returns 403 captcha, and the response bodies checked do not contain private secret names or secret values. The Chrome flow rendered a real Turnstile widget through the runtime site-key fallback, produced a token with length 816, submitted the subscribe form, and replaced the form with the success state. `wrangler tail --status error` was connected during the production API and Chrome checks and emitted 0 error event lines. The local build added one route, so static generation changed from 1921 to 1922 pages.
 Linked finding: P1-1
+
+### E-38 Independent P1-1 post-deploy verification
+Matrix row: SEO/API endpoint `/api/subscribe`; API, Security, Privacy Matrix / Subscribe API; User Flow / Subscribe invalid input
+Env: prod
+Time (UTC): 2026-06-04T09:02:06.543Z
+Method: Independent review-session verification after PR #16 merge. Checked current Worker deployment version, production Worker secret names, production API responses, Chrome real subscribe flow on `https://skorly.cc/zh`, and `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` during API and Chrome windows.
+Raw output:
+```text
+git log --oneline --decorate -5 origin/main
+9a95cc1 (origin/main, origin/HEAD) Merge pull request #16 from john-hoe/codex/p1-subscribe-turnstile
+b03bd97 (HEAD -> codex/p1-subscribe-turnstile) Fix subscribe Turnstile verification
+ed7018e Merge pull request #15 from john-hoe/codex/review
+e30428c (codex/review) Fix review branch P0 runtime baseline
+885d188 (main) Document PR 14 production verification
+
+git diff --stat HEAD..origin/main
+<no output>
+
+pnpm --dir apps/web exec wrangler deployments list --name skorly-web
+Created:     2026-06-04T08:47:58.799Z
+Version(s):  (100%) 916217ff-ebe3-47c1-acd0-b2c72cd76406
+                 Created:  2026-06-04T08:47:55.747Z
+
+sed -n '1,120p' apps/web/lib/turnstile.ts
+const secret = process.env.TURNSTILE_SECRET_KEY;
+if (!secret) return false;
+if (!token) return false;
+
+find apps/web/app/api/turnstile -type f -maxdepth 3 -print -exec sed -n '1,120p' {} \;
+apps/web/app/api/turnstile/site-key/route.ts
+const siteKey =
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? process.env.TURNSTILE_SITE_KEY;
+if (!siteKey) {
+  return NextResponse.json({ ok: false, error: "notConfigured" }, { status: 404 });
+}
+return NextResponse.json({ ok: true, siteKey });
+
+pnpm --dir apps/web exec wrangler secret list --name skorly-web
+[
+  { "name": "SUPABASE_SERVICE_ROLE_KEY", "type": "secret_text" },
+  { "name": "TURNSTILE_SECRET_KEY", "type": "secret_text" },
+  { "name": "TURNSTILE_SITE_KEY", "type": "secret_text" }
+]
+
+Production API verification at 2026-06-04T09:00:03.759Z:
+{"name":"turnstile-site-key","status":200,"location":null,"contentType":"application/json","ms":2471,"worker1101Text":false,"secretLeakText":false,"parsed":{"ok":true,"siteKey":"[redacted length 24]"}}
+{"name":"subscribe-valid-missing-turnstile","status":403,"location":null,"contentType":"application/json","ms":647,"worker1101Text":false,"secretLeakText":false,"parsed":{"ok":false,"error":"captcha"},"body":"{\"ok\":false,\"error\":\"captcha\"}"}
+{"name":"subscribe-valid-fake-turnstile","status":403,"location":null,"contentType":"application/json","ms":567,"worker1101Text":false,"secretLeakText":false,"parsed":{"ok":false,"error":"captcha"},"body":"{\"ok\":false,\"error\":\"captcha\"}"}
+
+wrangler tail for API verification:
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no JSON event lines emitted during the 2026-06-04T09:00:03Z API request window>
+^C
+
+Chrome real subscribe pre-submit state on https://skorly.cc/zh:
+{
+  "email": "codex-review-ui-1780563806919@example.com",
+  "before": {
+    "buttonText": "发送指南",
+    "consentChecked": true,
+    "emailValue": "codex-review-ui-1780563806919@example.com",
+    "tokenLength": 816,
+    "url": "https://skorly.cc/zh"
+  }
+}
+
+Chrome real subscribe post-submit state:
+{
+  "after": {
+    "bodyHasCaptchaError": false,
+    "bodyHasRuntimeError": false,
+    "formCount": 0,
+    "successElementText": "就差一步——请查收邮件！\n\n我们已发送确认链接，点击即可开始接收独家预测。",
+    "tokenInputs": 0,
+    "url": "https://skorly.cc/zh"
+  }
+}
+
+wrangler tail for Chrome submit:
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no JSON event lines emitted during the 2026-06-04T09:02:06Z Chrome submit window>
+^C
+```
+Verdict vs acceptance: Pass. Current production deployment is version `916217ff-ebe3-47c1-acd0-b2c72cd76406`, and `origin/main` contains PR #16 commit `9a95cc1`. Production has both Turnstile secrets listed by name. Missing token and fake token both returned `403 {"ok":false,"error":"captcha"}` with `worker1101Text=false` and `secretLeakText=false`. Chrome rendered a real Turnstile response token with length 816, submitted the subscribe form, removed the form, and displayed the email-confirmation success text. `wrangler tail --status error` emitted 0 JSON error event lines during the independent API and Chrome verification windows.
+Linked finding: P1-1
+
+### E-39 Subscribe confirm/unsubscribe token route verification
+Matrix row: SEO/API endpoint `/api/subscribe/confirm`; SEO/API endpoint `/api/subscribe/unsubscribe`; API, Security, Privacy Matrix / Confirm/unsubscribe
+Env: prod
+Time (UTC): 2026-06-04T09:09:36.416Z
+Method: Queried the previously submitted review subscriber by test email with service-role access and printed only non-secret state fields; then hit production confirm/unsubscribe routes with missing token, invalid token, and the redacted real token while `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` was running.
+Raw output:
+```text
+Precheck subscriber row:
+{
+  "timestampUtc": "2026-06-04T09:09:09.598Z",
+  "status": 200,
+  "email": "codex-review-ui-1780563806919@example.com",
+  "found": true,
+  "id": 7,
+  "tokenLength": 36,
+  "confirmedAtExists": false,
+  "unsubscribedAtExists": false,
+  "consentMarketing": true
+}
+
+Production route verification:
+{
+  "timestampUtc": "2026-06-04T09:09:36.416Z",
+  "base": "https://skorly.cc",
+  "email": "codex-review-ui-1780563806919@example.com",
+  "tokenLength": 36,
+  "before": {
+    "found": true,
+    "id": 7,
+    "tokenLength": 36,
+    "confirmedAtExists": false,
+    "unsubscribedAtExists": false,
+    "consentMarketing": true
+  },
+  "responses": [
+    {
+      "name": "confirm-missing-token",
+      "status": 400,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 2365,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": false,
+      "hasUnsubscribeOkZh": false,
+      "hasBadZh": true
+    },
+    {
+      "name": "confirm-invalid-token",
+      "status": 400,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 2232,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": false,
+      "hasUnsubscribeOkZh": false,
+      "hasBadZh": true
+    },
+    {
+      "name": "unsubscribe-missing-token",
+      "status": 400,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 296,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": false,
+      "hasUnsubscribeOkZh": false,
+      "hasBadZh": true
+    },
+    {
+      "name": "unsubscribe-invalid-token",
+      "status": 400,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 522,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": false,
+      "hasUnsubscribeOkZh": false,
+      "hasBadZh": true
+    },
+    {
+      "name": "confirm-real-token",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 925,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": true,
+      "hasUnsubscribeOkZh": false,
+      "hasBadZh": false
+    },
+    {
+      "name": "unsubscribe-real-token",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "ms": 501,
+      "worker1101Text": false,
+      "secretLeakText": false,
+      "hasConfirmOkZh": false,
+      "hasUnsubscribeOkZh": true,
+      "hasBadZh": false
+    }
+  ],
+  "afterConfirm": {
+    "found": true,
+    "id": 7,
+    "tokenLength": 36,
+    "confirmedAtExists": true,
+    "unsubscribedAtExists": false,
+    "consentMarketing": true
+  },
+  "afterUnsubscribe": {
+    "found": true,
+    "id": 7,
+    "tokenLength": 36,
+    "confirmedAtExists": true,
+    "unsubscribedAtExists": true,
+    "consentMarketing": false
+  }
+}
+
+wrangler tail:
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no JSON event lines emitted during the 2026-06-04T09:09:36Z confirm/unsubscribe request window>
+^C
+```
+Verdict vs acceptance: Pass. Missing and invalid confirm/unsubscribe tokens returned 400 localized HTML with invalid-link text and no secret leakage. The real confirm token returned 200, produced the localized confirm-success text, and changed the subscriber row from `confirmedAtExists=false` to `confirmedAtExists=true`. The same real token then returned 200 from unsubscribe, produced the localized unsubscribe-success text, and changed the subscriber row to `unsubscribedAtExists=true` with `consentMarketing=false`. `wrangler tail --status error` emitted 0 JSON error event lines during the route verification window.
+Linked finding: none
+
+### E-40 Auth callback real signup token returns production 500
+Matrix row: SEO/API endpoint `/auth/callback`; User Flow Matrix / Email confirmation
+Env: prod
+Time (UTC): 2026-06-04T09:19:10.894Z
+Method: Production invalid-callback checks via HTTP; Supabase admin-generated signup verification tokens with `redirectTo=https://skorly.cc/auth/callback?next=/id/akun`; production callback hit with token redacted; Supabase admin user-state check after callback; attempted `wrangler tail` normal and DNS-overridden sessions during callback windows.
+Raw output:
+```text
+Invalid callback checks:
+{"timestampUtc":"2026-06-04T09:14:12.460Z","base":"https://skorly.cc"}
+{"name":"auth-callback-missing","status":307,"location":"https://skorly.cc/id/masuk?error=auth","ms":2168,"bodyLength":0,"worker1101Text":false,"secretLeakText":false}
+{"name":"auth-callback-fake-code","status":307,"location":"https://skorly.cc/id/masuk?error=auth","ms":1149,"bodyLength":0,"worker1101Text":false,"secretLeakText":false}
+{"name":"auth-callback-bad-next","status":307,"location":"https://skorly.cc/id/masuk?error=auth","ms":256,"bodyLength":0,"worker1101Text":false,"secretLeakText":false}
+{"name":"auth-callback-double-slash-next","status":307,"location":"https://skorly.cc/id/masuk?error=auth","ms":263,"bodyLength":0,"worker1101Text":false,"secretLeakText":false}
+
+Supabase admin generateLink shape:
+{
+  "timestampUtc": "2026-06-04T09:13:33.062Z",
+  "email": "codex-auth-callback-1780564410483@example.com",
+  "userIdExists": true,
+  "hashedTokenLength": 56,
+  "verificationType": "signup",
+  "callbackHost": "skorly.cc",
+  "callbackPath": "/auth/callback"
+}
+
+Real generated signup token callback attempt 1:
+{
+  "timestampUtc": "2026-06-04T09:16:35.259Z",
+  "email": "codex-auth-callback-1780564410483@example.com",
+  "hashedTokenLength": 56,
+  "verificationType": "signup",
+  "response": {
+    "status": 500,
+    "location": null,
+    "contentType": null,
+    "ms": 4155,
+    "bodyLength": 0,
+    "setCookieCount": 0,
+    "cookieNames": [],
+    "worker1101Text": false,
+    "secretLeakText": false
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": false,
+    "lastSignInAtExists": false
+  }
+}
+
+Same generated signup token callback attempt 2:
+{
+  "timestampUtc": "2026-06-04T09:17:14.097Z",
+  "email": "codex-auth-callback-1780564410483@example.com",
+  "hashedTokenLength": 56,
+  "verificationType": "signup",
+  "response": {
+    "status": 500,
+    "location": null,
+    "contentType": null,
+    "ms": 3038,
+    "bodyLength": 0,
+    "setCookieCount": 0,
+    "cookieNames": [],
+    "worker1101Text": false,
+    "secretLeakText": false,
+    "body": ""
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": false,
+    "lastSignInAtExists": false
+  }
+}
+
+Fresh generated signup token callback attempt:
+{
+  "timestampUtc": "2026-06-04T09:17:52.742Z",
+  "email": "codex-auth-callback-fresh-1780564669165@example.com",
+  "userIdExists": true,
+  "hashedTokenLength": 56,
+  "verificationType": "signup",
+  "response": {
+    "status": 500,
+    "location": null,
+    "contentType": null,
+    "ms": 2054,
+    "bodyLength": 0,
+    "setCookieCount": 0,
+    "worker1101Text": false,
+    "secretLeakText": false,
+    "body": ""
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": false,
+    "lastSignInAtExists": false
+  }
+}
+
+Fresh generated signup token callback attempt while DNS-overridden wrangler tail process was running:
+{
+  "timestampUtc": "2026-06-04T09:19:10.894Z",
+  "email": "codex-auth-callback-tail-1780564747023@example.com",
+  "userIdExists": true,
+  "hashedTokenLength": 56,
+  "verificationType": "signup",
+  "response": {
+    "status": 500,
+    "location": null,
+    "contentType": null,
+    "ms": 1607,
+    "bodyLength": 0,
+    "setCookieCount": 0,
+    "worker1101Text": false,
+    "secretLeakText": false,
+    "body": ""
+  },
+  "user": {
+    "idExists": true,
+    "emailConfirmedAtExists": false,
+    "lastSignInAtExists": false
+  }
+}
+
+wrangler tail attempts:
+pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+Error: Client network socket disconnected before secure TLS connection was established
+code: 'ECONNRESET'
+host: 'tail.developers.workers.dev'
+
+dig +short tail.developers.workers.dev
+31.13.82.33
+
+dig @1.1.1.1 +short tail.developers.workers.dev
+172.67.133.177
+104.21.5.179
+
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+<no JSON event lines emitted during the 2026-06-04T09:19:10Z fresh callback request window>
+^C
+```
+Verdict vs acceptance: Fails. Invalid and malicious `next` callback inputs redirect safely to `https://skorly.cc/id/masuk?error=auth`, but real Supabase-generated signup verification tokens fail the production callback. Three generated signup-token attempts returned HTTP 500, emitted no session cookies, and left the associated Supabase users with `emailConfirmedAtExists=false` and `lastSignInAtExists=false`. This fails the callback acceptance that a real email token creates a production session and the email-confirmation flow acceptance that the confirmed user can access `/id/akun`.
+Linked finding: P0-2
+
+### E-41 P0-2 auth callback signup verification fix
+Matrix row: SEO/API endpoint `/auth/callback`; User Flow Matrix / Email confirmation
+Env: local + prod
+Time (UTC): 2026-06-04T10:00:56.712Z
+Method: Source fix in `apps/web/app/auth/callback/route.ts`; local gates; local production server real Supabase signup-token callback; direct production deploy with OpenNext/Cloudflare; production HTTP invalid/real-token callback checks; Chrome real callback navigation; Supabase admin user-state checks; DNS-overridden `wrangler tail --status error`; production SEO smoke.
+Raw output:
+```text
+Source change:
+apps/web/app/auth/callback/route.ts now creates a callback-scoped @supabase/ssr server client from NextRequest cookies and writes auth cookies plus cache headers onto the exact NextResponse.redirect returned on success. The route no longer depends on the generic Server Component cookie helper for this auth callback response.
+
+Local gates:
+pnpm lint
+apps/web lint$ eslint .
+apps/web lint: Done
+Exit status: 0
+
+pnpm typecheck
+packages/predict-model typecheck$ tsc --noEmit
+packages/types typecheck$ tsc --noEmit
+packages/ui typecheck$ tsc --noEmit
+packages/ai-content typecheck$ tsc --noEmit
+packages/db typecheck$ tsc --noEmit
+packages/api-football typecheck$ tsc --noEmit
+packages/news typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/jobs typecheck$ tsc --noEmit
+Exit status: 0
+
+pnpm --filter @skorly/api-football test
+Test Files  1 passed (1)
+Tests  2 passed (2)
+Exit status: 0
+
+pnpm --dir packages/predict-model run test
+ERR_PNPM_NO_SCRIPT Missing script: test
+Command "test" not found.
+Exit status: 1
+
+pnpm build
+Next.js 16.2.6 (Turbopack)
+Compiled successfully in 10.9s
+Generating static pages using 3 workers (1922/1922) in 3.3min
+Route table includes dynamic /auth/callback and the existing SSG route families:
+  /[locale]/artikel/[slug] [+1007 more paths]
+  /[locale]/pertandingan/[slug] [+285 more paths]
+  /[locale]/cerita/[slug] [+285 more paths]
+  /[locale]/tim/[slug] [+189 more paths]
+Exit status: 0
+
+Local production server callback:
+{
+  "timestampUtc": "2026-06-04T09:49:29.206Z",
+  "response": {
+    "status": 307,
+    "location": "http://localhost:3100/id/akun",
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "expires": "0",
+    "pragma": "no-cache",
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"]
+  },
+  "user": {
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  }
+}
+
+Local invalid callback checks:
+{"name":"missing","status":307,"location":"http://localhost:3100/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"fake-code","status":307,"location":"http://localhost:3100/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"bad-next","status":307,"location":"http://localhost:3100/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"double-slash-next","status":307,"location":"http://localhost:3100/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+
+Direct production deploy:
+pnpm --filter @skorly/web cf:deploy
+OpenNext build:
+Compiled successfully in 8.4s
+Generating static pages using 3 workers (1922/1922) in 3.3min
+Uploaded skorly-web (114.25 sec)
+Deployed skorly-web triggers (3.31 sec)
+Current Version ID: 6bb071d3-3f04-4743-87db-477705c2d226
+Exit status: 0
+
+Production invalid callback checks:
+{"name":"missing","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"fake-code","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"bad-next","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+{"name":"double-slash-next","status":307,"location":"https://skorly.cc/id/masuk?error=auth","cacheControl":"private, no-cache, no-store, must-revalidate, max-age=0","bodyLength":0}
+
+Production real generated signup token callbacks:
+[
+  {
+    "i": 0,
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "expires": "0",
+    "pragma": "no-cache",
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"],
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  },
+  {
+    "i": 1,
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "expires": "0",
+    "pragma": "no-cache",
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"],
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  },
+  {
+    "i": 2,
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0",
+    "expires": "0",
+    "pragma": "no-cache",
+    "bodyLength": 0,
+    "setCookieCount": 1,
+    "cookieNames": ["sb-majrlaxktengachwrskk-auth-token"],
+    "emailConfirmedAtExists": true,
+    "lastSignInAtExists": true
+  }
+]
+
+Chrome real callback:
+{
+  "timestampUtc": "2026-06-04T09:59:00.799Z",
+  "finalUrl": "https://skorly.cc/id/akun",
+  "title": "Akun saya | Skorly",
+  "bodyTextSample": "Skorly\\nSkor Langsung\\nPiala Dunia 2026\\nPertandingan\\nTim\\nBerita\\nArtikel\\nKlasemen\\nLiga\\n🔔\\nMasuk\\nDaftar\\nID\\nVI\\nEN\\n中文\\nBerita & analisis sepak bola Piala Dunia 2026\\nAkun saya\\n\\nKeanggotaan: Anggota",
+  "workerOrErrorTextCount": 0,
+  "consoleErrorCount": 0,
+  "consoleErrors": []
+}
+
+Supabase user state after Chrome callback:
+{
+  "timestampUtc": "2026-06-04T09:59:13.606Z",
+  "idExists": true,
+  "emailConfirmedAtExists": true,
+  "lastSignInAtExists": true
+}
+
+Controlled wrangler tail window:
+NODE_OPTIONS="<DNS override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error
+Triggered fresh generated signup token callback while tail was running:
+{"timestampUtc":"2026-06-04T09:59:49.779Z","status":307,"location":"https://skorly.cc/id/akun","setCookiePresent":true,"emailConfirmedAtExists":true,"lastSignInAtExists":true}
+TAIL_LOG_BYTES=0
+TAIL_LOG_CONTENT_BEGIN
+TAIL_LOG_CONTENT_END
+
+Production SEO smoke:
+{
+  "timestampUtc": "2026-06-04T10:00:56.712Z",
+  "articleUrl": "https://skorly.cc/id/artikel/news-10-world-cup-2026-how-miners-from-cornwall-brought-football-to-",
+  "failures": [],
+  "results": [
+    {"name":"sitemap","status":200,"expect":200,"worker1101Text":false},
+    {"name":"news-sitemap","status":200,"expect":200,"worker1101Text":false},
+    {"name":"team","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"match","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"article","status":200,"expect":200,"canonical":true,"hreflangCount":5,"title":true,"description":true,"jsonLdCount":2,"jsonLdParseOk":true,"worker1101Text":false},
+    {"name":"missing-team","status":404,"expect":404,"worker1101Text":false},
+    {"name":"missing-match","status":404,"expect":404,"worker1101Text":false},
+    {"name":"missing-article","status":404,"expect":404,"worker1101Text":false}
+  ]
+}
+```
+Verdict vs acceptance: Pass. Invalid and malicious callback inputs redirect to the localized login error page without an external redirect. Fresh signup verification tokens redirect to `/id/akun`, set the Supabase auth cookie, and set `email_confirmed_at` / `last_sign_in_at`. Chrome followed a real callback URL to `https://skorly.cc/id/akun` with no 500/1101/runtime error text and no console errors. The controlled `wrangler tail --status error` window produced 0 bytes / 0 JSON error events during a fresh successful callback. SEO smoke had `failures=[]`. `@skorly/predict-model` has no `test` script, so no test pass is claimed for that package.
+Linked finding: P0-2
