@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getArticleBySlug, getAllArticleSlugs } from "@skorly/db";
+import { getArticleBySlug, getAllArticleSlugs, getArticleSitemapEntries } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { SocialEmbed } from "@/components/social-embed";
@@ -21,6 +21,7 @@ import {
 type Article = Awaited<ReturnType<typeof getArticleBySlug>>;
 
 const articleCache = new Map<string, Promise<Article>>();
+let articleLocalesBySlugCache: Promise<Map<string, string[]>> | undefined;
 
 function getArticleForPage(slug: string, locale: string): Promise<Article> {
   const key = `${locale}:${slug}`;
@@ -30,6 +31,32 @@ function getArticleForPage(slug: string, locale: string): Promise<Article> {
     articleCache.set(key, cached);
   }
   return cached;
+}
+
+function getArticleLocalesBySlugMap(): Promise<Map<string, string[]>> {
+  if (!articleLocalesBySlugCache) {
+    articleLocalesBySlugCache = getArticleSitemapEntries()
+      .then((entries) => {
+        const bySlug = new Map<string, Set<string>>();
+        for (const entry of entries) {
+          const locales = bySlug.get(entry.slug) ?? new Set<string>();
+          locales.add(entry.locale);
+          bySlug.set(entry.slug, locales);
+        }
+        return new Map(
+          [...bySlug.entries()].map(([entrySlug, locales]) => [
+            entrySlug,
+            routing.locales.filter((locale) => locales.has(locale)),
+          ])
+        );
+      })
+      .catch(() => new Map());
+  }
+  return articleLocalesBySlugCache;
+}
+
+async function getArticleLocalesForPage(slug: string): Promise<string[]> {
+  return (await getArticleLocalesBySlugMap()).get(slug) ?? [];
 }
 
 function hostOf(url: string): string {
@@ -69,19 +96,26 @@ export async function generateMetadata({
   params: Promise<{ slug: string; locale: string }>;
 }): Promise<Metadata> {
   const { slug, locale } = await params;
-  const article = await getArticleForPage(slug, locale);
+  const [article, availableLocales] = await Promise.all([
+    getArticleForPage(slug, locale),
+    getArticleLocalesForPage(slug),
+  ]);
   if (!article) return { title: "Artikel" };
   const title = fitMetaTitle(article.title);
   const description = fitMetaDescription(
     article.summary ?? article.body,
     pageSeoDescription(locale, "articles")
   );
+  const alternateLocales = availableLocales.includes(locale)
+    ? availableLocales
+    : [locale];
   return {
     title,
     description,
     alternates: buildAlternates(
       { pathname: "/artikel/[slug]", params: { slug } },
-      locale
+      locale,
+      alternateLocales
     ),
     openGraph: {
       type: "article",

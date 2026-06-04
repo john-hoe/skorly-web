@@ -26,21 +26,37 @@ export function localizedPath(href: Href, locale: string): string {
   return getPathname({ href, locale });
 }
 
+export function hreflangForLocale(locale: string): string {
+  return HREFLANG[locale] ?? locale;
+}
+
+export function buildLanguageAlternates(
+  href: Href,
+  locales: readonly string[] = routing.locales
+): Record<string, string> {
+  const languages: Record<string, string> = {};
+  for (const l of locales) {
+    languages[hreflangForLocale(l)] = absoluteUrl(localizedPath(href, l));
+  }
+  const defaultLocale = locales.includes(routing.defaultLocale)
+    ? routing.defaultLocale
+    : locales[0] ?? routing.defaultLocale;
+  languages["x-default"] = absoluteUrl(localizedPath(href, defaultLocale));
+  return languages;
+}
+
 /**
  * Build Next metadata `alternates` (canonical for current locale + hreflang
  * languages for every locale + x-default).
  */
-export function buildAlternates(href: Href, locale: string) {
-  const languages: Record<string, string> = {};
-  for (const l of routing.locales) {
-    languages[HREFLANG[l] ?? l] = absoluteUrl(localizedPath(href, l));
-  }
-  languages["x-default"] = absoluteUrl(
-    localizedPath(href, routing.defaultLocale)
-  );
+export function buildAlternates(
+  href: Href,
+  locale: string,
+  locales: readonly string[] = routing.locales
+) {
   return {
     canonical: absoluteUrl(localizedPath(href, locale)),
-    languages,
+    languages: buildLanguageAlternates(href, locales),
   };
 }
 
