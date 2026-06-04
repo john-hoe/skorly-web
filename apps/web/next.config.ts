@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
@@ -20,6 +21,9 @@ const nextConfig: NextConfig = {
   // so a stalled page fails fast and Next retries it quickly (retries succeed
   // fast in practice), instead of waiting out the long default timeout.
   staticPageGenerationTimeout: 120,
+  generateBuildId: async () =>
+    process.env.NEXT_BUILD_ID ??
+    execSync("git rev-parse --short=12 HEAD", { encoding: "utf8" }).trim(),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "media.api-sports.io" },
