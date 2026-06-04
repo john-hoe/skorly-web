@@ -52,8 +52,9 @@ Verification (修复后回填):
 | ID | Severity | Title | Module / Route | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | P0-1 | P0 | Review branch omits fixed production runtime P0 commits | `codex/review` / logged-in runtime surfaces | Fixed | E-7, E-34 |
-| P0-2 | P0 | Auth callback returns 500 for real signup verification token | `/auth/callback` / Supabase Auth | Fixed | E-40, E-41 |
+| P0-2 | P0 | Auth callback returns 500 for real signup verification token | `/auth/callback` / Supabase Auth | Fixed | E-40, E-41, E-42, E-43 |
 | P1-1 | P1 | Subscribe API bypasses Turnstile when production secret is missing | `/api/subscribe` / Worker secrets | Fixed | E-36, E-37, E-38 |
+| P1-2 | P1 | Supabase auth session cookie lacks HttpOnly and Secure flags | Auth cookie / Supabase SSR | Fixed | E-46, E-47, E-48 |
 | P2-1 | P2 | Predict-model test gate executes zero tests | `packages/predict-model` | Open | E-2 |
 
 ## P0 Findings
@@ -117,6 +118,9 @@ Evidence:
 - E-41: Chrome followed a real production callback URL to `https://skorly.cc/id/akun`; page title was `Akun saya | Skorly`; `workerOrErrorTextCount=0`; `consoleErrorCount=0`.
 - E-41: controlled `wrangler tail skorly-web --format json --status error` window produced `TAIL_LOG_BYTES=0` during a fresh successful callback.
 - E-41: production SEO smoke had `failures=[]` for `/sitemap.xml`, `/news-sitemap.xml`, sampled team/match/article pages, and missing team/match/article slugs.
+- E-42: after PR #18 merge, final main commit `0d8b1a52c595a8add18cf191c53e9079e01b42fb` was deployed as Worker version `0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655`.
+- E-42: final production HTTP and Chrome callback checks passed on the final Worker version; final SEO smoke returned `failures=[]`; `wrangler tail --status error` emitted no output during the callback verification window.
+- E-43: independent review-session recheck on Worker version `0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655` confirmed invalid callback redirects, fresh signup-token `307` to `/id/akun`, auth cookie set, Supabase user confirmed, Playwright-driven Chrome final URL `/id/akun`, and no tail error event lines.
 
 Impact:
 - User / auth impact. New users who receive a Supabase signup verification token cannot complete email confirmation through `https://skorly.cc/auth/callback`, do not receive a production session cookie, and remain unconfirmed in Supabase.
@@ -147,6 +151,19 @@ Verification (修复后回填):
   - Chrome real callback ended at `https://skorly.cc/id/akun`, title `Akun saya | Skorly`, `workerOrErrorTextCount=0`, `consoleErrorCount=0`.
   - `wrangler tail --status error` produced `TAIL_LOG_BYTES=0` during a fresh successful callback window.
   - Production SEO smoke returned `failures=[]`: sitemap/news-sitemap 200, sampled team/match/article 200 with canonical/hreflang/title/meta description/JSON-LD, and nonexistent team/match/article slugs 404.
+- E-42 / prod / 2026-06-04T10:14:37.780Z:
+  - Final main commit `0d8b1a52c595a8add18cf191c53e9079e01b42fb` deployed with `pnpm --filter @skorly/web cf:deploy`; build output was `Generating static pages using 3 workers (1922/1922) in 3.5min`; Worker version `0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655`.
+  - Final production invalid callbacks returned 307 to `https://skorly.cc/id/masuk?error=auth`; final fresh signup-token callback returned 307 to `https://skorly.cc/id/akun`, included `setCookieCount=1`, and had `emailConfirmedAtExists=true` plus `lastSignInAtExists=true`.
+  - Final Chrome callback ended at `https://skorly.cc/id/akun`, title `Akun saya | Skorly`, `workerOrErrorTextCount=0`, `consoleErrorCount=0`.
+  - Final `wrangler tail --status error` window emitted no output during the callback verification window.
+  - Final production SEO smoke returned `failures=[]`.
+- E-43 / prod / 2026-06-04T11:34:20.027Z:
+  - `origin/main` is `0d8b1a5 Merge pull request #18 from john-hoe/codex/p0-auth-callback`; local `HEAD..origin/main` diff was empty.
+  - Latest production Worker deployment was `0e809ff5-6a5d-4cb6-8d21-d5cf3cdde655`, created `2026-06-04T10:12:26.382Z`.
+  - Invalid callback inputs still returned `307` to `https://skorly.cc/id/masuk?error=auth`: missing params, fake code, `next=https://evil.example/`, and `next=//evil.example/`.
+  - A fresh signup verification token returned `307` to `https://skorly.cc/id/akun`, `setCookieCount=1`, cookie name `sb-majrlaxktengachwrskk-auth-token`, `emailConfirmedAtExists=true`, and `lastSignInAtExists=true`.
+  - Playwright-driven Chrome with a temporary profile followed a fresh callback to final URL `https://skorly.cc/id/akun`; title `Akun saya | Skorly`; H1 `Akun saya`; `authCookieCount=1`; `bodyHasLoginError=false`; `bodyHasRuntimeError=false`; `consoleErrors=[]`.
+  - DNS-overridden `wrangler tail skorly-web --format pretty --status error --ip self` connected during the HTTP callback and browser callback windows and emitted no error event lines before `^C`.
 
 ## P1 Findings
 
@@ -204,6 +221,47 @@ Verification (修复后回填):
   - `POST https://skorly.cc/api/subscribe` with `turnstileToken="invalid-token"` returned `403 {"ok":false,"error":"captcha"}` with `worker1101Text=false` and `secretLeakText=false`.
   - Chrome production subscribe flow on `https://skorly.cc/zh` had pre-submit token length `816`, submitted `codex-review-ui-1780563806919@example.com`, removed the form after submit, and displayed `就差一步——请查收邮件！` plus `我们已发送确认链接，点击即可开始接收独家预测。`.
   - `pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error` emitted no JSON event lines during the independent API window and no JSON event lines during the independent Chrome submit window.
+
+### P1-2 Supabase auth session cookie lacks HttpOnly and Secure flags
+
+Status:
+- Fixed
+
+Evidence:
+- E-46: Playwright-driven Chrome after a real production `/auth/callback` session recorded auth cookie `sb-majrlaxktengachwrskk-auth-token` with `httpOnly=false`, `secure=false`, and `sameSite="Lax"`.
+- E-46: a second direct production `/auth/callback` request with redirects disabled returned one auth `Set-Cookie`; summarized attributes were `hasHttpOnly=false`, `hasSecure=false`, `sameSite="SameSite=lax"`, and attr names `expires`, `max-age`, `path`, `samesite`.
+- E-45: the same browser session proved the cookie was active for account access and profile update, so the observed cookie is the production session bearer cookie used by authenticated pages.
+- E-47: fix session deployed Worker version `b46ac47f-d2e9-41c4-85e2-c7900a3ed214`; fresh production `/auth/callback` with a real Supabase signup verification token returned `307` to `https://skorly.cc/id/akun`, emitted one auth `Set-Cookie`, and the auth cookie summary had `hasHttpOnly=true`, `hasSecure=true`, `sameSite="SameSite=lax"`, `expires`, `max-age`, `path`, `httponly`, `secure`, and `samesite`.
+- E-47: with the callback cookie supplied to production requests, `/api/auth/session` returned `200 {"authenticated":true}` and `/id/akun` returned `200`; Supabase admin confirmed `emailConfirmedAtExists=true` and `lastSignInAtExists=true`.
+- E-47: browser-side header auth no longer reads Supabase session cookies directly; the header uses `/api/auth/session`, and remaining browser Supabase usage is restricted to OAuth initiation.
+- E-48: Chrome skill automation connected to Chrome, found the Codex Chrome Extension installed/enabled and native host correct, but both `tab.goto("https://skorly.cc/id")` and address-bar navigation attempts left the controlled tab at `about:blank`; Chrome cookie-store reinspection was not used as pass evidence.
+
+Impact:
+- Security impact. The auth cookie contains the Supabase session bearer credential. Without `HttpOnly`, any successful same-origin script execution can read the session token. Without `Secure`, the browser is not instructed to restrict the cookie to HTTPS requests. `SameSite=Lax` reduces cross-site request sending, but it does not protect token confidentiality from same-origin script execution or non-secure transport.
+- Severity is P1, not P0, on current evidence: E-46 proves missing cookie flags but does not prove an existing XSS, network interception, account takeover, or data exfiltration.
+
+Reproduce:
+- Generate a fresh Supabase signup verification token and call `https://skorly.cc/auth/callback?token_hash=<redacted>&type=signup&next=%2Fid%2Fakun` with redirects disabled.
+- Inspect the `Set-Cookie` header for `sb-majrlaxktengachwrskk-auth-token`.
+- Observe `SameSite=lax` present and `HttpOnly` / `Secure` absent.
+- In Chrome after following the real callback, inspect cookie attributes and observe `httpOnly=false` and `secure=false`.
+
+Fix acceptance:
+- Fresh production `/auth/callback` responses set the Supabase auth session cookie with `HttpOnly`, `Secure`, and an explicit `SameSite` value.
+- Chrome cookie inspection after a real callback reports `httpOnly=true`, `secure=true`, and `sameSite` set to `Lax` or stricter.
+- Authenticated flows still work after the cookie hardening: `/id/akun` loads, account update persists, logout clears the session, and logged-out `/id/akun` redirects to `/id/masuk`.
+- If any browser-side Supabase session reads currently depend on JavaScript-readable auth cookies, those reads are replaced with server-mediated session/API checks or another design that keeps the bearer credential unavailable to client JavaScript.
+- `wrangler tail skorly-web --status error` emits 0 Worker error events during callback, account update, logout, and protected-route revisit verification.
+
+Verification (修复后回填):
+- Fixed in source and deployed to production.
+- Local gates: `git diff --check`, `pnpm --filter @skorly/web lint`, `pnpm --filter @skorly/web typecheck`, `pnpm lint`, `pnpm typecheck`, `pnpm --filter @skorly/api-football test`, and `pnpm build` passed. `pnpm --dir packages/predict-model run test` returned `ERR_PNPM_NO_SCRIPT Missing script: test`, matching the open P2-1 known gap.
+- Build output: local `pnpm build` produced `1923/1923 in 4.0min`; production deploy build produced `1923/1923 in 4.1min`. The increase from the earlier `1922` progress counter is the added dynamic `/api/auth/session` route entry; `.next` output showed no HTML for `/api/auth/session`, and SSG detail counts were article `1010`, match `288`, story `288`, team `192`.
+- Production deploy: `pnpm --filter @skorly/web cf:deploy` completed and reported `Current Version ID: b46ac47f-d2e9-41c4-85e2-c7900a3ed214`.
+- Production auth verification: direct fresh signup callback returned `307`, auth cookie attributes `HttpOnly=true`, `Secure=true`, `SameSite=lax`, `/api/auth/session` returned authenticated, `/id/akun` returned `200`, and Supabase admin showed confirmed email plus last sign-in timestamps.
+- Production SEO smoke: `/sitemap.xml` and `/news-sitemap.xml` returned `200`; `/id/tim/brazil`, `/id/pertandingan/mexico-vs-south-africa-20260611`, and `/id/artikel/news-10-world-cup-2026-how-miners-from-cornwall-brought-football-to-` returned `200` with canonical, five hreflang links, one H1, and parseable JSON-LD; nonexistent team/match/article slugs returned `404`; no sampled response contained `1101` or 500 text.
+- Worker error tail: `wrangler tail skorly-web --format json --status error` emitted no JSON event lines during the production auth and SEO smoke window.
+- Chrome skill note: Chrome automation could not navigate controlled tabs away from `about:blank`; E-48 records the exact tool outputs. The fixed status relies on the production raw `Set-Cookie` reproducer no longer failing, source inventory proving the browser session-cookie reader was removed, authenticated server-mediated session checks passing, and zero Worker error events in the verification window.
 
 ## P2 Findings
 

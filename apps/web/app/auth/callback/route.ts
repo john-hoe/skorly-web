@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "@/lib/supabase/cookies";
 
 /**
  * Auth redirect target for: OAuth (Google/Facebook), email confirmation, and
@@ -26,13 +27,14 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet, headers) {
           for (const { name, value, options } of cookiesToSet) {
-            successResponse.cookies.set(name, value, options);
+            successResponse.cookies.set(name, value, withSupabaseAuthCookieOptions(options));
           }
           for (const [key, value] of Object.entries(headers)) {
             successResponse.headers.set(key, value);
           }
         },
       },
+      cookieOptions: supabaseAuthCookieOptions,
     }
   );
 

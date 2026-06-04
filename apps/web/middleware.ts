@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import createIntlMiddleware from "next-intl/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { routing } from "./i18n/routing";
+import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "./lib/supabase/cookies";
 
 // NOTE: kept as `middleware.ts` (not Next 16's `proxy.ts`) because the
 // Cloudflare OpenNext adapter does not yet support Node-runtime proxy.ts.
@@ -55,12 +56,16 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
+            response.cookies.set(name, value, withSupabaseAuthCookieOptions(options));
+          }
+          for (const [key, value] of Object.entries(headers)) {
+            response.headers.set(key, value);
           }
         },
       },
+      cookieOptions: supabaseAuthCookieOptions,
     },
   );
 

@@ -3,29 +3,28 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
- * Client island for the header's auth area. Reading the session here (rather
- * than in the server-rendered header) keeps the ~1.3k static content pages
- * statically cacheable — only this island hydrates with the user's state.
+ * Client island for the header's auth area. Resolving the session through a
+ * no-store API keeps the static content pages cacheable while the bearer
+ * cookie stays unavailable to browser JavaScript.
  */
 export function HeaderAuth() {
   const t = useTranslations("nav");
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
     let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) setSignedIn(!!data.user);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setSignedIn(!!session?.user);
-    });
+    fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { authenticated?: boolean } | null) => {
+        if (active) setSignedIn(data?.authenticated === true);
+      })
+      .catch(() => {
+        if (active) setSignedIn(false);
+      });
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
     };
   }, []);
 
