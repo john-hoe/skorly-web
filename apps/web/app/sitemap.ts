@@ -6,7 +6,7 @@ import {
   getAllTeamSlugs,
 } from "@skorly/db";
 import { routing } from "@/i18n/routing";
-import { absoluteUrl, localizedPath } from "@/lib/seo";
+import { absoluteUrl, buildLanguageAlternates, localizedPath } from "@/lib/seo";
 
 export const dynamic = "force-static";
 
@@ -18,11 +18,7 @@ function withAlternates(
   lastModified?: Date,
   opts?: { changeFrequency?: MetadataRoute.Sitemap[number]["changeFrequency"]; priority?: number }
 ): MetadataRoute.Sitemap {
-  const languages: Record<string, string> = {};
-  for (const l of routing.locales) {
-    languages[l === "zh" ? "zh-Hans" : l] = absoluteUrl(localizedPath(href, l));
-  }
-  languages["x-default"] = absoluteUrl(localizedPath(href, routing.defaultLocale));
+  const languages = buildLanguageAlternates(href);
 
   return routing.locales.map((locale) => ({
     url: absoluteUrl(localizedPath(href, locale)),
@@ -31,6 +27,21 @@ function withAlternates(
     priority: opts?.priority,
     alternates: { languages },
   }));
+}
+
+function articleLocalesBySlug(articles: { slug: string; locale: string }[]) {
+  const bySlug = new Map<string, Set<string>>();
+  for (const article of articles) {
+    const locales = bySlug.get(article.slug) ?? new Set<string>();
+    locales.add(article.locale);
+    bySlug.set(article.slug, locales);
+  }
+  return new Map(
+    [...bySlug.entries()].map(([slug, locales]) => [
+      slug,
+      routing.locales.filter((locale) => locales.has(locale)),
+    ])
+  );
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -43,6 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const entries: MetadataRoute.Sitemap = [];
   const generatedAt = new Date();
+  const articleLocales = articleLocalesBySlug(articles);
 
   // Static hubs
   entries.push(...withAlternates("/", generatedAt, { changeFrequency: "daily", priority: 1 }));
@@ -127,13 +139,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Articles (one entry per locale that actually has the article)
   for (const a of articles) {
+    const href = { pathname: "/artikel/[slug]", params: { slug: a.slug } } as const;
+    const locales = articleLocales.get(a.slug) ?? [a.locale];
     entries.push({
-      url: absoluteUrl(
-        localizedPath({ pathname: "/artikel/[slug]", params: { slug: a.slug } }, a.locale)
-      ),
+      url: absoluteUrl(localizedPath(href, a.locale)),
       lastModified: a.updatedAt ?? a.publishedAt ?? undefined,
       changeFrequency: "weekly",
       priority: 0.8,
+      alternates: { languages: buildLanguageAlternates(href, locales) },
     });
   }
 
