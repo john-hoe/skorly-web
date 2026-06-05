@@ -6,7 +6,7 @@ import { MatchCard } from "@/components/match-card";
 import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { HomePersonalized } from "@/components/home-personalized";
-import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 import {
   getRuntimeLatestArticles,
   getRuntimeLeaderboard,
@@ -24,7 +24,7 @@ export async function generateMetadata({
   return {
     title: pageSeoTitle(locale, "home"),
     description: pageSeoDescription(locale, "home"),
-    alternates: buildAlternates("/", locale),
+    ...buildCanonicalMetadata("/", locale),
   };
 }
 

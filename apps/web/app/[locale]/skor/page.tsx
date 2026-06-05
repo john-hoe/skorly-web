@@ -4,7 +4,7 @@ import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
-import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 import { getRuntimeLiveFixtures, getRuntimeResultsFixtures } from "@/lib/runtime-data";
 
 // Live score data should be read at request time. Static generation can block
@@ -52,7 +52,7 @@ export async function generateMetadata({
   return {
     title: pageSeoTitle(locale, "scores"),
     description: pageSeoDescription(locale, "scores"),
-    alternates: buildAlternates("/skor", locale),
+    ...buildCanonicalMetadata("/skor", locale),
   };
 }
 

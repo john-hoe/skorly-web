@@ -6,6 +6,7 @@ export const SITE_URL = (
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "Skorly";
+export const SITE_LOGO_PATH = "/icon-512.png";
 
 type Href = Parameters<typeof getPathname>[0]["href"];
 
@@ -20,6 +21,8 @@ const HREFLANG: Record<string, string> = {
 export function absoluteUrl(path: string): string {
   return path.startsWith("http") ? path : `${SITE_URL}${path}`;
 }
+
+export const SITE_LOGO_URL = absoluteUrl(SITE_LOGO_PATH);
 
 /** Localized path (with locale prefix) for a route in a given locale. */
 export function localizedPath(href: Href, locale: string): string {
@@ -67,6 +70,31 @@ export const OG_LOCALE: Record<string, string> = {
   en: "en_PH",
   zh: "zh_CN",
 };
+
+const DEFAULT_OG_IMAGE = {
+  url: "/og.png",
+  width: 1200,
+  height: 630,
+  alt: "Skorly — World Cup 2026 news, previews & predictions",
+};
+
+export function buildCanonicalMetadata(
+  href: Href,
+  locale: string,
+  locales: readonly string[] = routing.locales
+) {
+  const alternates = buildAlternates(href, locale, locales);
+  return {
+    alternates,
+    openGraph: {
+      type: "website" as const,
+      siteName: SITE_NAME,
+      locale: OG_LOCALE[locale] ?? "id_ID",
+      url: alternates.canonical,
+      images: [DEFAULT_OG_IMAGE],
+    },
+  };
+}
 
 function truncateAtBoundary(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;

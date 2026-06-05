@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { BracketBuilder } from "@/components/bracket-builder";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 export const dynamic = "force-static";
 
@@ -16,7 +16,7 @@ export async function generateMetadata({
   return {
     title: `${t("title")} — ${tg("nav.worldCup")}`,
     description: pageSeoDescription(locale, "bracket"),
-    alternates: buildAlternates("/prediksi", locale),
+    ...buildCanonicalMetadata("/prediksi", locale),
   };
 }
 

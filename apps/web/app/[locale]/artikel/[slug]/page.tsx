@@ -10,8 +10,9 @@ import { JsonLd } from "@/components/json-ld";
 import { renderMarkdown } from "@/lib/markdown";
 import {
   SITE_NAME,
+  SITE_LOGO_URL,
   absoluteUrl,
-  buildAlternates,
+  buildCanonicalMetadata,
   fitMetaDescription,
   fitMetaTitle,
   localizedPath,
@@ -109,15 +110,17 @@ export async function generateMetadata({
   const alternateLocales = availableLocales.includes(locale)
     ? availableLocales
     : [locale];
+  const canonicalMetadata = buildCanonicalMetadata(
+    { pathname: "/artikel/[slug]", params: { slug } },
+    locale,
+    alternateLocales
+  );
   return {
     title,
     description,
-    alternates: buildAlternates(
-      { pathname: "/artikel/[slug]", params: { slug } },
-      locale,
-      alternateLocales
-    ),
+    ...canonicalMetadata,
     openGraph: {
+      ...canonicalMetadata.openGraph,
       type: "article",
       title,
       description,
@@ -158,7 +161,7 @@ export default async function ArticlePage({
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
-      logo: { "@type": "ImageObject", url: absoluteUrl("/og.png") },
+      logo: { "@type": "ImageObject", url: SITE_LOGO_URL },
     },
   };
   const breadcrumbLd = {

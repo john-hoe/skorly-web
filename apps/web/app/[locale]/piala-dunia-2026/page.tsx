@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { MatchCard } from "@/components/match-card";
-import { buildAlternates, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 import {
   getRuntimeGroupNames,
   getRuntimeUpcomingFixtures,
@@ -55,7 +55,7 @@ export async function generateMetadata({
   return {
     title: pageSeoTitle(locale, "worldCup"),
     description: pageSeoDescription(locale, "worldCup"),
-    alternates: buildAlternates("/piala-dunia-2026", locale),
+    ...buildCanonicalMetadata("/piala-dunia-2026", locale),
   };
 }
 
