@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getArticleCards } from "@skorly/db";
 import { ArticleGrid } from "@/components/article-grid";
 import { ARTICLE_TYPE_KEY } from "@/lib/article-types";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 /** Tab order; only types that actually have articles are shown. */
 const TYPE_ORDER = [
@@ -26,7 +26,7 @@ export async function generateMetadata({
   return {
     title: `${t("nav.articles")} — ${t("nav.worldCup")}`,
     description: pageSeoDescription(locale, "articles"),
-    alternates: buildAlternates("/arsip", locale),
+    ...buildCanonicalMetadata("/arsip", locale),
   };
 }
 

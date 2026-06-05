@@ -4,7 +4,7 @@ import { getGroupedTeams } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
 
@@ -34,7 +34,7 @@ export async function generateMetadata({
   return {
     title,
     description: pageSeoDescription(locale, "teams"),
-    alternates: buildAlternates("/tim", locale),
+    ...buildCanonicalMetadata("/tim", locale),
   };
 }
 

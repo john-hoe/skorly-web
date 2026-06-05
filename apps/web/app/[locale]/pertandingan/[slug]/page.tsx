@@ -15,7 +15,7 @@ import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { JsonLd } from "@/components/json-ld";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { renderMarkdown } from "@/lib/markdown";
-import { SITE_NAME, buildAlternates, absoluteUrl, localizedPath } from "@/lib/seo";
+import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath } from "@/lib/seo";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
 type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
@@ -108,14 +108,15 @@ export async function generateMetadata({
   const ogImage = absoluteUrl(
     `/og?kind=match&t=${encodeURIComponent(title)}&s=${encodeURIComponent(sub)}`
   );
+  const canonicalMetadata = buildCanonicalMetadata(
+    { pathname: "/pertandingan/[slug]", params: { slug } },
+    locale
+  );
   return {
     title,
     description: `${title} — World Cup 2026 preview, prediction & analysis.`,
-    alternates: buildAlternates(
-      { pathname: "/pertandingan/[slug]", params: { slug } },
-      locale
-    ),
-    openGraph: { type: "article", title, images: [ogImage] },
+    ...canonicalMetadata,
+    openGraph: { ...canonicalMetadata.openGraph, type: "article", title, images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
   };
 }

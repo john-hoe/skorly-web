@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { ShareButtons } from "@/components/share-buttons";
-import { absoluteUrl, buildAlternates, localizedPath, pageSeoDescription } from "@/lib/seo";
+import { absoluteUrl, buildCanonicalMetadata, localizedPath, pageSeoDescription } from "@/lib/seo";
 import { getRuntimeLeaderboard } from "@/lib/runtime-data";
 
 export const revalidate = 300;
@@ -20,11 +20,12 @@ export async function generateMetadata({
   const ogImage = absoluteUrl(
     `/og?kind=leaderboard&t=${encodeURIComponent(title)}&s=${encodeURIComponent(description)}`
   );
+  const canonicalMetadata = buildCanonicalMetadata("/peringkat", locale);
   return {
     title,
     description,
-    alternates: buildAlternates("/peringkat", locale),
-    openGraph: { title, description, images: [ogImage] },
+    ...canonicalMetadata,
+    openGraph: { ...canonicalMetadata.openGraph, title, description, images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
   };
 }

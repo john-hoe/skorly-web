@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
 import { PwaRegister } from "@/components/pwa-register";
-import { SITE_NAME, SITE_URL, OG_LOCALE, absoluteUrl } from "@/lib/seo";
+import { SITE_LOGO_URL, SITE_NAME, SITE_URL, OG_LOCALE } from "@/lib/seo";
 import "../globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -49,7 +49,6 @@ export async function generateMetadata({
       type: "website",
       siteName: SITE_NAME,
       locale: OG_LOCALE[locale] ?? "id_ID",
-      url: absoluteUrl(`/${locale}`),
       images: [
         {
           url: "/og.png",
@@ -87,13 +86,13 @@ export default async function LocaleLayout({
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
-    logo: absoluteUrl("/og.png"),
+    logo: SITE_LOGO_URL,
   };
   const siteLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
-    url: absoluteUrl(`/${locale}`),
+    url: `${SITE_URL}/${locale}`,
     inLanguage: locale,
   };
 

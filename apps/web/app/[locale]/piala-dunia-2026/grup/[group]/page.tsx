@@ -5,7 +5,7 @@ import { getFixturesByGroup, getStandingsByGroup, getGroupNames } from "@skorly/
 import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
 import { StandingsTable } from "@/components/standings-table";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 // Fully static: prerendered at build, no DB at runtime.
 export const dynamicParams = false;
@@ -28,7 +28,7 @@ export async function generateMetadata({
   return {
     title,
     description: pageSeoDescription(locale, "group", group.toUpperCase()),
-    alternates: buildAlternates(
+    ...buildCanonicalMetadata(
       { pathname: "/piala-dunia-2026/grup/[group]", params: { group: group.toLowerCase() } },
       locale
     ),

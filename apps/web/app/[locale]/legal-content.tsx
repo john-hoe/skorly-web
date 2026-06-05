@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { type Locale } from "@/i18n/routing";
-import { buildAlternates } from "@/lib/seo";
+import { buildCanonicalMetadata } from "@/lib/seo";
 
 type LegalKind = "privacy" | "terms";
 
@@ -282,7 +282,7 @@ export function legalMetadata(kind: LegalKind, locale: string): Metadata {
   return {
     title: copy.title,
     description: copy.description,
-    alternates: buildAlternates(href, locale),
+    ...buildCanonicalMetadata(href, locale),
   };
 }
 

@@ -4,7 +4,7 @@ import { getUpcomingFixtures } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -23,7 +23,7 @@ export async function generateMetadata({
   return {
     title,
     description: pageSeoDescription(locale, "stories"),
-    alternates: buildAlternates("/cerita", locale),
+    ...buildCanonicalMetadata("/cerita", locale),
   };
 }
 

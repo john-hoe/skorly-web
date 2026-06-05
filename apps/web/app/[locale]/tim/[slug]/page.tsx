@@ -15,7 +15,7 @@ import {
   SITE_NAME,
   SITE_URL,
   absoluteUrl,
-  buildAlternates,
+  buildCanonicalMetadata,
   fitMetaTitle,
   localizedPath,
   pageSeoDescription,
@@ -118,14 +118,20 @@ export async function generateMetadata({
     46
   );
   const description = pageSeoDescription(locale, "team", team.name);
+  const canonicalMetadata = buildCanonicalMetadata(
+    { pathname: "/tim/[slug]", params: { slug } },
+    locale
+  );
   return {
     title,
     description,
-    alternates: buildAlternates(
-      { pathname: "/tim/[slug]", params: { slug } },
-      locale
-    ),
-    openGraph: { title, description, images: team.logo ? [team.logo] : undefined },
+    ...canonicalMetadata,
+    openGraph: {
+      ...canonicalMetadata.openGraph,
+      title,
+      description,
+      images: team.logo ? [team.logo] : undefined,
+    },
   };
 }
 

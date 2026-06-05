@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAllFixtures, type FixtureView } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
-import { buildAlternates, pageSeoDescription } from "@/lib/seo";
+import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
 
@@ -22,7 +22,7 @@ export async function generateMetadata({
   return {
     title,
     description: pageSeoDescription(locale, "schedule"),
-    alternates: buildAlternates("/jadwal", locale),
+    ...buildCanonicalMetadata("/jadwal", locale),
   };
 }
 
