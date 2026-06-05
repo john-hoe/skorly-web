@@ -2,6 +2,7 @@ import { getFixtureBySlug, getArticlesForFixture, getAllFixtures } from "@skorly
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
+import { formatKickoffTime } from "@/lib/kickoff-time";
 import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
@@ -60,18 +61,6 @@ function esc(s: string): string {
 
 function jsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
-}
-
-function kickoff(d: Date | null): string {
-  if (!d) return "TBD";
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Jakarta",
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
 }
 
 const AMP_BOILERPLATE =
@@ -186,7 +175,7 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
           ${awayLogo ? `<amp-img src="${awayLogo}" width="72" height="72" layout="fixed" alt="${esc(fixture.away.name)}"></amp-img>` : ""}
         </div>
         <h1 class="title">${esc(title)}</h1>
-        <p class="meta">${esc(kickoff(fixture.kickoffAt))} WIB${fixture.venue ? ` · ${esc(fixture.venue)}` : ""}</p>
+        <p class="meta">${esc(formatKickoffTime(fixture.kickoffAt, locale, "compact"))}${fixture.venue ? ` · ${esc(fixture.venue)}` : ""}</p>
       </div>
     </amp-story-grid-layer>
   </amp-story-page>

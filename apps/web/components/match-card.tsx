@@ -1,19 +1,9 @@
 import type { FixtureView } from "@skorly/db";
 import { Link } from "@/i18n/navigation";
+import { formatKickoffTime } from "@/lib/kickoff-time";
 import { TeamBadge } from "./team-badge";
 
-function formatKickoff(d: Date | null): string {
-  if (!d) return "TBD";
-  return new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Jakarta",
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
-}
-
-export function MatchCard({ fixture }: { fixture: FixtureView }) {
+export function MatchCard({ fixture, locale }: { fixture: FixtureView; locale: string }) {
   const finished = fixture.status === "finished";
   const live = fixture.status === "live";
 
@@ -30,7 +20,7 @@ export function MatchCard({ fixture }: { fixture: FixtureView }) {
             {fixture.elapsed ? `${fixture.elapsed}'` : "LIVE"}
           </span>
         ) : (
-          <span>{formatKickoff(fixture.kickoffAt)} WIB</span>
+          <span>{formatKickoffTime(fixture.kickoffAt, locale, "compact")}</span>
         )}
       </div>
 

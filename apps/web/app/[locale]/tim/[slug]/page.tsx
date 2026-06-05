@@ -235,7 +235,7 @@ export default async function TeamPage({
         {fixtures.length ? (
           <div className="grid gap-3">
             {fixtures.map((f) => (
-              <MatchCard key={f.id} fixture={f} />
+              <MatchCard key={f.id} fixture={f} locale={locale} />
             ))}
           </div>
         ) : (

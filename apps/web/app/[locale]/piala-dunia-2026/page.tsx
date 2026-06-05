@@ -103,7 +103,7 @@ export default async function WorldCupHubPage({
         <h2 className="mb-3 text-xl font-semibold">{t("home.upcomingMatches")}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {fixtures.map((f) => (
-            <MatchCard key={f.id} fixture={f} />
+            <MatchCard key={f.id} fixture={f} locale={locale} />
           ))}
         </div>
       </section>

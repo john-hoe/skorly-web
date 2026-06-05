@@ -14,6 +14,7 @@ import { GoalHighlights } from "@/components/goal-highlights";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { JsonLd } from "@/components/json-ld";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
+import { formatKickoffTime } from "@/lib/kickoff-time";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath } from "@/lib/seo";
 
@@ -104,7 +105,7 @@ export async function generateMetadata({
   const finished = fixture.status === "finished";
   const sub = finished
     ? `${fixture.homeGoals ?? 0} - ${fixture.awayGoals ?? 0}`
-    : formatKickoff(fixture.kickoffAt) + " WIB";
+    : formatKickoffTime(fixture.kickoffAt, locale, "compact");
   const ogImage = absoluteUrl(
     `/og?kind=match&t=${encodeURIComponent(title)}&s=${encodeURIComponent(sub)}`
   );
@@ -119,18 +120,6 @@ export async function generateMetadata({
     openGraph: { ...canonicalMetadata.openGraph, type: "article", title, images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
   };
-}
-
-function formatKickoff(d: Date | null): string {
-  if (!d) return "TBD";
-  return new Intl.DateTimeFormat("id-ID", {
-    timeZone: "Asia/Jakarta",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
 }
 
 export default async function MatchPage({
@@ -168,7 +157,7 @@ export default async function MatchPage({
         `/og?kind=match&t=${encodeURIComponent(matchTitle)}&s=${encodeURIComponent(
           finished
             ? `${fixture.homeGoals ?? 0} - ${fixture.awayGoals ?? 0}`
-            : `${formatKickoff(fixture.kickoffAt)} WIB`
+            : formatKickoffTime(fixture.kickoffAt, locale, "compact")
         )}`
       );
 
@@ -218,7 +207,7 @@ export default async function MatchPage({
                   name: `${matchTitle}: ${t("kickoff")}?`,
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: `${formatKickoff(fixture.kickoffAt)} WIB — ${fixture.venue}${fixture.city ? `, ${fixture.city}` : ""}.`,
+                    text: `${formatKickoffTime(fixture.kickoffAt, locale)} — ${fixture.venue}${fixture.city ? `, ${fixture.city}` : ""}.`,
                   },
                 },
               ]
@@ -236,7 +225,7 @@ export default async function MatchPage({
       {/* Score header */}
       <header className="rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] p-6 text-white">
         <p className="text-center text-sm text-white/80">
-          {fixture.groupName ?? fixture.round} &middot; {formatKickoff(fixture.kickoffAt)} WIB
+          {fixture.groupName ?? fixture.round} &middot; {formatKickoffTime(fixture.kickoffAt, locale)}
         </p>
         <h1 className="mt-3 text-center text-2xl font-bold leading-tight">
           {matchTitle}
