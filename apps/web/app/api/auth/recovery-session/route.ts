@@ -5,6 +5,7 @@ import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "@/lib/
 type RecoverySessionBody = {
   accessToken?: unknown;
   refreshToken?: unknown;
+  tokenHash?: unknown;
   next?: unknown;
 };
 
@@ -12,9 +13,10 @@ export async function POST(request: NextRequest) {
   const body = await readBody(request);
   const accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
   const refreshToken = typeof body.refreshToken === "string" ? body.refreshToken : "";
+  const tokenHash = typeof body.tokenHash === "string" ? body.tokenHash : "";
   const next = sanitizeResetNext(typeof body.next === "string" ? body.next : null);
 
-  if (!accessToken || !refreshToken || !next) {
+  if ((!tokenHash && (!accessToken || !refreshToken)) || !next) {
     return noStoreJson({ ok: false, error: "auth" }, 401);
   }
 
@@ -40,10 +42,12 @@ export async function POST(request: NextRequest) {
     },
   );
 
-  const { error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
+  const { error } = tokenHash
+    ? await supabase.auth.verifyOtp({ type: "recovery", token_hash: tokenHash })
+    : await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
   if (error) {
     return noStoreJson({ ok: false, error: "auth" }, 401);
   }

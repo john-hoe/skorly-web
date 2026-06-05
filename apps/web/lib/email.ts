@@ -81,6 +81,33 @@ const OPT_IN: Record<string, { subject: string; lead: string; cta: string; foot:
   },
 };
 
+const RECOVERY: Record<string, { subject: string; lead: string; cta: string; foot: string }> = {
+  id: {
+    subject: "Atur ulang kata sandi Skorly",
+    lead: "Kami menerima permintaan untuk mengatur ulang kata sandi akun Skorly kamu. Klik tombol di bawah untuk membuka formulir kata sandi baru.",
+    cta: "Atur ulang kata sandi",
+    foot: "Abaikan email ini jika kamu tidak meminta reset kata sandi.",
+  },
+  en: {
+    subject: "Reset your Skorly password",
+    lead: "We received a request to reset your Skorly account password. Click the button below to open the new-password form.",
+    cta: "Reset password",
+    foot: "Ignore this email if you did not request a password reset.",
+  },
+  vi: {
+    subject: "Đặt lại mật khẩu Skorly",
+    lead: "Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu tài khoản Skorly của bạn. Nhấn nút bên dưới để mở biểu mẫu mật khẩu mới.",
+    cta: "Đặt lại mật khẩu",
+    foot: "Bỏ qua email này nếu bạn không yêu cầu đặt lại mật khẩu.",
+  },
+  zh: {
+    subject: "重置你的 Skorly 密码",
+    lead: "我们收到了重置 Skorly 账户密码的请求。点击下方按钮打开新密码表单。",
+    cta: "重置密码",
+    foot: "如果这不是你本人请求，请忽略此邮件。",
+  },
+};
+
 export function optInEmail(locale: string, confirmUrl: string): { subject: string; html: string } {
   const c = OPT_IN[locale] ?? OPT_IN.en!;
   const html = SHELL(
@@ -88,6 +115,19 @@ export function optInEmail(locale: string, confirmUrl: string): { subject: strin
     `<p style="font-size:16px;line-height:1.6">${c.lead}</p>
      <p style="text-align:center;margin:24px 0">
        <a href="${confirmUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px">${c.cta}</a>
+     </p>
+     <p style="font-size:12px;color:#9ca3af">${c.foot}</p>`,
+  );
+  return { subject: c.subject, html };
+}
+
+export function recoveryEmail(locale: string, resetUrl: string): { subject: string; html: string } {
+  const c = RECOVERY[locale] ?? RECOVERY.en!;
+  const html = SHELL(
+    locale,
+    `<p style="font-size:16px;line-height:1.6">${c.lead}</p>
+     <p style="text-align:center;margin:24px 0">
+       <a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:10px">${c.cta}</a>
      </p>
      <p style="font-size:12px;color:#9ca3af">${c.foot}</p>`,
   );
