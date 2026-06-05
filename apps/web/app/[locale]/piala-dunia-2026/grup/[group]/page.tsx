@@ -68,7 +68,7 @@ export default async function GroupPage({
         <h2 className="mb-3 text-lg font-semibold">{t("nav.matches")}</h2>
         <div className="grid gap-3">
           {fixtures.map((f) => (
-            <MatchCard key={f.id} fixture={f} />
+            <MatchCard key={f.id} fixture={f} locale={locale} />
           ))}
         </div>
       </section>

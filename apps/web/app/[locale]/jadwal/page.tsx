@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAllFixtures, type FixtureView } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
+import { formatKickoffDay, kickoffDayKey } from "@/lib/kickoff-time";
 import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 
 export const dynamicParams = false;
@@ -26,11 +27,6 @@ export async function generateMetadata({
   };
 }
 
-function dayKey(d: Date | null): string {
-  if (!d) return "TBD";
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(d);
-}
-
 export default async function SchedulePage({
   params,
 }: {
@@ -42,21 +38,13 @@ export default async function SchedulePage({
 
   const fixtures = await getAllFixtures().catch(() => []);
 
-  // Group by calendar day (Jakarta TZ).
-  const byDay = new Map<string, FixtureView[]>();
+  const byDay = new Map<string, { day: Date | null; fixtures: FixtureView[] }>();
   for (const f of fixtures) {
-    const key = dayKey(f.kickoffAt);
-    const list = byDay.get(key) ?? [];
-    list.push(f);
-    byDay.set(key, list);
+    const key = kickoffDayKey(f.kickoffAt, locale);
+    const group = byDay.get(key) ?? { day: f.kickoffAt, fixtures: [] };
+    group.fixtures.push(f);
+    byDay.set(key, group);
   }
-
-  const dayFormatter = new Intl.DateTimeFormat(locale, {
-    timeZone: "Asia/Jakarta",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
@@ -65,16 +53,14 @@ export default async function SchedulePage({
         <p className="mt-1 text-[var(--muted)]">{t("nav.worldCup")}</p>
       </header>
 
-      {Array.from(byDay.entries()).map(([day, dayFixtures]) => (
+      {Array.from(byDay.entries()).map(([day, group]) => (
         <section key={day}>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            {day === "TBD"
-              ? "TBD"
-              : dayFormatter.format(new Date(`${day}T12:00:00`))}
+            {formatKickoffDay(group.day, locale)}
           </h2>
           <div className="grid gap-3">
-            {dayFixtures.map((f) => (
-              <MatchCard key={f.id} fixture={f} />
+            {group.fixtures.map((f) => (
+              <MatchCard key={f.id} fixture={f} locale={locale} />
             ))}
           </div>
         </section>

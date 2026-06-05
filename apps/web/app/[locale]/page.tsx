@@ -92,7 +92,7 @@ export default async function HomePage({
             {fixtures.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {fixtures.map((f) => (
-                  <MatchCard key={f.id} fixture={f} />
+                  <MatchCard key={f.id} fixture={f} locale={locale} />
                 ))}
               </div>
             ) : (
