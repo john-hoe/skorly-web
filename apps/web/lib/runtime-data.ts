@@ -44,7 +44,6 @@ export interface RuntimePredictionView {
 }
 
 export interface RuntimePublicPick {
-  userId: string;
   authorName: string | null;
   authorAvatar: string | null;
   homeGoalsPred: number;
@@ -614,7 +613,6 @@ export async function getRuntimePublicPicks(
   return rows.map((r) => {
     const p = profiles.get(r.user_id);
     return {
-      userId: r.user_id,
       authorName: p?.display_name ?? null,
       authorAvatar: p?.avatar_url ?? null,
       homeGoalsPred: r.home_goals_pred,

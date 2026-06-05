@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getPicksApi } from "@/lib/runtime-api-client";
-import type { PublicPick } from "@skorly/db";
+
+type PublicPick = Awaited<ReturnType<typeof getPicksApi>>[number];
 
 export function PublicPicks({ fixtureId }: { fixtureId: number }) {
   const t = useTranslations("picks");
@@ -37,9 +38,17 @@ export function PublicPicks({ fixtureId }: { fixtureId: number }) {
       <ul className="flex flex-wrap gap-2">
         {picks.map((p, i) => {
           const name = p.authorName?.trim() || "Skorly";
+          const key = [
+            String(p.submittedAt ?? "no-date"),
+            name,
+            p.homeGoalsPred,
+            p.awayGoalsPred,
+            p.pointsAwarded ?? "pending",
+            i,
+          ].join(":");
           return (
             <li
-              key={`${p.userId}-${i}`}
+              key={key}
               className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] py-1 pl-1 pr-3"
             >
               {p.authorAvatar ? (
