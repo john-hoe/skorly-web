@@ -1,6 +1,6 @@
 /**
  * Minimal Resend email sender (REST, no SDK so it works on the Edge too).
- * Fails soft when RESEND_API_KEY is absent (local/dev) by returning false.
+ * Returns false when the provider is unavailable or rejects the message.
  */
 const FROM = process.env.RESEND_FROM ?? "Skorly <noreply@skorly.cc>";
 
@@ -12,7 +12,7 @@ export async function sendEmail(opts: {
 }): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.warn("[email] RESEND_API_KEY missing — skipping send to", opts.to);
+    console.warn("[email] RESEND_API_KEY missing; message not sent");
     return false;
   }
   try {
@@ -30,8 +30,13 @@ export async function sendEmail(opts: {
         ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
       }),
     });
-    return res.ok;
+    if (!res.ok) {
+      console.warn("[email] provider rejected message", { status: res.status });
+      return false;
+    }
+    return true;
   } catch {
+    console.warn("[email] provider request failed");
     return false;
   }
 }

@@ -66,7 +66,10 @@ export async function POST(req: Request): Promise<NextResponse> {
 
     const confirmUrl = `${SITE_URL}/api/subscribe/confirm?token=${res.confirmToken}&l=${locale}`;
     const { subject, html } = optInEmail(locale, confirmUrl);
-    await sendEmail({ to: email, subject, html });
+    const emailSent = await sendEmail({ to: email, subject, html });
+    if (!emailSent) {
+      return NextResponse.json({ ok: false, error: "email" }, { status: 502 });
+    }
 
     return NextResponse.json({ ok: true, pending: true });
   } catch {
