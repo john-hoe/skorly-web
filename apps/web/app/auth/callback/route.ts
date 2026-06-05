@@ -16,6 +16,10 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = sanitizeNext(searchParams.get("next"));
 
+  if (!code && !tokenHash && isRecoveryResetPath(next)) {
+    return recoveryFragmentBridge(next);
+  }
+
   const successResponse = noStoreRedirect(`${origin}${next}`);
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,5 +66,60 @@ function noStoreRedirect(url: string) {
   response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
   response.headers.set("Expires", "0");
   response.headers.set("Pragma", "no-cache");
+  return response;
+}
+
+function isRecoveryResetPath(path: string): boolean {
+  return /^\/(id|vi|en|zh)\/atur-ulang-sandi$/.test(path);
+}
+
+function recoveryFragmentBridge(next: string) {
+  const locale = next.split("/")[1] || "id";
+  const login = `/${locale}/masuk?error=auth`;
+  const payload = JSON.stringify({ next, login }).replaceAll("<", "\\u003c");
+  const html = `<!doctype html><html lang="${locale}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Skorly</title></head>
+<body>
+<script>
+(function () {
+  var config = ${payload};
+  var hash = new URLSearchParams(window.location.hash.slice(1));
+  var accessToken = hash.get("access_token");
+  var refreshToken = hash.get("refresh_token");
+  var type = hash.get("type");
+  if (type !== "recovery" || !accessToken || !refreshToken) {
+    window.location.replace(config.login);
+    return;
+  }
+  fetch("/api/auth/recovery-session", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      next: config.next
+    })
+  }).then(function (response) {
+    if (!response.ok) throw new Error("auth");
+    window.location.replace(config.next);
+  }).catch(function () {
+    window.location.replace(config.login);
+  });
+})();
+</script>
+</body></html>`;
+  const response = new NextResponse(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "Referrer-Policy": "no-referrer",
+    },
+  });
+  response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
+  response.headers.set("Expires", "0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
   return response;
 }
