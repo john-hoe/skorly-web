@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = sanitizeNext(searchParams.get("next"));
 
-  if (!code && !tokenHash && isRecoveryResetPath(next)) {
-    return recoveryFragmentBridge(next);
+  if (!code && isRecoveryResetPath(next) && (!tokenHash || type === "recovery")) {
+    return recoveryBridge(next, tokenHash);
   }
 
   const successResponse = noStoreRedirect(`${origin}${next}`);
@@ -73,10 +73,10 @@ function isRecoveryResetPath(path: string): boolean {
   return /^\/(id|vi|en|zh)\/atur-ulang-sandi$/.test(path);
 }
 
-function recoveryFragmentBridge(next: string) {
+function recoveryBridge(next: string, tokenHash?: string | null) {
   const locale = next.split("/")[1] || "id";
   const login = `/${locale}/masuk?error=auth`;
-  const payload = JSON.stringify({ next, login }).replaceAll("<", "\\u003c");
+  const payload = JSON.stringify({ next, login, tokenHash: tokenHash || null }).replaceAll("<", "\\u003c");
   const html = `<!doctype html><html lang="${locale}"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>Skorly</title></head>
@@ -88,19 +88,22 @@ function recoveryFragmentBridge(next: string) {
   var accessToken = hash.get("access_token");
   var refreshToken = hash.get("refresh_token");
   var type = hash.get("type");
-  if (type !== "recovery" || !accessToken || !refreshToken) {
+  if (!config.tokenHash && (type !== "recovery" || !accessToken || !refreshToken)) {
     window.location.replace(config.login);
     return;
   }
+  var body = config.tokenHash
+    ? { tokenHash: config.tokenHash, next: config.next }
+    : {
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        next: config.next
+      };
   fetch("/api/auth/recovery-session", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      accessToken: accessToken,
-      refreshToken: refreshToken,
-      next: config.next
-    })
+    body: JSON.stringify(body)
   }).then(function (response) {
     if (!response.ok) throw new Error("auth");
     window.location.replace(config.next);

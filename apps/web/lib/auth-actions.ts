@@ -5,6 +5,7 @@ import { createSupabaseServerClient, getSessionUser } from "./supabase/server";
 import { updateRuntimeProfile } from "./runtime-data";
 import { verifyTurnstile } from "./turnstile";
 import { rateLimit, clientIp } from "./ratelimit";
+import { recoveryEmail, sendEmail } from "./email";
 
 export interface ActionResult {
   ok: boolean;
@@ -28,7 +29,12 @@ function callbackUrl(origin: string, locale: string, next: string): string {
   return `${origin}/auth/callback?next=${encodeURIComponent(target)}`;
 }
 
+function configuredSiteOrigin(fallback: string): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? fallback).replace(/\/$/, "");
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const LOCALES = new Set(["id", "vi", "en", "zh"]);
 
 /** Register with email + password. Sends a confirmation email. */
 export async function signUpAction(formData: FormData): Promise<ActionResult> {
@@ -110,11 +116,12 @@ export async function forgotPasswordAction(formData: FormData): Promise<ActionRe
 
   if (!(await verifyTurnstile(token, ip))) return { ok: false, error: "captcha" };
 
-  const origin = await getOrigin();
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: callbackUrl(origin, locale, "/atur-ulang-sandi"),
-  });
+  const origin = configuredSiteOrigin(await getOrigin());
+  const resetLink = await generateRecoveryBridgeLink(email, origin, locale);
+  if (resetLink) {
+    const { subject, html } = recoveryEmail(locale, resetLink);
+    await sendEmail({ to: email, subject, html });
+  }
   // Always report success (do not leak which emails exist).
   return { ok: true, message: "resetSent" };
 }
@@ -128,6 +135,43 @@ export async function resetPasswordAction(formData: FormData): Promise<ActionRes
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { ok: false, error: error.message };
   return { ok: true, message: "passwordUpdated" };
+}
+
+async function generateRecoveryBridgeLink(email: string, origin: string, localeRaw: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const locale = LOCALES.has(localeRaw) ? localeRaw : "id";
+  const next = `/${locale}/atur-ulang-sandi`;
+  if (!supabaseUrl || !serviceRoleKey) return null;
+
+  try {
+    const res = await fetch(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/admin/generate_link`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "recovery",
+        email,
+        redirect_to: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      }),
+    });
+    if (!res.ok) return null;
+
+    const payload = (await res.json()) as { hashed_token?: unknown };
+    if (typeof payload.hashed_token !== "string" || !payload.hashed_token) return null;
+
+    const params = new URLSearchParams({
+      token_hash: payload.hashed_token,
+      type: "recovery",
+      next,
+    });
+    return `${origin}/auth/callback?${params.toString()}`;
+  } catch {
+    return null;
+  }
 }
 
 /** Update the signed-in user's editable profile fields. */
