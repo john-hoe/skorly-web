@@ -84,6 +84,13 @@
     "copy": "Copy link",
     "copied": "Copied!"
   },
+  "analyticsConsent": {
+    "ariaLabel": "Analytics choices",
+    "title": "Help us measure Skorly",
+    "description": "We only load analytics after you agree. You can still read, predict, and use your account without analytics.",
+    "accept": "Allow analytics",
+    "decline": "Decline"
+  },
   "watch": {
     "title": "Where to Watch World Cup 2026",
     "subtitle": "Official and licensed broadcasters by region. Always watch via official rights holders.",

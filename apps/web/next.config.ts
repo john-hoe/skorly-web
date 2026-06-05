@@ -15,7 +15,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com https://*.twitter.com https://*.x.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://www.google.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com https://*.twitter.com https://*.x.com",
   "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://platform.twitter.com https://*.twitter.com https://*.x.com",
   "child-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://platform.twitter.com https://*.twitter.com https://*.x.com",
   "worker-src 'self' blob:",

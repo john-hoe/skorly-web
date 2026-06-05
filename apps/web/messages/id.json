@@ -84,6 +84,13 @@
     "copy": "Salin tautan",
     "copied": "Tersalin!"
   },
+  "analyticsConsent": {
+    "ariaLabel": "Pilihan analitik",
+    "title": "Bantu kami mengukur Skorly",
+    "description": "Kami hanya memuat analitik setelah kamu setuju. Konten, prediksi, dan akun tetap bisa dipakai tanpa analitik.",
+    "accept": "Izinkan analitik",
+    "decline": "Tolak"
+  },
   "watch": {
     "title": "Nonton Piala Dunia 2026 di Mana",
     "subtitle": "Penyiar resmi & berlisensi per wilayah. Selalu tonton lewat pemegang hak resmi.",
