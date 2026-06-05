@@ -2231,7 +2231,6 @@ export async function reportComment(
 }
 
 export interface PublicPick {
-  userId: string;
   authorName: string | null;
   authorAvatar: string | null;
   homeGoalsPred: number;
@@ -2710,7 +2709,6 @@ export async function getPublicPicks(fixtureId: number, limit = 30): Promise<Pub
   const db = getDb();
   const rows = await db
     .select({
-      userId: predictions.userId,
       authorName: profiles.displayName,
       authorAvatar: profiles.avatarUrl,
       homeGoalsPred: predictions.homeGoalsPred,
