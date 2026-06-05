@@ -84,6 +84,13 @@
     "copy": "Sao chép liên kết",
     "copied": "Đã sao chép!"
   },
+  "analyticsConsent": {
+    "ariaLabel": "Tùy chọn phân tích",
+    "title": "Giúp chúng tôi đo lường Skorly",
+    "description": "Chúng tôi chỉ tải phân tích sau khi bạn đồng ý. Bạn vẫn có thể đọc, dự đoán và dùng tài khoản mà không cần phân tích.",
+    "accept": "Cho phép phân tích",
+    "decline": "Từ chối"
+  },
   "watch": {
     "title": "Xem World Cup 2026 ở đâu",
     "subtitle": "Các đài phát sóng chính thức & được cấp phép theo khu vực. Luôn xem qua đơn vị giữ bản quyền chính thức.",

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Noto_Sans_SC, Plus_Jakarta_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
-import Script from "next/script";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing, type Locale } from "@/i18n/routing";
+import { AnalyticsProvider } from "@/components/analytics-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
@@ -101,29 +101,10 @@ export default async function LocaleLayout({
       <body
         className={`min-h-screen flex flex-col ${locale === "zh" ? "font-zh" : ""}`}
       >
-        {gaId ? (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
-              strategy="afterInteractive"
-            />
-            <Script
-              id="google-analytics"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', ${JSON.stringify(gaId)});
-                `,
-              }}
-            />
-          </>
-        ) : null}
         <JsonLd data={[orgLd, siteLd]} />
         <PwaRegister />
         <NextIntlClientProvider>
+          <AnalyticsProvider gaId={gaId} />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
