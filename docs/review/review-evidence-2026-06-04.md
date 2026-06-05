@@ -76,6 +76,12 @@ Linked finding: <如失败，填 P0/P1/P2 编号；否则 none>
 | E-46 | API, Security, Privacy Matrix / Session cookie attributes | prod | Fail | P1-2 |
 | E-47 | Fix Session / P1-2 auth cookie hardening | local + prod | Pass | P1-2 |
 | E-48 | Fix Session / P1-2 Chrome automation recheck | prod Chrome automation | Blocked | P1-2 |
+| E-49 | Review Session / Independent P1-2 auth cookie and auth-flow recheck | prod | Pass | P1-2 |
+| E-50 | Interactive Inventory / `auth/reset-form.tsx`; Interactive Inventory / `auth/oauth-buttons.tsx`; User Flow / OAuth login; API, Security, Privacy Matrix / OAuth provider config | prod | Pass | none |
+| E-51 | Interactive Inventory / auth forms requiring Turnstile; User Flow / Login, Register, Forgot password | prod Chrome automation | Needs external verification | none |
+| E-52 | Interactive Inventory / `site-footer.tsx`; UX Matrix / Footer; API, Security, Privacy Matrix / Legal pages; API, Security, Privacy Matrix / Client bundle secrets | prod | Pass | none |
+| E-53 | API, Security, Privacy Matrix / Security response headers | prod | Fail | P1-3 |
+| E-54 | Fix Session / P1-3 production security response headers | local + prod | Pass | P1-3 |
 
 ## Evidence Entries
 
@@ -2711,3 +2717,523 @@ Chrome diagnostics:
 ```
 Verdict vs acceptance: Blocked for Chrome automation only. The Chrome plugin connected and diagnostics passed, but controlled tabs did not navigate away from `about:blank`, including a plain public `https://skorly.cc/id` check. No Chrome cookie-store attribute result is claimed from this evidence. E-47 contains the pass evidence for the production raw `Set-Cookie` reproducer, source inventory, server-mediated session route, deploy, SEO smoke, and Worker error tail.
 Linked finding: P1-2
+
+### E-49 Independent P1-2 auth cookie and auth-flow recheck
+Matrix row: API, Security, And Privacy Matrix / Session cookie attributes
+Env: prod
+Time (UTC): 2026-06-04T23:55:50.591Z
+Method: Review-session independent verification after PR #20 and PR #21 were on `origin/main`. Checked source cookie hardening, latest Worker deployment list, ran DNS-overridden `wrangler tail --status error --ip self`, generated fresh Supabase signup verification tokens with token values redacted, hit production `/auth/callback` directly with redirects disabled, followed a second real callback in Playwright-driven Google Chrome, inspected Chrome cookie-store attributes, called `/api/auth/session` from the page, verified header auth state, submitted the account form, reloaded persisted profile state, clicked logout, and revisited protected `/id/akun`.
+Raw output:
+```text
+Source/deploy baseline:
+git log -3 --oneline --decorate HEAD
+f0e1ce2 (HEAD -> main, origin/main, origin/HEAD) Merge pull request #21 from john-hoe/codex/fix-opennext-cache-build-id
+3705967 (origin/codex/fix-opennext-cache-build-id, codex/fix-opennext-cache-build-id) fix OpenNext build cache key
+92587a2 Merge pull request #20 from john-hoe/codex/p1-auth-cookie-flags
+
+apps/web/lib/supabase/cookies.ts:
+sameSite: "lax"
+httpOnly: true
+secure: process.env.NODE_ENV !== "development"
+
+wrangler deployments list latest entries:
+2026-06-04T13:33:24.316Z b46ac47f-d2e9-41c4-85e2-c7900a3ed214
+2026-06-04T13:57:07.273Z 32f0524f-657a-449e-83ba-fc29a2d1d733
+2026-06-04T13:58:15.648Z f7c42c2c-871d-4e7a-8848-b2a028fc70f0
+2026-06-04T14:07:29.513Z 11d93c93-1082-421d-a989-fc412f87bf04
+
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-05T05:54:08Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Independent production verification:
+{
+  "timestampUtc": "2026-06-04T23:55:50.591Z",
+  "directCallback": {
+    "emailPrefix": "codex-p1-cookie-independent-1780617307883",
+    "status": 307,
+    "location": "https://skorly.cc/id/akun",
+    "authCookieCount": 1,
+    "authCookies": [
+      {
+        "name": "sb-majrlaxktengachwrskk-auth-token",
+        "hasHttpOnly": true,
+        "hasSecure": true,
+        "sameSite": "SameSite=lax",
+        "maxAge": "Max-Age=34560000",
+        "attrNames": ["expires", "httponly", "max-age", "path", "samesite", "secure"]
+      }
+    ],
+    "sessionApi": {
+      "status": 200,
+      "body": { "authenticated": true },
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0"
+    },
+    "userState": {
+      "emailConfirmedAtExists": true,
+      "lastSignInAtExists": true
+    }
+  },
+  "chromeCallback": {
+    "emailPrefix": "codex-p1-cookie-browser-1780617307883",
+    "browserName": "chrome",
+    "callbackPage": {
+      "finalUrl": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "bodyHasRuntimeError": false
+    },
+    "browserCookies": [
+      {
+        "name": "sb-majrlaxktengachwrskk-auth-token",
+        "domain": "skorly.cc",
+        "path": "/",
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "Lax",
+        "expires": 1815177321.75992
+      }
+    ],
+    "sessionFromPage": {
+      "status": 200,
+      "body": { "authenticated": true },
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0"
+    },
+    "homeHeaderState": {
+      "finalUrl": "https://skorly.cc/id",
+      "accountLinks": 1,
+      "loginLinks": 0,
+      "bodyHasRuntimeError": false
+    },
+    "accountUpdate": {
+      "accountUpdateSuccess": true,
+      "accountAfterReload": {
+        "displayNameValue": "Cookie fixed 307883",
+        "whatsappValue": "+628617307883",
+        "consentChecked": true
+      },
+      "databaseProfile": {
+        "display_name": "Cookie fixed 307883",
+        "whatsapp_number": "+628617307883",
+        "consent_marketing": true
+      }
+    },
+    "postLogout": {
+      "finalUrl": "https://skorly.cc/id/masuk",
+      "loginFormVisible": true,
+      "authCookieCount": 0
+    },
+    "userState": {
+      "emailConfirmedAtExists": true,
+      "lastSignInAtExists": true
+    },
+    "bodyHasRuntimeError": false,
+    "consoleErrors": [],
+    "pageErrors": []
+  }
+}
+```
+Verdict vs acceptance: Pass. The original E-46 failure no longer reproduces in direct production HTTP or Chrome cookie-store inspection: the Supabase auth cookie has `HttpOnly=true`, `Secure=true`, and `SameSite=lax`. Authenticated flows still work with the hardened cookie: `/api/auth/session` returned authenticated, `/id/akun` rendered, the header showed one account link and zero login links, account update persisted after reload and in the database, logout cleared the auth cookie, and logged-out `/id/akun` redirected to `/id/masuk`. The browser run had no console/page errors and no visible 1101/500/runtime error text. `wrangler tail --status error` emitted no error event lines during the verification window.
+Linked finding: P1-2
+
+### E-50 Password reset form and OAuth gate production check
+Matrix row: Interactive Inventory Matrix / `auth/reset-form.tsx`; Interactive Inventory Matrix / `auth/oauth-buttons.tsx`; User Flow Matrix / OAuth login; API, Security, And Privacy Matrix / OAuth provider config
+Env: prod
+Time (UTC): 2026-06-05T00:02:35.089Z
+Method: DNS-overridden `wrangler tail --status error --ip self` plus Playwright-driven Google Chrome. Created a confirmed Supabase auth user, generated a fresh recovery token with `redirectTo=https://skorly.cc/auth/callback?next=/id/atur-ulang-sandi`, followed the production callback to the reset page, submitted the reset form with a new password, verified page redirect/session state, verified old/new password behavior via Supabase anon sign-in, then opened logged-out `/id/masuk` and `/id/daftar` to verify OAuth gate-off behavior. Token values and auth secrets were not printed.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-05T05:54:08Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Playwright-driven Chrome and Supabase output:
+{
+  "timestampUtc": "2026-06-05T00:02:35.089Z",
+  "passwordReset": {
+    "emailPrefix": "codex-reset-flow-1780617720419",
+    "userIdPrefix": "3200a48a",
+    "generated": {
+      "tokenHashLength": 56,
+      "verificationType": "recovery"
+    },
+    "resetPageBefore": {
+      "url": "https://skorly.cc/id/atur-ulang-sandi",
+      "title": "Buat kata sandi baru | Skorly",
+      "h1": "Buat kata sandi baru",
+      "passwordInputCount": 1,
+      "bodyHasRuntimeError": false
+    },
+    "cookiesBeforeReset": [
+      {
+        "name": "sb-majrlaxktengachwrskk-auth-token",
+        "httpOnly": true,
+        "secure": true,
+        "sameSite": "Lax"
+      }
+    ],
+    "successTextVisible": true,
+    "accountAfterReset": {
+      "url": "https://skorly.cc/id/akun",
+      "title": "Akun saya | Skorly",
+      "h1": "Akun saya",
+      "bodyHasRuntimeError": false
+    },
+    "sessionFromPage": {
+      "status": 200,
+      "body": { "authenticated": true },
+      "cacheControl": "private, no-cache, no-store, must-revalidate, max-age=0"
+    },
+    "passwordSignIn": {
+      "oldPasswordError": "Invalid login credentials",
+      "oldPasswordSession": false,
+      "newPasswordError": null,
+      "newPasswordSession": true
+    },
+    "userState": {
+      "emailConfirmedAtExists": true,
+      "lastSignInAtExists": true
+    }
+  },
+  "oauthGate": {
+    "env": {
+      "NEXT_PUBLIC_ENABLE_OAUTH_root": null,
+      "hasGoogleClientPublic": false,
+      "hasFacebookClientPublic": false
+    },
+    "loginGate": {
+      "label": "login-page",
+      "url": "https://skorly.cc/id/masuk",
+      "title": "Selamat datang kembali | Skorly",
+      "h1": "Selamat datang kembali",
+      "hasGoogleText": false,
+      "hasFacebookText": false,
+      "googleButtonCount": 0,
+      "facebookButtonCount": 0,
+      "passwordInputCount": 1,
+      "bodyHasRuntimeError": false,
+      "buttonTexts": ["🔔", "ID", "VI", "EN", "中文", "🔔", "ID", "VI", "EN", "中文", "Masuk"]
+    },
+    "registerGate": {
+      "label": "register-page",
+      "url": "https://skorly.cc/id/daftar",
+      "title": "Buat akun kamu | Skorly",
+      "h1": "Buat akun kamu",
+      "hasGoogleText": false,
+      "hasFacebookText": false,
+      "googleButtonCount": 0,
+      "facebookButtonCount": 0,
+      "passwordInputCount": 1,
+      "bodyHasRuntimeError": false,
+      "buttonTexts": ["🔔", "ID", "VI", "EN", "中文", "🔔", "ID", "VI", "EN", "中文", "Daftar"]
+    },
+    "consoleErrors": []
+  },
+  "chromeConsoleErrors": [],
+  "pageErrors": []
+}
+```
+Verdict vs acceptance: Pass for the listed matrix rows. The production recovery callback opened `/id/atur-ulang-sandi`, rendered the reset form, submitted `resetPasswordAction`, showed the localized success state, redirected to `/id/akun`, and left `/api/auth/session` authenticated. Supabase anon sign-in with the old password failed and sign-in with the new password succeeded, proving the reset changed the password. The OAuth gate is off in local public env inventory and production login/register pages showed no Google/Facebook text or buttons while keeping the normal password forms. `wrangler tail --status error` emitted no error event lines. This evidence does not clear the separate `auth/forgot-form.tsx` or User Flow / Forgot password rows because no production forgot-password form submission or real reset email delivery was verified here.
+Linked finding: none
+
+### E-51 Turnstile-gated auth forms blocked by current Chrome automation challenge
+Matrix row: Interactive Inventory Matrix / `auth/register-form.tsx`; Interactive Inventory Matrix / `auth/login-form.tsx`; Interactive Inventory Matrix / `auth/forgot-form.tsx`; Interactive Inventory Matrix / `auth/turnstile.tsx`; User Flow Matrix / Register; User Flow Matrix / Login; User Flow Matrix / Forgot password
+Env: prod Chrome automation
+Time (UTC): 2026-06-05T00:09:30Z
+Method: DNS-overridden `wrangler tail --status error --ip self` plus Playwright-driven Google Chrome. Opened the homepage subscribe form, login page, register page, and forgot-password page in the same Chrome environment. Waited up to 45 seconds per page for `input[name="cf-turnstile-response"]` to receive a token. Then ran a focused homepage network diagnostic for Cloudflare Turnstile responses. No auth form was submitted because no valid Turnstile token was produced.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-05T05:54:08Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Turnstile token wait result, one Chrome context:
+{
+  "timestampUtc": "2026-06-05T00:08:11.853Z",
+  "results": [
+    {
+      "label": "home-subscribe",
+      "url": "https://skorly.cc/id",
+      "tokenResult": null,
+      "inputValueLength": 0,
+      "iframeCount": 0,
+      "turnstileScriptPresent": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "login",
+      "url": "https://skorly.cc/id/masuk",
+      "tokenResult": null,
+      "inputValueLength": 0,
+      "iframeCount": 0,
+      "turnstileScriptPresent": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "register",
+      "url": "https://skorly.cc/id/daftar",
+      "tokenResult": null,
+      "inputValueLength": 0,
+      "iframeCount": 0,
+      "turnstileScriptPresent": true,
+      "bodyHasRuntimeError": false
+    },
+    {
+      "label": "forgot",
+      "url": "https://skorly.cc/id/lupa-sandi",
+      "tokenResult": null,
+      "inputValueLength": 0,
+      "iframeCount": 0,
+      "turnstileScriptPresent": true,
+      "bodyHasRuntimeError": false
+    }
+  ]
+}
+
+Focused homepage Turnstile network diagnostic:
+{
+  "timestampUtc": "2026-06-05T00:08:58.264Z",
+  "data": {
+    "inputLen": 0,
+    "iframeCount": 0,
+    "turnstileScriptCount": 1,
+    "windowTurnstileType": "object",
+    "cfTurnstileDivCount": 1
+  },
+  "events": [
+    {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit","status":302},
+    {"url":"https://challenges.cloudflare.com/turnstile/v0/g/8fc8ed1d8752/api.js","status":200},
+    {"url":"https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/turnstile/f/ov2/av0/rch/.../new/flexible?lang=auto","status":200},
+    {"url":"https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/flow/...","status":200},
+    {"url":"https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/pat/...","status":401}
+  ],
+  "consoleMessages": [
+    "Request for the Private Access Token challenge.",
+    "The next request for the Private Access Token challenge may return a 401 and show a warning in console.",
+    "Failed to load resource: the server responded with a status of 401 ()"
+  ]
+}
+```
+Verdict vs acceptance: Needs external verification for the listed Turnstile-gated auth form submissions. The same automation environment failed to obtain a Turnstile token on both the homepage subscribe form and the auth forms: token length stayed 0, iframe count stayed 0, and the focused network diagnostic showed Cloudflare Turnstile scripts loaded but a Private Access Token challenge request returned 401. Because previous production evidence E-38 produced a real Turnstile token and successful subscribe submission in Chrome, this result is treated as an automation/challenge limitation, not as a product failure. Login, register, and forgot-password form submissions still require a real browser session that obtains a valid Turnstile token, plus real email/reset-link verification where applicable.
+Linked finding: none
+
+### E-52 Footer, legal pages, and client bundle secret scan
+Matrix row: Interactive Inventory Matrix / `site-footer.tsx`; UX Matrix / Footer; API, Security, And Privacy Matrix / Legal pages; API, Security, And Privacy Matrix / Client bundle secrets
+Env: prod
+Time (UTC): 2026-06-05T01:56:10.054Z
+Method: DNS-overridden `wrangler tail --status error --ip self`, production HTTP fetches, Playwright-driven Google Chrome footer inspection across `id`, `en`, `vi`, and `zh`, and production JS bundle scan. The bundle scan fetched 10 production `/_next/static` script URLs from `https://skorly.cc/id`, searched for exact private secret values from local env without printing those values, and searched for private secret variable names.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-05T05:54:08Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Legal page HTTP status sample:
+[
+  {"url":"https://skorly.cc/id/privacy","status":200,"title":"Kebijakan Privasi | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/id/terms","status":200,"title":"Syarat &amp; Ketentuan | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/en/privacy","status":200,"title":"Privacy Policy | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/en/terms","status":200,"title":"Terms of Service | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/vi/privacy","status":200,"title":"Chính sách bảo mật | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/vi/terms","status":200,"title":"Điều khoản dịch vụ | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/zh/privacy","status":200,"title":"隐私政策 | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false},
+  {"url":"https://skorly.cc/zh/terms","status":200,"title":"服务条款 | Skorly","h1Count":1,"bodyHas1101":false,"bodyHas500Text":false}
+]
+
+Footer link and layout sample:
+[
+  {
+    "locale": "id",
+    "footerVisible": true,
+    "privacyHref": "https://skorly.cc/id/privacy",
+    "termsHref": "https://skorly.cc/id/terms",
+    "contactHref": "mailto:business@skorly.cc",
+    "horizontalOverflowPx": 0,
+    "bodyHasRuntimeError": false
+  },
+  {
+    "locale": "en",
+    "footerVisible": true,
+    "privacyHref": "https://skorly.cc/en/privacy",
+    "termsHref": "https://skorly.cc/en/terms",
+    "contactHref": "mailto:business@skorly.cc",
+    "horizontalOverflowPx": 0,
+    "bodyHasRuntimeError": false
+  },
+  {
+    "locale": "vi",
+    "footerVisible": true,
+    "privacyHref": "https://skorly.cc/vi/privacy",
+    "termsHref": "https://skorly.cc/vi/terms",
+    "contactHref": "mailto:business@skorly.cc",
+    "horizontalOverflowPx": 0,
+    "bodyHasRuntimeError": false
+  },
+  {
+    "locale": "zh",
+    "footerVisible": true,
+    "privacyHref": "https://skorly.cc/zh/privacy",
+    "termsHref": "https://skorly.cc/zh/terms",
+    "contactHref": "mailto:business@skorly.cc",
+    "horizontalOverflowPx": 0,
+    "bodyHasRuntimeError": false
+  }
+]
+
+Client bundle secret scan:
+{
+  "scriptCount": 10,
+  "fetchedCount": 10,
+  "bytes": 717697,
+  "secretValueHits": [],
+  "secretNameHits": [],
+  "publicSupabaseUrlPresent": false,
+  "publicAnonKeyPresent": false
+}
+
+Chrome console errors:
+[]
+```
+Verdict vs acceptance: Pass for the listed matrix rows. Footer legal/contact links were visible and locale-scoped on all four sampled home pages; privacy and terms pages returned 200 with one H1 and no 1101/500 text; footer horizontal overflow was 0px at 1365px viewport. The production client JS bundle scan found zero exact private secret value hits and zero private secret-name hits. `wrangler tail --status error` emitted no error event lines during the production window.
+Linked finding: none
+
+### E-53 Security response headers missing on production HTML responses
+Matrix row: API, Security, And Privacy Matrix / Security response headers
+Env: prod
+Time (UTC): 2026-06-05T01:56:10.054Z
+Method: DNS-overridden `wrangler tail --status error --ip self`; production HTTP fetches of four locale home pages, eight legal pages, and logged-out protected `/id/akun`; header summary captured `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`.
+Raw output:
+```text
+wrangler tail command:
+NODE_OPTIONS="--import=data:text/javascript,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format pretty --status error --ip self
+Successfully created tail, expires at 2026-06-05T05:54:08Z
+Connected to skorly-web, waiting for logs...
+<no error event lines before ^C>
+
+Security header summary:
+[
+  {"url":"https://skorly.cc/id","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/en","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/vi","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/zh","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/id/privacy","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/id/terms","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/en/privacy","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/en/terms","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/vi/privacy","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/vi/terms","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/zh/privacy","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/zh/terms","status":200,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null},
+  {"url":"https://skorly.cc/id/akun","status":307,"hsts":null,"xFrameOptions":null,"xContentTypeOptions":null,"referrerPolicy":null,"csp":null,"permissionsPolicy":null}
+]
+```
+Verdict vs acceptance: Fail. The matrix acceptance requires sensible production security headers and clickjacking protection. All 13 sampled HTML/redirect responses lacked `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`. `wrangler tail --status error` emitted no error event lines, so the issue is missing header policy rather than a runtime exception.
+Linked finding: P1-3
+
+### E-54 P1-3 production security response headers fixed
+Matrix row: API, Security, And Privacy Matrix / Security response headers
+Env: local production server + prod
+Time (UTC): 2026-06-05T02:42:30Z
+Method: Added route-wide security headers in `apps/web/next.config.ts`, ran local gates, built the app, checked local production responses, deployed commit `1c261ae` to Cloudflare Workers, reran the original E-53 production sample set plus one Web Story and both sitemap endpoints, and monitored `wrangler tail --status error` during the production sample window.
+Raw output:
+```text
+Code change:
+apps/web/next.config.ts
+- `headers()` now applies:
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), xr-spatial-tracking=(), browsing-topics=()
+  Content-Security-Policy: includes default-src 'self', frame-ancestors 'self', Turnstile, Supabase REST/realtime, Google analytics/tag manager, AMP runtime, Twitter widgets, YouTube frames, worker-src 'self' blob:, and media/img allowances.
+
+Local gates:
+$ pnpm lint
+apps/web lint: Done
+
+$ pnpm typecheck
+packages/predict-model typecheck: Done
+packages/ui typecheck: Done
+packages/types typecheck: Done
+packages/api-football typecheck: Done
+packages/ai-content typecheck: Done
+packages/db typecheck: Done
+packages/news typecheck: Done
+apps/web typecheck: Done
+apps/jobs typecheck: Done
+
+$ pnpm --filter @skorly/api-football test
+Test Files  1 passed (1)
+Tests       2 passed (2)
+
+$ pnpm --filter @skorly/predict-model test
+<no output>
+
+$ cat packages/predict-model/package.json
+"scripts": {
+  "typecheck": "tsc --noEmit"
+}
+
+$ git diff --check
+<no output>
+
+$ pnpm build
+✓ Generating static pages using 3 workers (1923/1923) in 4.6min
+
+Local header smoke against http://localhost:3100:
+- Paths: /id, /en, /vi, /zh, /id/privacy, /id/terms, /en/privacy, /en/terms, /vi/privacy, /vi/terms, /zh/privacy, /zh/terms, /id/akun, /id/cerita/mexico-vs-south-africa-20260611, /sitemap.xml, /news-sitemap.xml
+- Statuses: 15x 200, 1x 307 (/id/akun -> /id/masuk)
+- allHeadersPresent=true for 16/16
+- has1101Or500Body=false for 16/16
+- Web Story sample: ampStory=true, canonical=true, hreflangCount=5, jsonLdCount=1
+
+Local browser smoke:
+- http://localhost:3100/id: h1Count=1, canonical=true, hreflangCount=5, jsonLdCount=1, turnstileScripts=1, applicationError=false, cspErrorCount=0
+- http://localhost:3100/id/masuk: h1Count=1, jsonLdCount=1, turnstileScripts=1, applicationError=false, cspErrorCount=0
+- http://localhost:3100/id/cerita/mexico-vs-south-africa-20260611: ampStory=true, ampRuntimeScripts=2, canonical=true, hreflangCount=5, jsonLdCount=1, applicationError=false, cspErrorCount=0
+
+Deploy:
+$ pnpm --filter @skorly/web cf:deploy
+✓ Generating static pages using 3 workers (1923/1923) in 4.3min
+Worker saved in `.open-next/worker.js` 🚀
+OpenNext build complete.
+Uploaded skorly-web (102.21 sec)
+Deployed skorly-web triggers (4.29 sec)
+  skorly.cc (custom domain)
+  www.skorly.cc (custom domain)
+Current Version ID: 15bffbce-fa5c-4914-8c9b-031d1d2b01fd
+
+Production header smoke against https://skorly.cc:
+- Paths: /id, /en, /vi, /zh, /id/privacy, /id/terms, /en/privacy, /en/terms, /vi/privacy, /vi/terms, /zh/privacy, /zh/terms, /id/akun, /id/cerita/mexico-vs-south-africa-20260611, /sitemap.xml, /news-sitemap.xml
+- Statuses: 15x 200, 1x 307 (/id/akun -> /id/masuk)
+- allHeadersPresent=true for 16/16
+- has1101Or500Body=false for 16/16
+- strict-transport-security=max-age=31536000; includeSubDomains; preload
+- x-frame-options=SAMEORIGIN
+- x-content-type-options=nosniff
+- referrer-policy=strict-origin-when-cross-origin
+- content-security-policy contains frame-ancestors 'self', https://challenges.cloudflare.com, and https://cdn.ampproject.org
+- permissions-policy=camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), xr-spatial-tracking=(), browsing-topics=()
+- Web Story sample: status=200, ampStory=true, canonical=true, hreflangCount=5, jsonLdCount=1
+- /sitemap.xml: status=200, contentType=application/xml
+- /news-sitemap.xml: status=200, contentType=application/xml
+
+wrangler tail:
+$ pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error --ip self
+Error: Client network socket disconnected before secure TLS connection was established
+code: ECONNRESET
+host: tail.developers.workers.dev
+
+$ NODE_OPTIONS="--import=data:text/javascript;base64,<dns override for tail.developers.workers.dev to 104.21.5.179>" pnpm --dir apps/web exec wrangler tail skorly-web --format json --status error --ip self
+<no error event lines during the production sample window>
+```
+Verdict vs acceptance: Pass. The original E-53 production header failure no longer reproduces: all 13 original HTML/redirect samples and three extended smoke endpoints returned all six target headers. Expected statuses were preserved, `/id/akun` still redirected to `/id/masuk`, sitemap endpoints returned 200 XML, the Web Story sample retained AMP/story SEO signals, and the production error-tail window emitted 0 error event lines.
+Linked finding: P1-3

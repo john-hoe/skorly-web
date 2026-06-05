@@ -54,7 +54,8 @@ Verification (修复后回填):
 | P0-1 | P0 | Review branch omits fixed production runtime P0 commits | `codex/review` / logged-in runtime surfaces | Fixed | E-7, E-34 |
 | P0-2 | P0 | Auth callback returns 500 for real signup verification token | `/auth/callback` / Supabase Auth | Fixed | E-40, E-41, E-42, E-43 |
 | P1-1 | P1 | Subscribe API bypasses Turnstile when production secret is missing | `/api/subscribe` / Worker secrets | Fixed | E-36, E-37, E-38 |
-| P1-2 | P1 | Supabase auth session cookie lacks HttpOnly and Secure flags | Auth cookie / Supabase SSR | Fixed | E-46, E-47, E-48 |
+| P1-2 | P1 | Supabase auth session cookie lacks HttpOnly and Secure flags | Auth cookie / Supabase SSR | Fixed | E-46, E-47, E-48, E-49 |
+| P1-3 | P1 | Production HTML responses lack security response headers | Middleware / Cloudflare Worker headers | Fixed | E-53, E-54 |
 | P2-1 | P2 | Predict-model test gate executes zero tests | `packages/predict-model` | Open | E-2 |
 
 ## P0 Findings
@@ -235,6 +236,8 @@ Evidence:
 - E-47: with the callback cookie supplied to production requests, `/api/auth/session` returned `200 {"authenticated":true}` and `/id/akun` returned `200`; Supabase admin confirmed `emailConfirmedAtExists=true` and `lastSignInAtExists=true`.
 - E-47: browser-side header auth no longer reads Supabase session cookies directly; the header uses `/api/auth/session`, and remaining browser Supabase usage is restricted to OAuth initiation.
 - E-48: Chrome skill automation connected to Chrome, found the Codex Chrome Extension installed/enabled and native host correct, but both `tab.goto("https://skorly.cc/id")` and address-bar navigation attempts left the controlled tab at `about:blank`; Chrome cookie-store reinspection was not used as pass evidence.
+- E-49: independent review-session verification on `main` commit `f0e1ce2` and current production confirmed direct `/auth/callback` auth `Set-Cookie` has `hasHttpOnly=true`, `hasSecure=true`, `sameSite="SameSite=lax"`, and attr names include `httponly` and `secure`.
+- E-49: Playwright-driven Google Chrome followed a real callback to `/id/akun` and Chrome cookie-store inspection reported `httpOnly=true`, `secure=true`, `sameSite="Lax"`. `/api/auth/session` returned authenticated, account update persisted after reload and in `profiles`, logout cleared auth cookies, logged-out `/id/akun` redirected to `/id/masuk`, and `wrangler tail --status error` emitted no error event lines.
 
 Impact:
 - Security impact. The auth cookie contains the Supabase session bearer credential. Without `HttpOnly`, any successful same-origin script execution can read the session token. Without `Secure`, the browser is not instructed to restrict the cookie to HTTPS requests. `SameSite=Lax` reduces cross-site request sending, but it does not protect token confidentiality from same-origin script execution or non-secure transport.
@@ -262,6 +265,60 @@ Verification (修复后回填):
 - Production SEO smoke: `/sitemap.xml` and `/news-sitemap.xml` returned `200`; `/id/tim/brazil`, `/id/pertandingan/mexico-vs-south-africa-20260611`, and `/id/artikel/news-10-world-cup-2026-how-miners-from-cornwall-brought-football-to-` returned `200` with canonical, five hreflang links, one H1, and parseable JSON-LD; nonexistent team/match/article slugs returned `404`; no sampled response contained `1101` or 500 text.
 - Worker error tail: `wrangler tail skorly-web --format json --status error` emitted no JSON event lines during the production auth and SEO smoke window.
 - Chrome skill note: Chrome automation could not navigate controlled tabs away from `about:blank`; E-48 records the exact tool outputs. The fixed status relies on the production raw `Set-Cookie` reproducer no longer failing, source inventory proving the browser session-cookie reader was removed, authenticated server-mediated session checks passing, and zero Worker error events in the verification window.
+- E-49 / prod / 2026-06-04T23:55:50.591Z:
+  - Current source was `f0e1ce2 Merge pull request #21 from john-hoe/codex/fix-opennext-cache-build-id`, containing `92587a2 Merge pull request #20 from john-hoe/codex/p1-auth-cookie-flags`.
+  - Direct fresh production signup callback returned `307` to `https://skorly.cc/id/akun`; auth `Set-Cookie` summary had `hasHttpOnly=true`, `hasSecure=true`, `sameSite="SameSite=lax"`, and attr names `expires`, `httponly`, `max-age`, `path`, `samesite`, `secure`.
+  - With the direct callback cookie, `/api/auth/session` returned `200 {"authenticated":true}` and Supabase admin showed `emailConfirmedAtExists=true` plus `lastSignInAtExists=true`.
+  - Playwright-driven Google Chrome followed another fresh real callback to `https://skorly.cc/id/akun`; Chrome cookie-store inspection reported auth cookie `httpOnly=true`, `secure=true`, `sameSite="Lax"`.
+  - The Chrome page call to `/api/auth/session` returned authenticated; the home header had `accountLinks=1` and `loginLinks=0`.
+  - Account update persisted after reload and in the `profiles` row; logout cleared auth cookies; logged-out `/id/akun` redirected to `https://skorly.cc/id/masuk`.
+  - Chrome `consoleErrors=[]`, `pageErrors=[]`, and `bodyHasRuntimeError=false`; DNS-overridden `wrangler tail --status error --ip self` emitted no error event lines during the verification window.
+
+### P1-3 Production HTML responses lack security response headers
+
+Status:
+- Fixed
+
+Evidence:
+- E-53: 13 sampled production HTML/redirect responses had `Strict-Transport-Security=null`, `X-Frame-Options=null`, `X-Content-Type-Options=null`, `Referrer-Policy=null`, `Content-Security-Policy=null`, and `Permissions-Policy=null`.
+- E-53 samples included four locale home pages (`/id`, `/en`, `/vi`, `/zh`), eight legal pages (`/{locale}/privacy`, `/{locale}/terms`), and logged-out protected `/id/akun` redirect.
+- E-53: all sampled responses had no 1101/500 body text and `wrangler tail --status error` emitted no error event lines during the production window, so the failure is missing policy headers rather than a runtime exception.
+- E-54: `apps/web/next.config.ts` now applies the required security headers through Next `headers()` for all routes, including static HTML, dynamic pages, redirects, route handlers, sitemap XML, and auth callback responses.
+- E-54: local gates passed: `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm --filter @skorly/api-football test`, and `git diff --check`. `@skorly/predict-model` still has no real `test` script; its `package.json` only defines `typecheck`.
+- E-54: production deploy of commit `1c261ae` succeeded with Worker version `15bffbce-fa5c-4914-8c9b-031d1d2b01fd`. The deployed `BUILD_ID` was `1c261aef8609`.
+- E-54: production rerun covered the original E-53 sample set plus `/id/cerita/mexico-vs-south-africa-20260611`, `/sitemap.xml`, and `/news-sitemap.xml`; all sampled responses had all six target headers, expected 200/307 statuses, and no 1101/500 body text.
+
+Impact:
+- Security impact. Without clickjacking and browser-hardening headers, the site leaves browser protections to defaults. Missing `X-Frame-Options` / frame restrictions allows framing unless another layer blocks it. Missing `X-Content-Type-Options` weakens MIME sniffing protection. Missing `Referrer-Policy` can leak fuller referrer URLs to external origins. Missing HSTS means browsers are not instructed to force HTTPS for future visits.
+- Severity is P1, not P0, on current evidence: E-53 proves a broad security baseline gap but does not prove active exploit, private data exposure, or account takeover.
+
+Reproduce:
+- Run production header checks against `https://skorly.cc/id`, `https://skorly.cc/en`, `https://skorly.cc/vi`, `https://skorly.cc/zh`, `https://skorly.cc/id/privacy`, `https://skorly.cc/id/terms`, and `https://skorly.cc/id/akun` with redirects disabled.
+- Inspect `Strict-Transport-Security`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, and `Permissions-Policy`.
+- Observe each header is absent on the sampled responses.
+
+Fix acceptance:
+- Production HTML and auth redirect responses include at least:
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` or a documented Cloudflare-equivalent HSTS policy visible to clients.
+  - `X-Content-Type-Options: nosniff`.
+  - `Referrer-Policy` set to `strict-origin-when-cross-origin` or stricter.
+  - Clickjacking protection via `Content-Security-Policy: frame-ancestors 'self'` or `X-Frame-Options: SAMEORIGIN` / `DENY`.
+  - A `Permissions-Policy` that disables unused sensitive features.
+- CSP must not break required first-party JS, Cloudflare Turnstile, Supabase auth, media images, or existing inline/runtime Next.js requirements.
+- Rerun the E-53 sample set in production; all listed headers are present with intended values, pages still return expected 200/307 statuses, no visible 1101/500 text, and `wrangler tail --status error` emits 0 error events.
+
+Verification (修复后回填):
+- E-54 local gate output:
+  - `pnpm lint`: `apps/web lint: Done`
+  - `pnpm typecheck`: `packages/predict-model`, `packages/ui`, `packages/types`, `packages/api-football`, `packages/ai-content`, `packages/db`, `packages/news`, `apps/web`, and `apps/jobs` all completed `tsc --noEmit`.
+  - `pnpm --filter @skorly/api-football test`: `Test Files 1 passed (1)`, `Tests 2 passed (2)`.
+  - `pnpm build`: `Generating static pages using 3 workers (1923/1923) in 4.6min`.
+  - `git diff --check`: exited 0 with no output.
+- E-54 deploy output: `Generating static pages using 3 workers (1923/1923) in 4.3min`; `Uploaded skorly-web`; `Current Version ID: 15bffbce-fa5c-4914-8c9b-031d1d2b01fd`.
+- E-54 production header output: the original 13 E-53 samples returned 12x `200` and `/id/akun` returned `307` to `/id/masuk`; every sample had `Strict-Transport-Security=max-age=31536000; includeSubDomains; preload`, `X-Frame-Options=SAMEORIGIN`, `X-Content-Type-Options=nosniff`, `Referrer-Policy=strict-origin-when-cross-origin`, `Content-Security-Policy` containing `frame-ancestors 'self'`, and the deployed `Permissions-Policy`.
+- E-54 extended smoke output: `/id/cerita/mexico-vs-south-africa-20260611`, `/sitemap.xml`, and `/news-sitemap.xml` returned `200` with all six target headers. The Web Story sample retained `ampStory=true`, `canonical=true`, `hreflangCount=5`, and `jsonLdCount=1`.
+- E-54 production `wrangler tail --status error` output: direct tail connection failed once with `ECONNRESET` to `tail.developers.workers.dev`; retry with DNS override opened the error-tail window, and the production sample window emitted 0 error event lines.
+- Pending
 
 ## P2 Findings
 

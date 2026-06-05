@@ -4,7 +4,49 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "manifest-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com https://*.twitter.com https://*.x.com",
+  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://platform.twitter.com https://*.twitter.com https://*.x.com",
+  "child-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com https://platform.twitter.com https://*.twitter.com https://*.x.com",
+  "worker-src 'self' blob:",
+  "media-src 'self' data: blob: https:",
+].join("; ");
+
+const securityHeaders = [
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=31536000; includeSubDomains; preload",
+  },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  {
+    key: "Permissions-Policy",
+    value:
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), midi=(), xr-spatial-tracking=(), browsing-topics=()",
+  },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+];
+
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
+    ];
+  },
   transpilePackages: [
     "@skorly/db",
     "@skorly/api-football",
