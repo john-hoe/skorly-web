@@ -346,6 +346,11 @@ function excerptFromBody(body: string, fallback: string | null, maxLength = 180)
 }
 
 function normalizeArticleTitle(locale: string, title: string, slug: string, body?: string | null): string {
+  if (locale === "vi") {
+    return title
+      .replace(/^Pratinjau Piala Dunia 2026:/i, "Nhận định World Cup 2026:")
+      .replace(/^Prediksi Piala Dunia 2026:/i, "Dự đoán World Cup 2026:");
+  }
   if (locale !== "id" || !/\bASI\b/.test(title)) return title;
   const context = `${slug} ${body ?? ""}`.toLowerCase();
   if (!/\b(usa|united states|amerika serikat)\b/.test(context)) return title;
@@ -353,8 +358,9 @@ function normalizeArticleTitle(locale: string, title: string, slug: string, body
 }
 
 function localizeArticleSummary(locale: string, summary: string | null, body?: string | null): string | null {
-  if (locale === "en" || !body) return summary;
-  return excerptFromBody(body, summary);
+  const localized = locale === "en" || !body ? summary : excerptFromBody(body, summary);
+  if (locale === "id") return localized?.replace(/\bASI\b/g, "Amerika Serikat") ?? null;
+  return localized;
 }
 
 function compactIds(values: Array<number | null | undefined>) {

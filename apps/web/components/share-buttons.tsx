@@ -66,7 +66,7 @@ export function ShareButtons({ url, text, compact = false }: Props) {
   }
 
   const pill =
-    "inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium transition hover:border-[var(--brand)] hover:text-[var(--brand)]";
+    "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-2 text-xs font-medium transition hover:border-[var(--brand)] hover:text-[var(--brand)]";
 
   return (
     <div className="flex flex-wrap items-center gap-2">

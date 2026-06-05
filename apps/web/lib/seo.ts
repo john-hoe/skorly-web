@@ -120,14 +120,37 @@ export function fitMetaTitle(title: string, maxLength = 52): string {
 export function fitMetaDescription(
   text: string,
   fallback: string,
-  maxLength = 140
+  maxLength = 140,
+  leadingTextToRemove?: string
 ): string {
-  const cleaned = cleanMetaText(text);
+  const cleaned = removeLeadingText(cleanMetaText(text), leadingTextToRemove);
   const base =
     cleaned.length >= 50
       ? cleaned
       : cleanMetaText(`${cleaned} ${fallback}`);
   return truncateAtBoundary(base, maxLength);
+}
+
+function removeLeadingText(text: string, leadingTextToRemove?: string): string {
+  const leading = leadingTextToRemove ? cleanMetaText(leadingTextToRemove) : "";
+  if (!leading) return text;
+  const lowerText = text.toLocaleLowerCase();
+  const lowerLeading = leading.toLocaleLowerCase();
+  if (!lowerText.startsWith(lowerLeading)) return text;
+  return text.slice(leading.length).replace(/^[\s:—–-]+/, "").trim();
+}
+
+export function matchSeoDescription(locale: string, matchTitle: string): string {
+  switch (locale) {
+    case "id":
+      return `${matchTitle} — preview Piala Dunia 2026, prediksi skor, detail kick-off, info tim, dan analisis pertandingan.`;
+    case "vi":
+      return `${matchTitle} — nhận định World Cup 2026, dự đoán tỉ số, giờ bóng lăn, thông tin đội tuyển và phân tích trận đấu.`;
+    case "zh":
+      return `${matchTitle} — 2026 世界杯赛前分析、比分预测、开球信息、球队动态和比赛看点。`;
+    default:
+      return `${matchTitle} — World Cup 2026 preview, score prediction, kickoff details, team news and match analysis.`;
+  }
 }
 
 type PageSeoKind =

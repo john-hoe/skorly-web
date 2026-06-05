@@ -105,7 +105,9 @@ export async function generateMetadata({
   const title = fitMetaTitle(article.title);
   const description = fitMetaDescription(
     article.summary ?? article.body,
-    pageSeoDescription(locale, "articles")
+    pageSeoDescription(locale, "articles"),
+    140,
+    article.title
   );
   const alternateLocales = availableLocales.includes(locale)
     ? availableLocales
