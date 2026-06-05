@@ -16,7 +16,7 @@ import { JsonLd } from "@/components/json-ld";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { renderMarkdown } from "@/lib/markdown";
-import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath } from "@/lib/seo";
+import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath, matchSeoDescription } from "@/lib/seo";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
 type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
@@ -115,7 +115,7 @@ export async function generateMetadata({
   );
   return {
     title,
-    description: `${title} — World Cup 2026 preview, prediction & analysis.`,
+    description: matchSeoDescription(locale, title),
     ...canonicalMetadata,
     openGraph: { ...canonicalMetadata.openGraph, type: "article", title, images: [ogImage] },
     twitter: { card: "summary_large_image", images: [ogImage] },
@@ -165,7 +165,7 @@ export default async function MatchPage({
     fixture,
     url: absoluteUrl(localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)),
     image: eventImage,
-    description: `${matchTitle} World Cup 2026 match preview, kickoff details, teams, prediction and analysis.`,
+    description: matchSeoDescription(locale, matchTitle),
   });
 
   const breadcrumbLd = {
