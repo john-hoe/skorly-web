@@ -78,8 +78,18 @@ export function SocialEmbed({ url }: { url: string }) {
           />
         </div>
       ) : kind === "tweet" ? (
-        <blockquote className="twitter-tweet" data-dnt="true">
-          <a href={url}>{url}</a>
+        <blockquote
+          className="twitter-tweet mx-0 max-w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-sm leading-6 break-words"
+          data-dnt="true"
+        >
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="text-[var(--brand)] underline break-all"
+          >
+            {url}
+          </a>
         </blockquote>
       ) : (
         <a
