@@ -7,6 +7,7 @@ import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { SocialEmbed } from "@/components/social-embed";
 import { CommentsSection } from "@/components/comments-section";
 import { JsonLd } from "@/components/json-ld";
+import { ShareButtons } from "@/components/share-buttons";
 import { renderMarkdown } from "@/lib/markdown";
 import {
   SITE_NAME,
@@ -149,7 +150,8 @@ export default async function ArticlePage({
   const embeds = Array.isArray(article.embeds) ? article.embeds : [];
   const sources = Array.isArray(article.sources) ? article.sources.filter(isPublicSource) : [];
 
-  const url = absoluteUrl(localizedPath({ pathname: "/artikel/[slug]", params: { slug } }, locale));
+  const articlePath = localizedPath({ pathname: "/artikel/[slug]", params: { slug } }, locale);
+  const url = absoluteUrl(articlePath);
   const newsLd = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
@@ -205,6 +207,8 @@ export default async function ArticlePage({
           ))}
         </section>
       )}
+
+      <ShareButtons url={articlePath} text={`${article.title} | ${SITE_NAME}`} />
 
       {sources.length > 0 && (
         <section className="border-t border-[var(--border)] pt-4">
