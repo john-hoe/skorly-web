@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "./env";
 
 const acquireJobLock = vi.fn();
 const releaseJobLock = vi.fn();
 const scoreFinishedPredictions = vi.fn();
 const seedTeamIdentities = vi.fn();
+const setDbClientCacheEnabled = vi.fn();
 const ingestFixtures = vi.fn();
 const generatePosters = vi.fn();
 const sendNotifications = vi.fn();
@@ -15,6 +16,7 @@ vi.mock("@skorly/db", () => ({
   releaseJobLock,
   scoreFinishedPredictions,
   seedTeamIdentities,
+  setDbClientCacheEnabled,
 }));
 
 vi.mock("./ingest-fixtures", () => ({ ingestFixtures }));
@@ -23,6 +25,9 @@ vi.mock("./send-notifications", () => ({ sendNotifications }));
 vi.mock("./send-premium-email", () => ({ sendPremiumEmails }));
 
 const { default: worker } = await import("./index");
+const disabledDbCacheAtImport = setDbClientCacheEnabled.mock.calls.some(
+  ([enabled]) => enabled === false,
+);
 
 const env: Env = {
   DATABASE_URL: "",
@@ -44,6 +49,7 @@ function manualRequest(path: string, secret = "secret") {
 
 describe("manual jobs endpoint guard", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
     acquireJobLock.mockResolvedValue(true);
     releaseJobLock.mockResolvedValue(undefined);
@@ -53,6 +59,10 @@ describe("manual jobs endpoint guard", () => {
     generatePosters.mockResolvedValue({ prematch: 1, result: 0 });
     sendNotifications.mockResolvedValue({ kickoff: 0, goals: 0, results: 0 });
     sendPremiumEmails.mockResolvedValue({ fixtures: 1, emails: 2, whatsapp: 0 });
+  });
+
+  it("disables shared database client caching in the jobs Worker", () => {
+    expect(disabledDbCacheAtImport).toBe(true);
   });
 
   it("rejects non-POST manual run requests before auth", async () => {
@@ -133,4 +143,75 @@ describe("manual jobs endpoint guard", () => {
     expect(generatePosters).toHaveBeenCalledTimes(1);
     expect(seedTeamIdentities).toHaveBeenCalledTimes(1);
   });
+
+  it("returns a redacted message for authenticated manual task failures", async () => {
+    ingestFixtures.mockRejectedValue(new Error("database failed token abcdefghijklmnopqrstuvwxyz123456"));
+
+    const res = await worker.fetch(manualRequest("/__run/ingest"), env);
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      ok: false,
+      error: "internal",
+      message: "database failed token [redacted]",
+    });
+  });
+
+  it("uses Upstash Redis locks when configured", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as unknown[][];
+      const command = body[0]?.[0];
+      if (command === "SET") {
+        return Response.json([{ result: "OK" }]);
+      }
+      if (command === "EVAL") {
+        return Response.json([{ result: 1 }]);
+      }
+      return Response.json([{ result: null }]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await worker.fetch(manualRequest("/__run/seed-identities"), {
+      ...env,
+      UPSTASH_REDIS_REST_URL: "https://redis.test",
+      UPSTASH_REDIS_REST_TOKEN: "token",
+    });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ written: 3 });
+    expect(acquireJobLock).not.toHaveBeenCalled();
+    expect(releaseJobLock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as unknown[][];
+    expect(firstBody[0]).toEqual([
+      "SET",
+      "job-lock:jobs:seed-identities",
+      expect.any(String),
+      "NX",
+      "EX",
+      "600",
+    ]);
+  });
+
+  it("returns 503 when the configured Redis lock backend fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("nope", { status: 500 })),
+    );
+
+    const res = await worker.fetch(manualRequest("/__run/posters"), {
+      ...env,
+      UPSTASH_REDIS_REST_URL: "https://redis.test",
+      UPSTASH_REDIS_REST_TOKEN: "token",
+    });
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({ ok: false, error: "lock_error" });
+    expect(generatePosters).not.toHaveBeenCalled();
+    expect(acquireJobLock).not.toHaveBeenCalled();
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

@@ -29,7 +29,7 @@ export class ApiFootballClient {
   constructor(opts: ApiFootballOptions) {
     this.apiKey = opts.apiKey;
     this.baseUrl = opts.baseUrl ?? "https://v3.football.api-sports.io";
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   private async get<T>(

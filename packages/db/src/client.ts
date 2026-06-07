@@ -14,9 +14,18 @@ import * as schema from "./schema";
  */
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _client: ReturnType<typeof postgres> | null = null;
+let cacheEnabled = true;
+
+export function setDbClientCacheEnabled(enabled: boolean): void {
+  cacheEnabled = enabled;
+  if (!enabled) {
+    _db = null;
+    _client = null;
+  }
+}
 
 export function getDb() {
-  if (_db) return _db;
+  if (cacheEnabled && _db) return _db;
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error("DATABASE_URL is not set");
@@ -36,8 +45,11 @@ export function getDb() {
     connect_timeout: 15,
     connection: { statement_timeout: 30000 },
   });
-  _db = drizzle(_client, { schema });
-  return _db;
+  const db = drizzle(_client, { schema });
+  if (cacheEnabled) {
+    _db = db;
+  }
+  return db;
 }
 
 export { schema };
