@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { ApiFootballClient } from "./client";
 
 function mockFetch(payload: unknown) {
@@ -11,6 +11,10 @@ function mockFetch(payload: unknown) {
 }
 
 describe("ApiFootballClient", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("sends the api key header and parses fixtures", async () => {
     const fetchImpl = mockFetch({
       get: "fixtures",
@@ -36,5 +40,28 @@ describe("ApiFootballClient", () => {
     ) as unknown as typeof fetch;
     const client = new ApiFootballClient({ apiKey: "test", fetchImpl });
     await expect(client.teamsByLeague(1, 2026)).rejects.toThrow(/429/);
+  });
+
+  it("binds the default global fetch for Workers-compatible calls", async () => {
+    const receivers: unknown[] = [];
+    const fetchImpl = vi.fn(function (this: unknown) {
+      receivers.push(this);
+      return Promise.resolve(
+        Response.json({
+          get: "fixtures",
+          parameters: {},
+          errors: [],
+          results: 0,
+          paging: { current: 1, total: 1 },
+          response: [],
+        }),
+      );
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+
+    const client = new ApiFootballClient({ apiKey: "test" });
+    await client.fixturesByLeague(1, 2026);
+
+    expect(receivers[0]).toBe(globalThis);
   });
 });

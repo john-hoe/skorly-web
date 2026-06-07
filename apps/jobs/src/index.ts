@@ -8,10 +8,13 @@ import {
   releaseJobLock,
   scoreFinishedPredictions,
   seedTeamIdentities,
+  setDbClientCacheEnabled,
 } from "@skorly/db";
 import { sendNotifications } from "./send-notifications";
 import { sendPremiumEmails } from "./send-premium-email";
 import { generatePosters } from "./generate-posters";
+
+setDbClientCacheEnabled(false);
 
 const RUN_PATH_PREFIX = "/__run/";
 const ADMIN_SECRET_HEADER = "x-admin-secret";
@@ -57,6 +60,60 @@ async function hasAdminSecret(req: Request, env: Env): Promise<boolean> {
   return equalBytes(expectedDigest, suppliedDigest);
 }
 
+async function redisPipeline(env: Env, commands: unknown[][]): Promise<Array<{ result?: unknown }>> {
+  const url = env.UPSTASH_REDIS_REST_URL;
+  const token = env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) throw new Error("Upstash Redis is not configured");
+
+  const res = await fetch(`${url}/pipeline`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(commands),
+  });
+  if (!res.ok) {
+    throw new Error(`Upstash Redis command failed: ${res.status}`);
+  }
+  return (await res.json()) as Array<{ result?: unknown }>;
+}
+
+function redisLockEnabled(env: Env): boolean {
+  return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+}
+
+function redisLockKey(name: string): string {
+  return `job-lock:${name}`;
+}
+
+async function acquireExclusiveJobLock(
+  env: Env,
+  name: string,
+  owner: string,
+  ttlSeconds: number,
+): Promise<boolean> {
+  if (!redisLockEnabled(env)) {
+    return acquireJobLock(name, owner, ttlSeconds);
+  }
+
+  const rows = await redisPipeline(env, [
+    ["SET", redisLockKey(name), owner, "NX", "EX", String(ttlSeconds)],
+  ]);
+  return rows[0]?.result === "OK";
+}
+
+async function releaseExclusiveJobLock(env: Env, name: string, owner: string): Promise<void> {
+  if (!redisLockEnabled(env)) {
+    await releaseJobLock(name, owner);
+    return;
+  }
+
+  const script =
+    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+  await redisPipeline(env, [["EVAL", script, "1", redisLockKey(name), owner]]);
+}
+
 function unauthorized(): Response {
   return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
 }
@@ -65,7 +122,13 @@ function methodNotAllowed(): Response {
   return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
 }
 
+function sanitizedErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw.replace(/[A-Za-z0-9_-]{32,}/g, "[redacted]").slice(0, 240);
+}
+
 async function tryRunExclusive<T>(
+  env: Env,
   name: string,
   ttlSeconds: number,
   task: () => Promise<T>,
@@ -73,7 +136,7 @@ async function tryRunExclusive<T>(
   const owner = crypto.randomUUID();
   let acquired = false;
   try {
-    acquired = await acquireJobLock(name, owner, ttlSeconds);
+    acquired = await acquireExclusiveJobLock(env, name, owner, ttlSeconds);
   } catch (error) {
     console.error(`[lock] acquire failed for ${name}`, error);
     return { acquired: false, reason: "lock_error" };
@@ -84,27 +147,29 @@ async function tryRunExclusive<T>(
   try {
     return { acquired: true, value: await task() };
   } finally {
-    await releaseJobLock(name, owner).catch((error) => {
+    await releaseExclusiveJobLock(env, name, owner).catch((error) => {
       console.error(`[lock] release failed for ${name}`, error);
     });
   }
 }
 
-async function runScoreAndNotifyExclusive(): Promise<ExclusiveResult<{ ok: true }>> {
-  return tryRunExclusive(LOCK_SCORE_NOTIFY, 10 * 60, async () => {
+async function runScoreAndNotifyExclusive(env: Env): Promise<ExclusiveResult<{ ok: true }>> {
+  return tryRunExclusive(env, LOCK_SCORE_NOTIFY, 10 * 60, async () => {
     await scoreAndNotify();
     return { ok: true };
   });
 }
 
-async function runPremiumEmailExclusive(): Promise<
+async function runPremiumEmailExclusive(
+  env: Env,
+): Promise<
   ExclusiveResult<{ fixtures: number; emails: number; whatsapp: number }>
 > {
-  return tryRunExclusive(LOCK_PREMIUM_EMAIL, 30 * 60, sendPremiumEmails);
+  return tryRunExclusive(env, LOCK_PREMIUM_EMAIL, 30 * 60, sendPremiumEmails);
 }
 
 function runIngestExclusive(env: Env): Promise<ExclusiveResult<Awaited<ReturnType<typeof ingestFixtures>>>> {
-  return tryRunExclusive(LOCK_INGEST, 30 * 60, () =>
+  return tryRunExclusive(env, LOCK_INGEST, 30 * 60, () =>
     ingestFixtures({
       apiKey: env.API_FOOTBALL_KEY,
       baseUrl: env.API_FOOTBALL_BASE_URL,
@@ -113,12 +178,14 @@ function runIngestExclusive(env: Env): Promise<ExclusiveResult<Awaited<ReturnTyp
   );
 }
 
-function runPostersExclusive(): Promise<ExclusiveResult<Awaited<ReturnType<typeof generatePosters>>>> {
-  return tryRunExclusive(LOCK_POSTERS, 30 * 60, generatePosters);
+function runPostersExclusive(
+  env: Env,
+): Promise<ExclusiveResult<Awaited<ReturnType<typeof generatePosters>>>> {
+  return tryRunExclusive(env, LOCK_POSTERS, 30 * 60, generatePosters);
 }
 
-function runSeedIdentitiesExclusive(): Promise<ExclusiveResult<{ written: number }>> {
-  return tryRunExclusive(LOCK_SEED_IDENTITIES, 10 * 60, async () => ({
+function runSeedIdentitiesExclusive(env: Env): Promise<ExclusiveResult<{ written: number }>> {
+  return tryRunExclusive(env, LOCK_SEED_IDENTITIES, 10 * 60, async () => ({
     written: await seedTeamIdentities(),
   }));
 }
@@ -153,7 +220,7 @@ export default {
           Promise.all([
             generatePreviews(env),
             generateRecaps(env),
-            runScoreAndNotifyExclusive(),
+            runScoreAndNotifyExclusive(env),
           ]),
         );
         break;
@@ -161,8 +228,8 @@ export default {
         // pre-match premium email broadcast + enqueue poster prompts.
         ctx.waitUntil(
           Promise.all([
-            runPremiumEmailExclusive().catch((e) => console.error("[premium-email]", e)),
-            runPostersExclusive().catch((e) => console.error("[posters]", e)),
+            runPremiumEmailExclusive(env).catch((e) => console.error("[premium-email]", e)),
+            runPostersExclusive(env).catch((e) => console.error("[posters]", e)),
           ]),
         );
         break;
@@ -188,19 +255,19 @@ export default {
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/notify") {
-        const result = await runScoreAndNotifyExclusive();
+        const result = await runScoreAndNotifyExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/premium-email") {
-        const result = await runPremiumEmailExclusive();
+        const result = await runPremiumEmailExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/posters") {
-        const result = await runPostersExclusive();
+        const result = await runPostersExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/seed-identities") {
-        const result = await runSeedIdentitiesExclusive();
+        const result = await runSeedIdentitiesExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname.startsWith(RUN_PATH_PREFIX)) {
@@ -208,7 +275,10 @@ export default {
       }
     } catch (error) {
       console.error(`[manual-run] ${url.pathname} failed`, error);
-      return Response.json({ ok: false, error: "internal" }, { status: 500 });
+      return Response.json(
+        { ok: false, error: "internal", message: sanitizedErrorMessage(error) },
+        { status: 500 },
+      );
     }
     return new Response("skorly-jobs ok", { status: 200 });
   },
