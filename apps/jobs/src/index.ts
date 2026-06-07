@@ -3,15 +3,131 @@ import { hydrateProcessEnv } from "./env";
 import { ingestFixtures } from "./ingest-fixtures";
 import { generatePreviews } from "./generate-previews";
 import { generateRecaps } from "./generate-recaps";
-import { scoreFinishedPredictions, seedTeamIdentities } from "@skorly/db";
+import {
+  acquireJobLock,
+  releaseJobLock,
+  scoreFinishedPredictions,
+  seedTeamIdentities,
+} from "@skorly/db";
 import { sendNotifications } from "./send-notifications";
 import { sendPremiumEmails } from "./send-premium-email";
 import { generatePosters } from "./generate-posters";
+
+const RUN_PATH_PREFIX = "/__run/";
+const ADMIN_SECRET_HEADER = "x-admin-secret";
+const LOCK_INGEST = "jobs:ingest";
+const LOCK_SCORE_NOTIFY = "jobs:score-and-notify";
+const LOCK_PREMIUM_EMAIL = "jobs:premium-email";
+const LOCK_POSTERS = "jobs:posters";
+const LOCK_SEED_IDENTITIES = "jobs:seed-identities";
+
+type ExclusiveResult<T> =
+  | { acquired: true; value: T }
+  | { acquired: false; reason: "locked" | "lock_error" };
 
 /** Score finished predictions, then dispatch push (kickoff/goals/results). */
 async function scoreAndNotify(): Promise<void> {
   await scoreFinishedPredictions().catch((e) => console.error("[score]", e));
   await sendNotifications().catch((e) => console.error("[notify]", e));
+}
+
+async function digest(value: string): Promise<Uint8Array> {
+  const bytes = new TextEncoder().encode(value);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+}
+
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  let diff = a.length ^ b.length;
+  const max = Math.max(a.length, b.length);
+  for (let i = 0; i < max; i += 1) {
+    diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+async function hasAdminSecret(req: Request, env: Env): Promise<boolean> {
+  const expected = env.JOBS_ADMIN_SECRET;
+  const supplied = req.headers.get(ADMIN_SECRET_HEADER);
+  if (!expected || !supplied) return false;
+
+  const [expectedDigest, suppliedDigest] = await Promise.all([
+    digest(expected),
+    digest(supplied),
+  ]);
+  return equalBytes(expectedDigest, suppliedDigest);
+}
+
+function unauthorized(): Response {
+  return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+}
+
+function methodNotAllowed(): Response {
+  return Response.json({ ok: false, error: "method_not_allowed" }, { status: 405 });
+}
+
+async function tryRunExclusive<T>(
+  name: string,
+  ttlSeconds: number,
+  task: () => Promise<T>,
+): Promise<ExclusiveResult<T>> {
+  const owner = crypto.randomUUID();
+  let acquired = false;
+  try {
+    acquired = await acquireJobLock(name, owner, ttlSeconds);
+  } catch (error) {
+    console.error(`[lock] acquire failed for ${name}`, error);
+    return { acquired: false, reason: "lock_error" };
+  }
+
+  if (!acquired) return { acquired: false, reason: "locked" };
+
+  try {
+    return { acquired: true, value: await task() };
+  } finally {
+    await releaseJobLock(name, owner).catch((error) => {
+      console.error(`[lock] release failed for ${name}`, error);
+    });
+  }
+}
+
+async function runScoreAndNotifyExclusive(): Promise<ExclusiveResult<{ ok: true }>> {
+  return tryRunExclusive(LOCK_SCORE_NOTIFY, 10 * 60, async () => {
+    await scoreAndNotify();
+    return { ok: true };
+  });
+}
+
+async function runPremiumEmailExclusive(): Promise<
+  ExclusiveResult<{ fixtures: number; emails: number; whatsapp: number }>
+> {
+  return tryRunExclusive(LOCK_PREMIUM_EMAIL, 30 * 60, sendPremiumEmails);
+}
+
+function runIngestExclusive(env: Env): Promise<ExclusiveResult<Awaited<ReturnType<typeof ingestFixtures>>>> {
+  return tryRunExclusive(LOCK_INGEST, 30 * 60, () =>
+    ingestFixtures({
+      apiKey: env.API_FOOTBALL_KEY,
+      baseUrl: env.API_FOOTBALL_BASE_URL,
+      season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
+    }),
+  );
+}
+
+function runPostersExclusive(): Promise<ExclusiveResult<Awaited<ReturnType<typeof generatePosters>>>> {
+  return tryRunExclusive(LOCK_POSTERS, 30 * 60, generatePosters);
+}
+
+function runSeedIdentitiesExclusive(): Promise<ExclusiveResult<{ written: number }>> {
+  return tryRunExclusive(LOCK_SEED_IDENTITIES, 10 * 60, async () => ({
+    written: await seedTeamIdentities(),
+  }));
+}
+
+function lockedResponse(result: Extract<ExclusiveResult<unknown>, { acquired: false }>): Response {
+  return Response.json(
+    { ok: false, error: result.reason },
+    { status: result.reason === "locked" ? 409 : 503 },
+  );
 }
 
 /**
@@ -29,26 +145,24 @@ export default {
 
     switch (event.cron) {
       case "0 */6 * * *":
-        ctx.waitUntil(
-          ingestFixtures({
-            apiKey: env.API_FOOTBALL_KEY,
-            baseUrl: env.API_FOOTBALL_BASE_URL,
-            season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
-          })
-        );
+        ctx.waitUntil(runIngestExclusive(env));
         break;
       case "*/2 * * * *":
         // live poller: nudge previews/recaps, score predictions, fire push.
         ctx.waitUntil(
-          Promise.all([generatePreviews(env), generateRecaps(env), scoreAndNotify()]),
+          Promise.all([
+            generatePreviews(env),
+            generateRecaps(env),
+            runScoreAndNotifyExclusive(),
+          ]),
         );
         break;
       case "*/15 * * * *":
         // pre-match premium email broadcast + enqueue poster prompts.
         ctx.waitUntil(
           Promise.all([
-            sendPremiumEmails().catch((e) => console.error("[premium-email]", e)),
-            generatePosters().catch((e) => console.error("[posters]", e)),
+            runPremiumEmailExclusive().catch((e) => console.error("[premium-email]", e)),
+            runPostersExclusive().catch((e) => console.error("[posters]", e)),
           ]),
         );
         break;
@@ -61,29 +175,40 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     hydrateProcessEnv(env);
     const url = new URL(req.url);
-    if (url.pathname === "/__run/ingest") {
-      const result = await ingestFixtures({
-        apiKey: env.API_FOOTBALL_KEY,
-        baseUrl: env.API_FOOTBALL_BASE_URL,
-        season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
-      });
-      return Response.json(result);
+    if (url.pathname.startsWith(RUN_PATH_PREFIX) && req.method !== "POST") {
+      return methodNotAllowed();
     }
-    if (url.pathname === "/__run/notify") {
-      const result = await scoreAndNotify().then(() => ({ ok: true }));
-      return Response.json(result);
+    if (url.pathname.startsWith(RUN_PATH_PREFIX) && !(await hasAdminSecret(req, env))) {
+      return unauthorized();
     }
-    if (url.pathname === "/__run/premium-email") {
-      const result = await sendPremiumEmails();
-      return Response.json(result);
-    }
-    if (url.pathname === "/__run/posters") {
-      const result = await generatePosters();
-      return Response.json(result);
-    }
-    if (url.pathname === "/__run/seed-identities") {
-      const written = await seedTeamIdentities();
-      return Response.json({ written });
+
+    try {
+      if (url.pathname === "/__run/ingest") {
+        const result = await runIngestExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/notify") {
+        const result = await runScoreAndNotifyExclusive();
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/premium-email") {
+        const result = await runPremiumEmailExclusive();
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/posters") {
+        const result = await runPostersExclusive();
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/seed-identities") {
+        const result = await runSeedIdentitiesExclusive();
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname.startsWith(RUN_PATH_PREFIX)) {
+        return Response.json({ ok: false, error: "not_found" }, { status: 404 });
+      }
+    } catch (error) {
+      console.error(`[manual-run] ${url.pathname} failed`, error);
+      return Response.json({ ok: false, error: "internal" }, { status: 500 });
     }
     return new Response("skorly-jobs ok", { status: 200 });
   },

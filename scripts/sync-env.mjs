@@ -77,6 +77,9 @@ const env = {
   // Cloudflare (deploy)
   CLOUDFLARE_ACCOUNT_ID: get("cloudflare account id"),
   CLOUDFLARE_API_TOKEN: get("cloudflare deploy token"),
+  // Admin jobs bridge
+  JOBS_ADMIN_SECRET: get("jobs admin secret") || get("jobs_admin_secret"),
+  JOBS_ADMIN_URL: get("jobs admin url") || get("jobs_admin_url"),
   // Public site
   NEXT_PUBLIC_SITE_URL: "https://skorly.cc",
   NEXT_PUBLIC_DEFAULT_LOCALE: "id",

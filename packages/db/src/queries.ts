@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
-import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, predictions, campaigns, campaignEntries, fixtureEvents, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
+import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 
 const homeTeam = () => alias(teams, "home_team");
@@ -828,6 +828,112 @@ export async function updateProfile(id: string, input: UpdateProfileInput): Prom
   }
   if (Object.keys(patch).length === 0) return;
   await db.update(profiles).set(patch).where(eq(profiles.id, id));
+}
+
+/* ------------------------------------------------------------------ */
+/* Admin                                                              */
+/* ------------------------------------------------------------------ */
+
+export type AdminAuditMeta = Record<string, unknown>;
+
+export interface AdminAuditLogInput {
+  actorId: string;
+  action: string;
+  target: string;
+  meta?: AdminAuditMeta | null;
+}
+
+export async function insertAdminAuditLog(input: AdminAuditLogInput): Promise<number> {
+  const db = getDb();
+  const rows = await db
+    .insert(adminAuditLog)
+    .values({
+      actorId: input.actorId,
+      action: input.action,
+      target: input.target,
+      meta: input.meta ?? null,
+    })
+    .returning({ id: adminAuditLog.id });
+  return rows[0]?.id ?? 0;
+}
+
+export async function updateAdminAuditLogMeta(
+  id: number,
+  meta: AdminAuditMeta | null,
+): Promise<void> {
+  if (!id) return;
+  const db = getDb();
+  await db.update(adminAuditLog).set({ meta }).where(eq(adminAuditLog.id, id));
+}
+
+export interface AdminAuditLogView {
+  id: number;
+  actorId: string;
+  actorEmail: string | null;
+  actorName: string | null;
+  action: string;
+  target: string;
+  meta: AdminAuditMeta | null;
+  createdAt: Date | null;
+}
+
+export async function getRecentAdminAuditLogs(limit = 20): Promise<AdminAuditLogView[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: adminAuditLog.id,
+      actorId: adminAuditLog.actorId,
+      actorEmail: profiles.email,
+      actorName: profiles.displayName,
+      action: adminAuditLog.action,
+      target: adminAuditLog.target,
+      meta: adminAuditLog.meta,
+      createdAt: adminAuditLog.createdAt,
+    })
+    .from(adminAuditLog)
+    .leftJoin(profiles, eq(adminAuditLog.actorId, profiles.id))
+    .orderBy(desc(adminAuditLog.createdAt))
+    .limit(limit);
+  return rows.map((r) => ({
+    id: r.id,
+    actorId: r.actorId,
+    actorEmail: r.actorEmail,
+    actorName: r.actorName,
+    action: r.action,
+    target: r.target,
+    meta: (r.meta as AdminAuditMeta | null) ?? null,
+    createdAt: safeDate(r.createdAt),
+  }));
+}
+
+export async function acquireJobLock(
+  name: string,
+  owner: string,
+  ttlSeconds: number,
+): Promise<boolean> {
+  const db = getDb();
+  await db.execute(sql`delete from job_locks where expires_at < now() - interval '1 day'`);
+  const rows = await db.execute(sql`
+    insert into job_locks (name, owner, expires_at, updated_at)
+    values (
+      ${name},
+      ${owner},
+      now() + (${ttlSeconds} * interval '1 second'),
+      now()
+    )
+    on conflict (name) do update
+      set owner = excluded.owner,
+          expires_at = excluded.expires_at,
+          updated_at = now()
+    where job_locks.expires_at < now()
+    returning name
+  `);
+  return rows.length > 0;
+}
+
+export async function releaseJobLock(name: string, owner: string): Promise<void> {
+  const db = getDb();
+  await db.delete(jobLocks).where(and(eq(jobLocks.name, name), eq(jobLocks.owner, owner)));
 }
 
 /* ------------------------------------------------------------------ */
