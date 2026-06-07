@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 import {
-  getAllFixtures,
   getGroupNames,
   getArticleSitemapEntries,
   getAllTeamSlugs,
 } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { absoluteUrl, buildLanguageAlternates, localizedPath } from "@/lib/seo";
+import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
 
 export const dynamic = "force-static";
 
@@ -46,7 +46,7 @@ function articleLocalesBySlug(articles: { slug: string; locale: string }[]) {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [fixtures, groups, articles, teamSlugs] = await Promise.all([
-    getAllFixtures().catch(() => []),
+    getStaticFixturesForBuild(),
     getGroupNames().catch(() => []),
     getArticleSitemapEntries().catch(() => []),
     getAllTeamSlugs().catch(() => []),
