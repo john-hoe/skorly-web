@@ -108,6 +108,12 @@ export async function GET(
   const matchUrl = absoluteUrl(
     localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)
   );
+  const storyTitle = `${title} — ${SITE_NAME}`;
+  const kickoffLabel = formatKickoffTime(fixture.kickoffAt, locale, "compact");
+  const metaDescription = blurb.slice(0, 160);
+  const shareImage = absoluteUrl(
+    `/og?kind=story&t=${encodeURIComponent(title)}&s=${encodeURIComponent(kickoffLabel)}`
+  );
   const eventImage = absoluteUrl("/og.png");
   const publisherLogo = absoluteUrl("/icon-512.png");
   const storyPoster = absoluteUrl("/story-poster-portrait.jpg");
@@ -141,11 +147,23 @@ export async function GET(
 <html ⚡ lang="${esc(locale)}">
 <head>
 <meta charset="utf-8">
-<title>${esc(title)} — ${esc(SITE_NAME)}</title>
+<title>${esc(storyTitle)}</title>
 <link rel="canonical" href="${esc(alternates.canonical)}">
 ${alternateLinks}
 <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-<meta name="description" content="${esc(blurb).slice(0, 160)}">
+<meta name="description" content="${esc(metaDescription)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="${esc(SITE_NAME)}">
+<meta property="og:url" content="${esc(alternates.canonical)}">
+<meta property="og:title" content="${esc(storyTitle)}">
+<meta property="og:description" content="${esc(metaDescription)}">
+<meta property="og:image" content="${esc(shareImage)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(storyTitle)}">
+<meta name="twitter:description" content="${esc(metaDescription)}">
+<meta name="twitter:image" content="${esc(shareImage)}">
 <script type="application/ld+json">${jsonLd([eventLd, breadcrumbLd].filter(Boolean))}</script>
 <script async src="https://cdn.ampproject.org/v0.js"></script>
 <script async custom-element="amp-story" src="https://cdn.ampproject.org/v0/amp-story-1.0.js"></script>
@@ -182,7 +200,7 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
           ${teamMark(fixture.away.name, fixture.away.code)}
         </div>
         <h1 class="title">${esc(title)}</h1>
-        <p class="meta">${esc(formatKickoffTime(fixture.kickoffAt, locale, "compact"))}${fixture.venue ? ` · ${esc(fixture.venue)}` : ""}</p>
+        <p class="meta">${esc(kickoffLabel)}${fixture.venue ? ` · ${esc(fixture.venue)}` : ""}</p>
       </div>
     </amp-story-grid-layer>
   </amp-story-page>
