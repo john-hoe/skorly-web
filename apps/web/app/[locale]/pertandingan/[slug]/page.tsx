@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getFixtureBySlug, getArticlesForFixture, getAllFixtures, getHeadToHead, getFixturePoster } from "@skorly/db";
+import { getFixtureBySlug, getArticlesForFixture, getHeadToHead, getFixturePoster } from "@skorly/db";
 import { routing } from "@/i18n/routing";
 import { TeamBadge } from "@/components/team-badge";
 import { PredictScore } from "@/components/predict-score";
@@ -17,23 +17,17 @@ import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath, matchSeoDescription } from "@/lib/seo";
+import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
-type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
 type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
 type HeadToHead = Awaited<ReturnType<typeof getHeadToHead>>;
 type Poster = Awaited<ReturnType<typeof getFixturePoster>>;
 
-let allFixturesPromise: Promise<FixtureList> | undefined;
 const fixtureCache = new Map<string, Promise<Fixture>>();
 const fixtureArticlesCache = new Map<string, Promise<FixtureArticles>>();
 const h2hCache = new Map<string, Promise<HeadToHead>>();
 const posterCache = new Map<string, Promise<Poster>>();
-
-function getAllFixturesForBuild(): Promise<FixtureList> {
-  allFixturesPromise ??= getAllFixtures().catch(() => []);
-  return allFixturesPromise;
-}
 
 function getFixtureForPage(slug: string): Promise<Fixture> {
   let cached = fixtureCache.get(slug);
@@ -85,7 +79,7 @@ function getFixturePosterForPage(fixtureId: number, kind: string): Promise<Poste
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const fixtures = await getAllFixturesForBuild();
+  const fixtures = await getStaticFixturesForBuild();
   return routing.locales.flatMap((locale) =>
     fixtures.map((f) => ({ locale, slug: f.slug }))
   );

@@ -4,6 +4,23 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
+function commandOutput(command: string): string | null {
+  try {
+    return execSync(command, { encoding: "utf8" }).trim();
+  } catch {
+    return null;
+  }
+}
+
+function buildId(): string {
+  const commit = commandOutput("git rev-parse --short=12 HEAD") ?? "unknown";
+  const content =
+    process.env.SKORLY_CONTENT_BUILD_ID ??
+    commandOutput("pnpm exec tsx scripts/content-build-id.ts") ??
+    Math.floor(Date.now() / 1000).toString(36);
+  return `${commit}-${content}`;
+}
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -63,9 +80,7 @@ const nextConfig: NextConfig = {
   // so a stalled page fails fast and Next retries it quickly (retries succeed
   // fast in practice), instead of waiting out the long default timeout.
   staticPageGenerationTimeout: 120,
-  generateBuildId: async () =>
-    process.env.NEXT_BUILD_ID ??
-    execSync("git rev-parse --short=12 HEAD", { encoding: "utf8" }).trim(),
+  generateBuildId: async () => process.env.NEXT_BUILD_ID ?? buildId(),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "media.api-sports.io" },

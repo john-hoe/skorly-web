@@ -1,22 +1,16 @@
-import { getFixtureBySlug, getArticlesForFixture, getAllFixtures } from "@skorly/db";
+import { getFixtureBySlug, getArticlesForFixture } from "@skorly/db";
 import { getTranslations } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
+import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
-type FixtureList = Awaited<ReturnType<typeof getAllFixtures>>;
 type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
 
-let allFixturesPromise: Promise<FixtureList> | undefined;
 const fixtureCache = new Map<string, Promise<Fixture>>();
 const fixtureArticlesCache = new Map<string, Promise<FixtureArticles>>();
-
-function getAllFixturesForBuild(): Promise<FixtureList> {
-  allFixturesPromise ??= getAllFixtures().catch(() => []);
-  return allFixturesPromise;
-}
 
 function getFixtureForStory(slug: string): Promise<Fixture> {
   let cached = fixtureCache.get(slug);
@@ -45,7 +39,7 @@ function getFixtureArticlesForStory(
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const fixtures = await getAllFixturesForBuild();
+  const fixtures = await getStaticFixturesForBuild();
   return routing.locales.flatMap((locale) =>
     fixtures.map((f) => ({ locale, slug: f.slug }))
   );
