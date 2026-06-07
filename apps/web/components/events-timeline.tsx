@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getEventsApi } from "@/lib/runtime-api-client";
+import { getEventsApi, getLiveFixtureApi } from "@/lib/runtime-api-client";
+import { isLivePollingWindow, LIVE_POLL_MS } from "@/lib/live-window";
 import type { FixtureEventView } from "@skorly/db";
 
 function icon(type: string | null, detail: string | null): string {
@@ -13,9 +14,18 @@ function icon(type: string | null, detail: string | null): string {
   return "•";
 }
 
-export function EventsTimeline({ fixtureId }: { fixtureId: number }) {
+export function EventsTimeline({
+  fixtureId,
+  initialStatus,
+  kickoffAt,
+}: {
+  fixtureId: number;
+  initialStatus: string;
+  kickoffAt: string | null;
+}) {
   const t = useTranslations("scores");
   const [events, setEvents] = useState<FixtureEventView[] | null>(null);
+  const [status, setStatus] = useState(initialStatus);
 
   useEffect(() => {
     let active = true;
@@ -30,6 +40,26 @@ export function EventsTimeline({ fixtureId }: { fixtureId: number }) {
       active = false;
     };
   }, [fixtureId]);
+
+  useEffect(() => {
+    if (!isLivePollingWindow(status, kickoffAt)) return;
+    let active = true;
+    const tick = () => {
+      getLiveFixtureApi(fixtureId)
+        .then((snapshot) => {
+          if (!active || !snapshot) return;
+          setStatus(snapshot.fixture.status);
+          setEvents(snapshot.events);
+        })
+        .catch(() => {});
+    };
+    const id = setInterval(tick, LIVE_POLL_MS);
+    tick();
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [fixtureId, kickoffAt, status]);
 
   if (events === null) {
     return <div className="h-24 animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden />;

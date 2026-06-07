@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getEventsApi } from "@/lib/runtime-api-client";
+import { getEventsApi, getLiveFixtureApi } from "@/lib/runtime-api-client";
+import { isLivePollingWindow, LIVE_POLL_MS } from "@/lib/live-window";
 import { SocialEmbed } from "@/components/social-embed";
 import type { FixtureEventView } from "@skorly/db";
 
@@ -20,12 +21,17 @@ function isGoal(e: FixtureEventView): boolean {
 export function GoalHighlights({
   fixtureId,
   embeds,
+  initialStatus,
+  kickoffAt,
 }: {
   fixtureId: number;
   embeds: string[];
+  initialStatus: string;
+  kickoffAt: string | null;
 }) {
   const t = useTranslations("match");
   const [events, setEvents] = useState<FixtureEventView[] | null>(null);
+  const [status, setStatus] = useState(initialStatus);
 
   useEffect(() => {
     let active = true;
@@ -40,6 +46,26 @@ export function GoalHighlights({
       active = false;
     };
   }, [fixtureId]);
+
+  useEffect(() => {
+    if (!isLivePollingWindow(status, kickoffAt)) return;
+    let active = true;
+    const tick = () => {
+      getLiveFixtureApi(fixtureId)
+        .then((snapshot) => {
+          if (!active || !snapshot) return;
+          setStatus(snapshot.fixture.status);
+          setEvents(snapshot.events);
+        })
+        .catch(() => {});
+    };
+    const id = setInterval(tick, LIVE_POLL_MS);
+    tick();
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [fixtureId, kickoffAt, status]);
 
   const goals = (events ?? []).filter(isGoal);
   const hasVideo = embeds.length > 0;

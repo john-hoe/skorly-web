@@ -12,6 +12,9 @@
     { "pattern": "skorly.cc", "custom_domain": true },
     { "pattern": "www.skorly.cc", "custom_domain": true }
   ],
+  "kv_namespaces": [
+    { "binding": "LIVE_KV", "id": "9e69380287954eeda6bff78f65a01079" }
+  ],
   "observability": {
     "enabled": true
   }

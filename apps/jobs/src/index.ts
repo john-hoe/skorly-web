@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import { hydrateProcessEnv } from "./env";
 import { ingestFixtures } from "./ingest-fixtures";
+import { ingestLiveFixtures } from "./ingest-live";
 import { generatePreviews } from "./generate-previews";
 import { generateRecaps } from "./generate-recaps";
 import {
@@ -23,6 +24,7 @@ const LOCK_SCORE_NOTIFY = "jobs:score-and-notify";
 const LOCK_PREMIUM_EMAIL = "jobs:premium-email";
 const LOCK_POSTERS = "jobs:posters";
 const LOCK_SEED_IDENTITIES = "jobs:seed-identities";
+const LOCK_LIVE_INGEST = "jobs:live-ingest";
 
 type ExclusiveResult<T> =
   | { acquired: true; value: T }
@@ -178,6 +180,32 @@ function runIngestExclusive(env: Env): Promise<ExclusiveResult<Awaited<ReturnTyp
   );
 }
 
+function runLiveIngestExclusive(
+  env: Env,
+): Promise<ExclusiveResult<Awaited<ReturnType<typeof ingestLiveFixtures>>>> {
+  return tryRunExclusive(env, LOCK_LIVE_INGEST, 2 * 60, () => {
+    if (!env.LIVE_KV) {
+      return Promise.resolve({
+        ok: false,
+        skipped: true,
+        reason: "not_configured" as const,
+        fixtures: 0,
+        events: 0,
+        reconciled: 0,
+        apiCalls: 0,
+        apiCallsToday: 0,
+        quotaState: "stopped" as const,
+      });
+    }
+    return ingestLiveFixtures({
+      apiKey: env.API_FOOTBALL_KEY,
+      baseUrl: env.API_FOOTBALL_BASE_URL,
+      season: env.WC_SEASON ? Number(env.WC_SEASON) : undefined,
+      kv: env.LIVE_KV,
+    });
+  });
+}
+
 function runPostersExclusive(
   env: Env,
 ): Promise<ExclusiveResult<Awaited<ReturnType<typeof generatePosters>>>> {
@@ -188,6 +216,17 @@ function runSeedIdentitiesExclusive(env: Env): Promise<ExclusiveResult<{ written
   return tryRunExclusive(env, LOCK_SEED_IDENTITIES, 10 * 60, async () => ({
     written: await seedTeamIdentities(),
   }));
+}
+
+function shouldRunScoreAndNotify(now = new Date()): boolean {
+  return now.getUTCMinutes() % 2 === 0;
+}
+
+async function runLiveMinuteTasks(env: Env): Promise<void> {
+  await runLiveIngestExclusive(env).catch((e) => console.error("[live-ingest]", e));
+  if (shouldRunScoreAndNotify()) {
+    await runScoreAndNotifyExclusive(env);
+  }
 }
 
 function lockedResponse(result: Extract<ExclusiveResult<unknown>, { acquired: false }>): Response {
@@ -214,18 +253,17 @@ export default {
       case "0 */6 * * *":
         ctx.waitUntil(runIngestExclusive(env));
         break;
+      case "* * * * *":
+        // Live poller: update KV snapshots every minute. Notifications keep the old
+        // two-minute cadence and run after ingest so fresh events are visible.
+        ctx.waitUntil(runLiveMinuteTasks(env));
+        break;
       case "*/2 * * * *":
-        // live poller: nudge previews/recaps, score predictions, fire push.
-        ctx.waitUntil(
-          Promise.all([
-            generatePreviews(env),
-            generateRecaps(env),
-            runScoreAndNotifyExclusive(env),
-          ]),
-        );
+        // Light article nudges keep their previous cadence.
+        ctx.waitUntil(Promise.all([generatePreviews(env), generateRecaps(env)]));
         break;
       case "*/15 * * * *":
-        // pre-match premium email broadcast + enqueue poster prompts.
+        // Pre-match premium email and poster prompts.
         ctx.waitUntil(
           Promise.all([
             runPremiumEmailExclusive(env).catch((e) => console.error("[premium-email]", e)),
@@ -252,6 +290,10 @@ export default {
     try {
       if (url.pathname === "/__run/ingest") {
         const result = await runIngestExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/live") {
+        const result = await runLiveIngestExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/notify") {

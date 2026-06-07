@@ -7,6 +7,9 @@ const scoreFinishedPredictions = vi.fn();
 const seedTeamIdentities = vi.fn();
 const setDbClientCacheEnabled = vi.fn();
 const ingestFixtures = vi.fn();
+const ingestLiveFixtures = vi.fn();
+const generatePreviews = vi.fn();
+const generateRecaps = vi.fn();
 const generatePosters = vi.fn();
 const sendNotifications = vi.fn();
 const sendPremiumEmails = vi.fn();
@@ -20,6 +23,9 @@ vi.mock("@skorly/db", () => ({
 }));
 
 vi.mock("./ingest-fixtures", () => ({ ingestFixtures }));
+vi.mock("./ingest-live", () => ({ ingestLiveFixtures }));
+vi.mock("./generate-previews", () => ({ generatePreviews }));
+vi.mock("./generate-recaps", () => ({ generateRecaps }));
 vi.mock("./generate-posters", () => ({ generatePosters }));
 vi.mock("./send-notifications", () => ({ sendNotifications }));
 vi.mock("./send-premium-email", () => ({ sendPremiumEmails }));
@@ -56,6 +62,18 @@ describe("manual jobs endpoint guard", () => {
     scoreFinishedPredictions.mockResolvedValue(undefined);
     seedTeamIdentities.mockResolvedValue(3);
     ingestFixtures.mockResolvedValue({ teams: 1, fixtures: 2, standings: 3, season: 2026 });
+    ingestLiveFixtures.mockResolvedValue({
+      ok: true,
+      skipped: false,
+      fixtures: 1,
+      events: 1,
+      reconciled: 0,
+      apiCalls: 2,
+      apiCallsToday: 2,
+      quotaState: "normal",
+    });
+    generatePreviews.mockResolvedValue(undefined);
+    generateRecaps.mockResolvedValue(undefined);
     generatePosters.mockResolvedValue({ prematch: 1, result: 0 });
     sendNotifications.mockResolvedValue({ kickoff: 0, goals: 0, results: 0 });
     sendPremiumEmails.mockResolvedValue({ fixtures: 1, emails: 2, whatsapp: 0 });
@@ -125,6 +143,98 @@ describe("manual jobs endpoint guard", () => {
       "jobs:score-and-notify",
       expect.any(String),
     );
+  });
+
+  it("locks and runs the live ingest manual endpoint when KV is bound", async () => {
+    const liveKv = {} as KVNamespace;
+    const res = await worker.fetch(manualRequest("/__run/live"), { ...env, LIVE_KV: liveKv });
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      skipped: false,
+      fixtures: 1,
+      events: 1,
+    });
+    expect(acquireJobLock).toHaveBeenCalledWith(
+      "jobs:live-ingest",
+      expect.any(String),
+      120,
+    );
+    expect(ingestLiveFixtures).toHaveBeenCalledWith({
+      apiKey: env.API_FOOTBALL_KEY,
+      baseUrl: env.API_FOOTBALL_BASE_URL,
+      season: undefined,
+      kv: liveKv,
+    });
+  });
+
+  it("runs live ingest before notifications on the even-minute cron tick", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-11T19:12:00Z"));
+    const waits: Promise<unknown>[] = [];
+    const liveKv = {} as KVNamespace;
+    const callOrder: string[] = [];
+    ingestLiveFixtures.mockImplementation(async () => {
+      callOrder.push("live");
+      return {
+        ok: true,
+        skipped: false,
+        fixtures: 1,
+        events: 1,
+        reconciled: 0,
+        apiCalls: 2,
+        apiCallsToday: 2,
+        quotaState: "normal",
+      };
+    });
+    scoreFinishedPredictions.mockImplementation(async () => {
+      callOrder.push("score");
+    });
+
+    await worker.scheduled(
+      { cron: "* * * * *" },
+      { ...env, LIVE_KV: liveKv },
+      { waitUntil: (promise) => waits.push(promise) },
+    );
+    await Promise.all(waits);
+
+    expect(ingestLiveFixtures).toHaveBeenCalledTimes(1);
+    expect(scoreFinishedPredictions).toHaveBeenCalledTimes(1);
+    expect(sendNotifications).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(["live", "score"]);
+  });
+
+  it("does not run score and notify on odd-minute live cron ticks", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-11T19:13:00Z"));
+    const waits: Promise<unknown>[] = [];
+
+    await worker.scheduled(
+      { cron: "* * * * *" },
+      { ...env, LIVE_KV: {} as KVNamespace },
+      { waitUntil: (promise) => waits.push(promise) },
+    );
+    await Promise.all(waits);
+
+    expect(ingestLiveFixtures).toHaveBeenCalledTimes(1);
+    expect(scoreFinishedPredictions).not.toHaveBeenCalled();
+    expect(sendNotifications).not.toHaveBeenCalled();
+  });
+
+  it("keeps preview and recap nudges on the two-minute cron", async () => {
+    const waits: Promise<unknown>[] = [];
+
+    await worker.scheduled(
+      { cron: "*/2 * * * *" },
+      env,
+      { waitUntil: (promise) => waits.push(promise) },
+    );
+    await Promise.all(waits);
+
+    expect(generatePreviews).toHaveBeenCalledTimes(1);
+    expect(generateRecaps).toHaveBeenCalledTimes(1);
+    expect(ingestLiveFixtures).not.toHaveBeenCalled();
   });
 
   it("locks ingest, posters, and seed identity manual endpoints", async () => {
@@ -214,4 +324,5 @@ describe("manual jobs endpoint guard", () => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });

@@ -11,6 +11,7 @@ import {
 
 export interface RuntimeFixtureView {
   id: number;
+  apiId: number;
   slug: string;
   round: string | null;
   groupName: string | null;
@@ -234,6 +235,7 @@ export interface RuntimeConfirmedSubscriber {
 
 interface FixtureRow {
   id: number;
+  api_id: number;
   slug: string;
   round: string | null;
   group_name: string | null;
@@ -347,7 +349,7 @@ interface SubscriberRow {
 }
 
 const FIXTURE_SELECT =
-  "id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
+  "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
 const TEAM_SELECT = "id,name,slug,logo,code";
 const BRACKET_SLUG = "wc2026-bracket";
 
@@ -421,6 +423,7 @@ function toFixture(row: FixtureRow, teams: Map<number, TeamRow>): RuntimeFixture
   const away = row.away_team_id == null ? undefined : teams.get(row.away_team_id);
   return {
     id: row.id,
+    apiId: row.api_id,
     slug: row.slug,
     round: row.round,
     groupName: row.group_name,

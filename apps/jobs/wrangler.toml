@@ -8,8 +8,13 @@ compatibility_flags = ["nodejs_compat"]
 crons = [
   "*/15 * * * *",   # refresh news-sitemap + light tasks
   "0 */6 * * *",    # ingest fixtures / standings every 6h
-  "*/2 * * * *"     # live poller (no-op when no live matches)
+  "*/2 * * * *",    # preview / recap nudges
+  "* * * * *"       # live poller (no-op when no live/upcoming matches)
 ]
+
+[[kv_namespaces]]
+binding = "LIVE_KV"
+id = "9e69380287954eeda6bff78f65a01079"
 
 # Secrets are set via `wrangler secret put` (not committed):
 #   DATABASE_URL, API_FOOTBALL_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY,

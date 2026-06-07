@@ -9,6 +9,7 @@ const awayTeam = () => alias(teams, "away_team");
 
 export interface FixtureView {
   id: number;
+  apiId: number;
   slug: string;
   round: string | null;
   groupName: string | null;
@@ -29,6 +30,7 @@ export interface FixtureView {
 function fixtureSelect(home: ReturnType<typeof homeTeam>, away: ReturnType<typeof awayTeam>) {
   return {
     id: fixtures.id,
+    apiId: fixtures.apiId,
     slug: fixtures.slug,
     round: fixtures.round,
     groupName: fixtures.groupName,
@@ -67,6 +69,7 @@ function safeDate(v: unknown): Date | null {
 function toView(r: Row): FixtureView {
   return {
     id: r.id as number,
+    apiId: r.apiId as number,
     slug: r.slug as string,
     round: r.round as string | null,
     groupName: r.groupName as string | null,
@@ -374,6 +377,192 @@ export async function getFixtureEvents(fixtureId: number): Promise<FixtureEventV
     teamName: r.teamName ?? null,
     playerName: r.playerName,
   }));
+}
+
+export interface LiveIngestFixtureView {
+  id: number;
+  apiId: number;
+  slug: string;
+  round: string | null;
+  groupName: string | null;
+  kickoffAt: Date | null;
+  status: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  elapsed: number | null;
+  home: { id: number | null; name: string; slug: string; logo: string | null; code: string | null };
+  away: { id: number | null; name: string; slug: string; logo: string | null; code: string | null };
+}
+
+function liveIngestFixtureSelect(home: ReturnType<typeof homeTeam>, away: ReturnType<typeof awayTeam>) {
+  return {
+    id: fixtures.id,
+    apiId: fixtures.apiId,
+    slug: fixtures.slug,
+    round: fixtures.round,
+    groupName: fixtures.groupName,
+    kickoffAt: fixtures.kickoffAt,
+    status: fixtures.status,
+    homeGoals: fixtures.homeGoals,
+    awayGoals: fixtures.awayGoals,
+    elapsed: fixtures.elapsed,
+    homeId: home.id,
+    homeName: home.name,
+    homeSlug: home.slug,
+    homeLogo: home.logo,
+    homeCode: home.code,
+    awayId: away.id,
+    awayName: away.name,
+    awaySlug: away.slug,
+    awayLogo: away.logo,
+    awayCode: away.code,
+  };
+}
+
+function toLiveIngestFixtureView(r: Row): LiveIngestFixtureView {
+  return {
+    id: r.id as number,
+    apiId: r.apiId as number,
+    slug: r.slug as string,
+    round: r.round as string | null,
+    groupName: r.groupName as string | null,
+    kickoffAt: safeDate(r.kickoffAt),
+    status: r.status as string,
+    homeGoals: r.homeGoals as number | null,
+    awayGoals: r.awayGoals as number | null,
+    elapsed: r.elapsed as number | null,
+    home: {
+      id: (r.homeId as number | null) ?? null,
+      name: (r.homeName as string) ?? "TBD",
+      slug: (r.homeSlug as string) ?? "",
+      logo: r.homeLogo as string | null,
+      code: r.homeCode as string | null,
+    },
+    away: {
+      id: (r.awayId as number | null) ?? null,
+      name: (r.awayName as string) ?? "TBD",
+      slug: (r.awaySlug as string) ?? "",
+      logo: r.awayLogo as string | null,
+      code: r.awayCode as string | null,
+    },
+  };
+}
+
+/** Fixtures that justify hitting the live API: already live or near kickoff. */
+export async function getFixturesForLiveIngestWindow(
+  now = new Date(),
+  opts: { beforeKickoffMinutes?: number; afterKickoffHours?: number } = {},
+): Promise<LiveIngestFixtureView[]> {
+  const beforeMs = (opts.beforeKickoffMinutes ?? 15) * 60 * 1000;
+  const afterMs = (opts.afterKickoffHours ?? 4) * 60 * 60 * 1000;
+  const lower = new Date(now.getTime() - afterMs);
+  const upper = new Date(now.getTime() + beforeMs);
+  const db = getDb();
+  const home = homeTeam();
+  const away = awayTeam();
+  const rows = await db
+    .select(liveIngestFixtureSelect(home, away))
+    .from(fixtures)
+    .leftJoin(home, eq(fixtures.homeTeamId, home.id))
+    .leftJoin(away, eq(fixtures.awayTeamId, away.id))
+    .where(
+      or(
+        eq(fixtures.status, "live"),
+        and(
+          eq(fixtures.status, "scheduled"),
+          sql`${fixtures.kickoffAt} is not null`,
+          sql`${fixtures.kickoffAt} >= ${lower}`,
+          sql`${fixtures.kickoffAt} <= ${upper}`,
+        ),
+      ),
+    )
+    .orderBy(asc(fixtures.kickoffAt));
+  return rows.map(toLiveIngestFixtureView);
+}
+
+export type LiveFixtureStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled";
+
+export async function updateLiveFixtureState(input: {
+  fixtureId: number;
+  status: LiveFixtureStatus;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  elapsed: number | null;
+  raw?: unknown;
+}): Promise<void> {
+  const db = getDb();
+  await db
+    .update(fixtures)
+    .set({
+      status: input.status,
+      homeGoals: input.homeGoals,
+      awayGoals: input.awayGoals,
+      elapsed: input.elapsed,
+      raw: input.raw,
+      updatedAt: new Date(),
+    })
+    .where(eq(fixtures.id, input.fixtureId));
+}
+
+export async function getTeamIdsByApiIds(apiIds: number[]): Promise<Map<number, number>> {
+  const clean = Array.from(new Set(apiIds.filter((id) => Number.isInteger(id))));
+  if (!clean.length) return new Map();
+  const db = getDb();
+  const rows = await db
+    .select({ id: teams.id, apiId: teams.apiId })
+    .from(teams)
+    .where(inArray(teams.apiId, clean));
+  return new Map(rows.map((row) => [row.apiId, row.id]));
+}
+
+export interface FixtureEventInsertInput {
+  minute: number | null;
+  type: string | null;
+  detail: string | null;
+  teamId: number | null;
+  playerName: string | null;
+}
+
+function fixtureEventDedupeKey(input: Pick<FixtureEventInsertInput, "minute" | "type" | "playerName">): string {
+  return [
+    input.minute ?? "",
+    input.type ?? "",
+    input.playerName?.trim().toLowerCase() ?? "",
+  ].join("|");
+}
+
+export async function insertFixtureEventsDeduped(
+  fixtureId: number,
+  inputs: FixtureEventInsertInput[],
+): Promise<number> {
+  if (!inputs.length) return 0;
+  const db = getDb();
+  const existing = await db
+    .select({
+      minute: fixtureEvents.minute,
+      type: fixtureEvents.type,
+      playerName: fixtureEvents.playerName,
+    })
+    .from(fixtureEvents)
+    .where(eq(fixtureEvents.fixtureId, fixtureId));
+  const seen = new Set(existing.map(fixtureEventDedupeKey));
+  const values = [];
+  for (const input of inputs) {
+    const key = fixtureEventDedupeKey(input);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push({
+      fixtureId,
+      minute: input.minute,
+      type: input.type,
+      detail: input.detail,
+      teamId: input.teamId,
+      playerName: input.playerName,
+    });
+  }
+  if (!values.length) return 0;
+  const inserted = await db.insert(fixtureEvents).values(values).returning({ id: fixtureEvents.id });
+  return inserted.length;
 }
 
 /** Distinct group names (Group A..L) in kickoff order. */

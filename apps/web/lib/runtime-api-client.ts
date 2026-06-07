@@ -11,6 +11,7 @@ import type {
   RuntimeTeamGroup,
 } from "./runtime-data";
 import type { ScoreRow } from "./score-types";
+import type { LiveAllSnapshot, LiveFixtureSnapshot } from "@skorly/types";
 
 type JsonInit = Omit<RequestInit, "body"> & { body?: unknown };
 
@@ -123,8 +124,39 @@ export function getEventsApi(fixtureId: number) {
   return apiJson<RuntimeFixtureEventView[]>(`/api/fixtures/${fixtureId}/events`);
 }
 
+export function getLiveAllApi() {
+  return apiJson<LiveAllSnapshot>("/api/live");
+}
+
+export function getLiveFixtureApi(fixtureId: number) {
+  return apiJson<LiveFixtureSnapshot | null>(`/api/live/${fixtureId}`);
+}
+
 export function getLiveScoresApi() {
-  return apiJson<ScoreRow[]>("/api/score/live");
+  return getLiveAllApi().then((snapshot) => {
+    const rows: ScoreRow[] = snapshot.fixtures.map((fixture) => ({
+      id: fixture.id,
+      slug: fixture.slug,
+      status: fixture.status,
+      elapsed: fixture.elapsed,
+      homeGoals: fixture.homeGoals,
+      awayGoals: fixture.awayGoals,
+      kickoff: fixture.kickoffAt,
+      groupName: fixture.groupName,
+      round: fixture.round,
+      home: {
+        name: fixture.home.name,
+        code: fixture.home.code,
+        logo: fixture.home.logo,
+      },
+      away: {
+        name: fixture.away.name,
+        code: fixture.away.code,
+        logo: fixture.away.logo,
+      },
+    }));
+    return rows;
+  });
 }
 
 export function getHomePersonalizationApi() {

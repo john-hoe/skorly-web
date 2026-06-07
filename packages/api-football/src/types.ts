@@ -41,6 +41,29 @@ export interface AfFixture {
   goals: { home: number | null; away: number | null };
 }
 
+export interface AfFixtureEvent {
+  time: {
+    elapsed: number | null;
+    extra: number | null;
+  };
+  team: {
+    id: number | null;
+    name: string | null;
+    logo: string | null;
+  };
+  player: {
+    id: number | null;
+    name: string | null;
+  };
+  assist: {
+    id: number | null;
+    name: string | null;
+  };
+  type: string | null;
+  detail: string | null;
+  comments: string | null;
+}
+
 export interface AfPlayer {
   player: {
     id: number;

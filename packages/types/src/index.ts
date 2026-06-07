@@ -42,6 +42,51 @@ export interface FixtureLite {
   awayGoals?: number | null;
 }
 
+export interface LiveTeamSnapshot {
+  id: number | null;
+  name: string;
+  slug: string;
+  code: string | null;
+  logo: string | null;
+}
+
+export interface LiveFixtureSummary {
+  id: number;
+  apiId: number;
+  slug: string;
+  round: string | null;
+  groupName: string | null;
+  kickoffAt: string | null;
+  status: FixtureStatus;
+  elapsed: number | null;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  home: LiveTeamSnapshot;
+  away: LiveTeamSnapshot;
+}
+
+export interface LiveFixtureEventSnapshot {
+  minute: number | null;
+  type: string | null;
+  detail: string | null;
+  teamId: number | null;
+  teamName: string | null;
+  playerName: string | null;
+}
+
+export interface LiveFixtureSnapshot {
+  generatedAt: string;
+  fixture: LiveFixtureSummary;
+  events: LiveFixtureEventSnapshot[];
+}
+
+export interface LiveAllSnapshot {
+  generatedAt: string;
+  fixtures: LiveFixtureSummary[];
+  apiCallsToday: number;
+  quotaState: "normal" | "event_trigger_only" | "slowdown" | "stopped";
+}
+
 /** Result of one content-QA pass, stored in articles.qa_log. */
 export interface QaRound {
   round: number;

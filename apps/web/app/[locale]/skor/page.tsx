@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import type { LiveFixtureSummary } from "@skorly/types";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
 import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
-import { getRuntimeLiveFixtures, getRuntimeResultsFixtures } from "@/lib/runtime-data";
+import { getLiveAllSnapshot } from "@/lib/live-kv";
+import { getRuntimeResultsFixtures } from "@/lib/runtime-data";
 
 // Live score data should be read at request time. Static generation can block
 // production builds when the Supabase pooler stalls.
@@ -43,6 +45,35 @@ async function withScoreDataTimeout(
   }
 }
 
+function liveSummaryToScoreRow(fixture: LiveFixtureSummary): ScoreRowData {
+  return {
+    id: fixture.id,
+    slug: fixture.slug,
+    status: fixture.status,
+    elapsed: fixture.elapsed,
+    homeGoals: fixture.homeGoals,
+    awayGoals: fixture.awayGoals,
+    kickoff: fixture.kickoffAt,
+    groupName: fixture.groupName,
+    round: fixture.round,
+    home: {
+      name: fixture.home.name,
+      code: fixture.home.code,
+      logo: fixture.home.logo,
+    },
+    away: {
+      name: fixture.away.name,
+      code: fixture.away.code,
+      logo: fixture.away.logo,
+    },
+  };
+}
+
+async function getLiveScoreRowsFromKv(): Promise<ScoreRowData[]> {
+  const snapshot = await getLiveAllSnapshot().catch(() => null);
+  return (snapshot?.fixtures ?? []).map(liveSummaryToScoreRow);
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -66,7 +97,7 @@ export default async function ScoresPage({
 
   const t = await getTranslations("scores");
   const [live, results] = await Promise.all([
-    withScoreDataTimeout("getLiveFixtures", getRuntimeLiveFixtures().then((rows) => rows.map(toScoreRow))),
+    withScoreDataTimeout("getLiveSnapshot", getLiveScoreRowsFromKv()),
     withScoreDataTimeout(
       "getResultsFixtures",
       getRuntimeResultsFixtures(40).then((rows) => rows.map(toScoreRow))

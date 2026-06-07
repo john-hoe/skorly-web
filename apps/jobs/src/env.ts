@@ -19,6 +19,7 @@ export interface Env {
   VAPID_PUBLIC_KEY?: string;
   VAPID_SUBJECT?: string;
   SITE_URL?: string;
+  LIVE_KV?: KVNamespace;
 }
 
 /** Copy Worker env into process.env so shared packages (which read process.env) work. */

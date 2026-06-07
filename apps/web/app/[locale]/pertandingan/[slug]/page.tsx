@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import type { FixtureStatus, LiveFixtureSummary } from "@skorly/types";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getFixtureBySlug, getArticlesForFixture, getHeadToHead, getFixturePoster } from "@skorly/db";
 import { routing } from "@/i18n/routing";
-import { TeamBadge } from "@/components/team-badge";
+import { LiveMatchHeader } from "@/components/live-match-header";
 import { PredictScore } from "@/components/predict-score";
 import { ForecastCard } from "@/components/forecast-card";
 import { PremiumContent } from "@/components/premium-content";
@@ -145,6 +146,22 @@ export default async function MatchPage({
   const byType = new Map(articles.map((a) => [a.type, a]));
   const finished = fixture.status === "finished";
   const matchTitle = `${fixture.home.name} vs ${fixture.away.name}`;
+  const kickoffIso = fixture.kickoffAt ? fixture.kickoffAt.toISOString() : null;
+  const kickoffLabel = formatKickoffTime(fixture.kickoffAt, locale);
+  const initialLiveFixture = {
+    id: fixture.id,
+    apiId: fixture.apiId,
+    slug: fixture.slug,
+    round: fixture.round,
+    groupName: fixture.groupName,
+    kickoffAt: kickoffIso,
+    status: fixture.status as FixtureStatus,
+    elapsed: fixture.elapsed,
+    homeGoals: fixture.homeGoals,
+    awayGoals: fixture.awayGoals,
+    home: fixture.home,
+    away: fixture.away,
+  } satisfies LiveFixtureSummary;
   const eventImage = poster?.url
     ? absoluteUrl(poster.url)
     : absoluteUrl(
@@ -217,32 +234,13 @@ export default async function MatchPage({
     <div className="mx-auto max-w-3xl px-4 py-8 space-y-8">
       <JsonLd data={jsonLdData} />
       {/* Score header */}
-      <header className="rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] p-6 text-white">
-        <p className="text-center text-sm text-white/80">
-          {fixture.groupName ?? fixture.round} &middot; {formatKickoffTime(fixture.kickoffAt, locale)}
-        </p>
-        <h1 className="mt-3 text-center text-2xl font-bold leading-tight">
-          {matchTitle}
-        </h1>
-        <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex flex-col items-center gap-2">
-            <TeamBadge name={fixture.home.name} logo={fixture.home.logo} code={fixture.home.code} size={48} showName={false} />
-            <span className="text-center text-sm font-medium">{fixture.home.name}</span>
-          </div>
-          <div className="text-center text-3xl font-bold tabular-nums">
-            {finished ? `${fixture.homeGoals ?? 0} - ${fixture.awayGoals ?? 0}` : "VS"}
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <TeamBadge name={fixture.away.name} logo={fixture.away.logo} code={fixture.away.code} size={48} showName={false} />
-            <span className="text-center text-sm font-medium">{fixture.away.name}</span>
-          </div>
-        </div>
-        {fixture.venue && (
-          <p className="mt-4 text-center text-xs text-white/70">
-            {fixture.venue}{fixture.city ? `, ${fixture.city}` : ""}
-          </p>
-        )}
-      </header>
+      <LiveMatchHeader
+        initial={initialLiveFixture}
+        matchTitle={matchTitle}
+        kickoffLabel={kickoffLabel}
+        venue={fixture.venue}
+        city={fixture.city}
+      />
 
       {poster?.url && (
         /* eslint-disable-next-line @next/next/no-img-element */
@@ -270,13 +268,19 @@ export default async function MatchPage({
       </div>
 
       {/* Minute-level events (live + post-match), client island */}
-      <EventsTimeline fixtureId={fixture.id} />
+      <EventsTimeline
+        fixtureId={fixture.id}
+        initialStatus={fixture.status}
+        kickoffAt={kickoffIso}
+      />
 
       {/* Goal highlights (finished matches): goals-only timeline + official
           video embeds from the recap article. No self-hosted clips. */}
       {finished && (
         <GoalHighlights
           fixtureId={fixture.id}
+          initialStatus={fixture.status}
+          kickoffAt={kickoffIso}
           embeds={
             Array.isArray(byType.get("recap")?.embeds)
               ? (byType.get("recap")!.embeds as string[])

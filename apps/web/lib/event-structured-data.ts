@@ -48,6 +48,12 @@ function placeLd(fixture: FixtureView): PlaceLd | null {
   };
 }
 
+function eventStatusLd(status: string): string {
+  if (status === "postponed") return "https://schema.org/EventPostponed";
+  if (status === "cancelled") return "https://schema.org/EventCancelled";
+  return "https://schema.org/EventScheduled";
+}
+
 export function buildFixtureSportsEventLd({
   fixture,
   url,
@@ -70,7 +76,7 @@ export function buildFixtureSportsEventLd({
     name: `${fixture.home.name} vs ${fixture.away.name}`,
     sport: "Soccer",
     startDate: fixture.kickoffAt.toISOString(),
-    eventStatus: "https://schema.org/EventScheduled",
+    eventStatus: eventStatusLd(fixture.status),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     location,
     description,
