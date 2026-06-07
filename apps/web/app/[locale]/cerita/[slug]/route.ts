@@ -63,6 +63,21 @@ function jsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+function teamInitials(name: string, code: string | null): string {
+  const source =
+    code?.trim() ||
+    name
+      .trim()
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("");
+  return source.slice(0, 3).toUpperCase() || "SK";
+}
+
+function teamMark(name: string, code: string | null): string {
+  return `<div class="team-mark" aria-label="${esc(name)}">${esc(teamInitials(name, code))}</div>`;
+}
+
 const AMP_BOILERPLATE =
   '<style amp-boilerplate>body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}</style><noscript><style amp-boilerplate>body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}</style></noscript>';
 
@@ -102,8 +117,6 @@ export async function GET(
   const eventImage = absoluteUrl("/og.png");
   const publisherLogo = absoluteUrl("/icon-512.png");
   const storyPoster = absoluteUrl("/story-poster-portrait.jpg");
-  const homeLogo = fixture.home.logo ? esc(fixture.home.logo) : "";
-  const awayLogo = fixture.away.logo ? esc(fixture.away.logo) : "";
   const eventLd = buildFixtureSportsEventLd({
     fixture,
     url: matchUrl,
@@ -151,7 +164,7 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .title{font-size:30px;font-weight:800;line-height:1.15;margin:0}
 .vs{font-size:22px;font-weight:700;margin:16px 0}
 .logos{display:flex;align-items:center;gap:20px;margin:24px 0}
-.logos amp-img{background:#fff;border-radius:50%;padding:8px}
+.team-mark{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;color:#0a5e36;border:3px solid rgba(255,255,255,.65);font-size:22px;font-weight:800;letter-spacing:.03em}
 .blurb{font-size:19px;line-height:1.45;max-width:80%}
 .meta{font-size:15px;opacity:.85;margin-top:16px}
 .cta{display:inline-block;margin-top:24px;background:#fff;color:#0a5e36;font-weight:700;padding:12px 22px;border-radius:999px;text-decoration:none}
@@ -170,9 +183,9 @@ amp-story{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
       <div class="wrap">
         <p class="kicker">${esc(t("nav.worldCup"))}</p>
         <div class="logos">
-          ${homeLogo ? `<amp-img src="${homeLogo}" width="72" height="72" layout="fixed" alt="${esc(fixture.home.name)}"></amp-img>` : ""}
+          ${teamMark(fixture.home.name, fixture.home.code)}
           <span class="vs">VS</span>
-          ${awayLogo ? `<amp-img src="${awayLogo}" width="72" height="72" layout="fixed" alt="${esc(fixture.away.name)}"></amp-img>` : ""}
+          ${teamMark(fixture.away.name, fixture.away.code)}
         </div>
         <h1 class="title">${esc(title)}</h1>
         <p class="meta">${esc(formatKickoffTime(fixture.kickoffAt, locale, "compact"))}${fixture.venue ? ` · ${esc(fixture.venue)}` : ""}</p>
