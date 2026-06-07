@@ -10,6 +10,7 @@ export interface Env {
   UPSTASH_REDIS_REST_URL?: string;
   UPSTASH_REDIS_REST_TOKEN?: string;
   VAPID_PRIVATE_KEY?: string;
+  JOBS_ADMIN_SECRET?: string;
   // vars
   API_FOOTBALL_BASE_URL: string;
   DEEPSEEK_BASE_URL: string;

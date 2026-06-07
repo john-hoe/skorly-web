@@ -123,6 +123,26 @@ export interface RuntimeProfileView {
   createdAt: Date | null;
 }
 
+export type RuntimeAdminAuditMeta = Record<string, unknown>;
+
+export interface RuntimeAdminAuditLogView {
+  id: number;
+  actorId: string;
+  actorEmail: string | null;
+  actorName: string | null;
+  action: string;
+  target: string;
+  meta: RuntimeAdminAuditMeta | null;
+  createdAt: Date | null;
+}
+
+export interface RuntimeAdminAuditLogInput {
+  actorId: string;
+  action: string;
+  target: string;
+  meta?: RuntimeAdminAuditMeta | null;
+}
+
 export interface RuntimeTeamOption {
   id: number;
   name: string;
@@ -263,6 +283,15 @@ interface ProfileRow {
   created_at?: string | null;
 }
 
+interface AdminAuditLogRow {
+  id: number;
+  actor_id: string;
+  action: string;
+  target: string;
+  meta: RuntimeAdminAuditMeta | null;
+  created_at: string | null;
+}
+
 interface PredictionRow {
   user_id: string;
   fixture_id: number;
@@ -381,7 +410,7 @@ async function profilesById(ids: Array<string | null | undefined>) {
   const clean = Array.from(new Set(ids.filter((v): v is string => !!v)));
   if (clean.length === 0) return new Map<string, ProfileRow>();
   const rows = await selectRows<ProfileRow>("profiles", {
-    select: "id,display_name,avatar_url",
+    select: "id,email,display_name,avatar_url",
     id: inFilter(clean),
   });
   return new Map(rows.map((r) => [r.id, r]));
@@ -651,6 +680,54 @@ export async function getRuntimeProfile(id: string): Promise<RuntimeProfileView 
         createdAt: safeDate(r.created_at),
       }
     : null;
+}
+
+export async function insertRuntimeAdminAuditLog(
+  input: RuntimeAdminAuditLogInput,
+): Promise<number> {
+  const rows = await insertRows<{ id: number }>(
+    "admin_audit_log",
+    {
+      actor_id: input.actorId,
+      action: input.action,
+      target: input.target,
+      meta: input.meta ?? null,
+    },
+    { returning: true },
+  );
+  return rows[0]?.id ?? 0;
+}
+
+export async function updateRuntimeAdminAuditLogMeta(
+  id: number,
+  meta: RuntimeAdminAuditMeta | null,
+): Promise<void> {
+  if (!id) return;
+  await updateRows("admin_audit_log", { id: `eq.${id}` }, { meta }, { returning: false });
+}
+
+export async function getRuntimeRecentAdminAuditLogs(
+  limit = 20,
+): Promise<RuntimeAdminAuditLogView[]> {
+  const rows = await selectRows<AdminAuditLogRow>("admin_audit_log", {
+    select: "id,actor_id,action,target,meta,created_at",
+    order: "created_at.desc",
+    limit,
+  });
+  const profiles = await profilesById(rows.map((r) => r.actor_id));
+  return rows.map((r) => {
+    const profile = profiles.get(r.actor_id);
+    return {
+      id: r.id,
+      actorId: r.actor_id,
+      actorEmail: profile?.email ?? null,
+      actorName: profile?.display_name ?? null,
+      action: r.action,
+      target: r.target,
+      meta: r.meta ?? null,
+      createdAt: safeDate(r.created_at),
+    };
+  });
 }
 
 export async function getRuntimeTeamOptions(): Promise<RuntimeTeamOption[]> {

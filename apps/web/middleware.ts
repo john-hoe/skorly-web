@@ -46,7 +46,10 @@ export async function middleware(request: NextRequest) {
   const authRedirect = authLandingRedirect(request);
   if (authRedirect) return authRedirect;
 
-  const response = intlMiddleware(request);
+  const isAdminPath =
+    request.nextUrl.pathname === "/admin" ||
+    request.nextUrl.pathname.startsWith("/admin/");
+  const response = isAdminPath ? NextResponse.next() : intlMiddleware(request);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

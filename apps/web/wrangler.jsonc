@@ -15,5 +15,6 @@
   "observability": {
     "enabled": true
   }
-  // Secrets (DATABASE_URL, etc.) are set via `wrangler secret put` — never committed.
+  // Secrets (DATABASE_URL, JOBS_ADMIN_SECRET, etc.) are set via `wrangler secret put`.
+  // Server-only vars such as JOBS_ADMIN_URL are configured in Cloudflare, never committed with secrets.
 }

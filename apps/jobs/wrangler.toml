@@ -16,7 +16,8 @@ crons = [
 #   QWEN_API_KEY, GLM_API_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN,
 #   VAPID_PRIVATE_KEY  (Web Push signing key — keep secret),
 #   RESEND_API_KEY (premium email broadcast),
-#   WHATSAPP_TOKEN  (M7 — WhatsApp Business Cloud API access token, keep secret)
+#   WHATSAPP_TOKEN  (M7 — WhatsApp Business Cloud API access token, keep secret),
+#   JOBS_ADMIN_SECRET (required for manual /__run/* triggers)
 
 [vars]
 API_FOOTBALL_BASE_URL = "https://v3.football.api-sports.io"

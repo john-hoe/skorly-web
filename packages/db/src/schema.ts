@@ -278,6 +278,31 @@ export const profiles = pgTable(
   (t) => [index("profiles_email_idx").on(t.email)]
 );
 
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: serial("id").primaryKey(),
+    actorId: uuid("actor_id")
+      .references(() => profiles.id)
+      .notNull(),
+    action: text("action").notNull(),
+    target: text("target").notNull(),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("admin_audit_log_actor_idx").on(t.actorId, t.createdAt),
+    index("admin_audit_log_target_idx").on(t.target, t.createdAt),
+  ]
+);
+
+export const jobLocks = pgTable("job_locks", {
+  name: text("name").primaryKey(),
+  owner: text("owner").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 /* ------------------------------------------------------------------ */
 /* Phase 1 - comments                                                 */
 /* ------------------------------------------------------------------ */
