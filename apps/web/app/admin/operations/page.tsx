@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { getRecentAdminAuditLogs } from "@skorly/db";
 import { OperationsPanel } from "@/components/admin/operations-panel";
+import { getRuntimeRecentAdminAuditLogs } from "@/lib/runtime-data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ function statusFromMeta(meta: Record<string, unknown> | null): string {
 }
 
 export default async function AdminOperationsPage() {
-  const logs = await getRecentAdminAuditLogs(12).catch((error) => {
+  const logs = await getRuntimeRecentAdminAuditLogs(12).catch((error) => {
     console.warn("[admin] recent audit logs failed", error);
     return [];
   });

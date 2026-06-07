@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  insertAdminAuditLog,
-  updateAdminAuditLogMeta,
-  type AdminAuditMeta,
-} from "@skorly/db";
+  insertRuntimeAdminAuditLog,
+  updateRuntimeAdminAuditLogMeta,
+  type RuntimeAdminAuditMeta,
+} from "./runtime-data";
 import { getAdminOperation, type AdminOperationId } from "./admin-operations";
 import { requireAdmin } from "./admin";
 
@@ -63,7 +63,7 @@ export async function runAdminOperation(
   const target = `jobs:${operation.id}`;
   let auditId = 0;
   try {
-    auditId = await insertAdminAuditLog({
+    auditId = await insertRuntimeAdminAuditLog({
       actorId: admin.user.id,
       action: "jobs.run",
       target,
@@ -81,7 +81,7 @@ export async function runAdminOperation(
   const url = jobsAdminUrl();
   const secret = jobsAdminSecret();
   if (!url || !secret) {
-    await updateAdminAuditLogMeta(auditId, {
+    await updateRuntimeAdminAuditLogMeta(auditId, {
       operation: operation.id,
       status: "not_configured",
       finishedAt: new Date().toISOString(),
@@ -99,7 +99,7 @@ export async function runAdminOperation(
     timeout.unref();
   }
 
-  let meta: AdminAuditMeta;
+  let meta: RuntimeAdminAuditMeta;
   try {
     const response = await fetch(`${url}${operation.path}`, {
       method: "POST",
@@ -116,7 +116,7 @@ export async function runAdminOperation(
       response: body,
       finishedAt: new Date().toISOString(),
     };
-    await updateAdminAuditLogMeta(auditId, meta).catch((error) =>
+    await updateRuntimeAdminAuditLogMeta(auditId, meta).catch((error) =>
       console.warn("[admin] audit update failed", error),
     );
     revalidatePath("/admin/operations");
@@ -139,7 +139,7 @@ export async function runAdminOperation(
       error: preview(message),
       finishedAt: new Date().toISOString(),
     };
-    await updateAdminAuditLogMeta(auditId, meta).catch((auditError) =>
+    await updateRuntimeAdminAuditLogMeta(auditId, meta).catch((auditError) =>
       console.warn("[admin] audit update failed", auditError),
     );
     revalidatePath("/admin/operations");
