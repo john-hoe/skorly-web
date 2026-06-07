@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+  { pattern = "jobs.skorly.cc", custom_domain = true }
+]
+
 # Cron schedules (UTC). Adjust kickoff-relative triggers in code via fixture data.
 [triggers]
 crons = [

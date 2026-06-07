@@ -455,8 +455,8 @@ export async function getFixturesForLiveIngestWindow(
 ): Promise<LiveIngestFixtureView[]> {
   const beforeMs = (opts.beforeKickoffMinutes ?? 15) * 60 * 1000;
   const afterMs = (opts.afterKickoffHours ?? 4) * 60 * 60 * 1000;
-  const lower = new Date(now.getTime() - afterMs);
-  const upper = new Date(now.getTime() + beforeMs);
+  const lower = new Date(now.getTime() - afterMs).toISOString();
+  const upper = new Date(now.getTime() + beforeMs).toISOString();
   const db = getDb();
   const home = homeTeam();
   const away = awayTeam();
@@ -471,8 +471,8 @@ export async function getFixturesForLiveIngestWindow(
         and(
           eq(fixtures.status, "scheduled"),
           sql`${fixtures.kickoffAt} is not null`,
-          sql`${fixtures.kickoffAt} >= ${lower}`,
-          sql`${fixtures.kickoffAt} <= ${upper}`,
+          sql`${fixtures.kickoffAt} >= ${lower}::timestamptz`,
+          sql`${fixtures.kickoffAt} <= ${upper}::timestamptz`,
         ),
       ),
     )
