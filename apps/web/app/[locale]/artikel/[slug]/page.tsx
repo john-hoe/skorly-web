@@ -24,6 +24,10 @@ type Article = Awaited<ReturnType<typeof getArticleBySlug>>;
 
 const articleCache = new Map<string, Promise<Article>>();
 let articleLocalesBySlugCache: Promise<Map<string, string[]>> | undefined;
+const NEWS_IMAGE_WIDTH = 1200;
+const NEWS_IMAGE_HEIGHT = 630;
+const ARTICLE_AUTHOR_NAME =
+  process.env.NEWS_ARTICLE_AUTHOR_NAME?.trim() || "John Vega";
 
 function getArticleForPage(slug: string, locale: string): Promise<Article> {
   const key = `${locale}:${slug}`;
@@ -79,6 +83,39 @@ function isPublicSource(url: unknown): url is string {
   }
 }
 
+function articleOgImagePath(title: string, description: string): string {
+  const params = new URLSearchParams({
+    kind: "article",
+    t: title,
+    s: description,
+  });
+  return `/og?${params.toString()}`;
+}
+
+function articleImageObject(imagePath: string) {
+  return {
+    "@type": "ImageObject",
+    url: absoluteUrl(imagePath),
+    width: NEWS_IMAGE_WIDTH,
+    height: NEWS_IMAGE_HEIGHT,
+  };
+}
+
+function buildArticleMeta(article: NonNullable<Article>, locale: string) {
+  const title = fitMetaTitle(article.title);
+  const description = fitMetaDescription(
+    article.summary ?? article.body,
+    pageSeoDescription(locale, "articles"),
+    140,
+    article.title
+  );
+  return {
+    title,
+    description,
+    imagePath: articleOgImagePath(title, description),
+  };
+}
+
 // Fully static for SEO and OpenNext/Cloudflare stability. Article DB reads are
 // deduped in-process so metadata and page rendering share the same build query.
 export const dynamicParams = false;
@@ -103,13 +140,7 @@ export async function generateMetadata({
     getArticleLocalesForPage(slug),
   ]);
   if (!article) return { title: "Artikel" };
-  const title = fitMetaTitle(article.title);
-  const description = fitMetaDescription(
-    article.summary ?? article.body,
-    pageSeoDescription(locale, "articles"),
-    140,
-    article.title
-  );
+  const articleMeta = buildArticleMeta(article, locale);
   const alternateLocales = availableLocales.includes(locale)
     ? availableLocales
     : [locale];
@@ -119,18 +150,26 @@ export async function generateMetadata({
     alternateLocales
   );
   return {
-    title,
-    description,
+    title: articleMeta.title,
+    description: articleMeta.description,
     ...canonicalMetadata,
     openGraph: {
       ...canonicalMetadata.openGraph,
       type: "article",
-      title,
-      description,
+      title: articleMeta.title,
+      description: articleMeta.description,
       publishedTime: article.publishedAt?.toISOString(),
-      images: [article.imageUrl ?? "/og.png"],
+      modifiedTime: article.updatedAt?.toISOString(),
+      images: [
+        {
+          url: articleMeta.imagePath,
+          width: NEWS_IMAGE_WIDTH,
+          height: NEWS_IMAGE_HEIGHT,
+          alt: articleMeta.title,
+        },
+      ],
     },
-    twitter: { card: "summary_large_image", images: [article.imageUrl ?? "/og.png"] },
+    twitter: { card: "summary_large_image", images: [articleMeta.imagePath] },
   };
 }
 
@@ -152,20 +191,22 @@ export default async function ArticlePage({
 
   const articlePath = localizedPath({ pathname: "/artikel/[slug]", params: { slug } }, locale);
   const url = absoluteUrl(articlePath);
+  const articleMeta = buildArticleMeta(article, locale);
+  const dateModified = (article.updatedAt ?? article.publishedAt)?.toISOString();
   const newsLd = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     headline: article.title,
-    ...(article.imageUrl ? { image: [absoluteUrl(article.imageUrl)] } : {}),
+    image: [articleImageObject(articleMeta.imagePath)],
     inLanguage: locale,
     datePublished: article.publishedAt?.toISOString(),
-    dateModified: article.publishedAt?.toISOString(),
+    dateModified,
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    author: { "@type": "Organization", name: SITE_NAME },
+    author: { "@type": "Person", name: ARTICLE_AUTHOR_NAME },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,
-      logo: { "@type": "ImageObject", url: SITE_LOGO_URL },
+      logo: { "@type": "ImageObject", url: SITE_LOGO_URL, width: 512, height: 512 },
     },
   };
   const breadcrumbLd = {

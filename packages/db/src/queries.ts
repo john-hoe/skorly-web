@@ -641,6 +641,7 @@ export interface ArticleView {
   embeds: string[] | null;
   status: string;
   publishedAt: Date | null;
+  updatedAt: Date | null;
 }
 
 function cleanArticleText(markdown: string): string {
