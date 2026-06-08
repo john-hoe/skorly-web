@@ -37,7 +37,7 @@ export function LeagueInvite({ url }: { url: string }) {
           {copied ? t("copied") : t("copy")}
         </button>
       </div>
-      <ShareButtons url={url} text={t("shareText")} compact />
+      <ShareButtons url={url} text={t("shareText")} compact contentType="league" />
     </div>
   );
 }

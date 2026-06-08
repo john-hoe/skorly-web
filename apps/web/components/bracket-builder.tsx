@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { track } from "@/lib/analytics";
 import { getBracketApi, getTeamGroupsApi, saveBracketApi } from "@/lib/runtime-api-client";
 import type { TeamGroup, GroupTeam, BracketPicks } from "@skorly/db";
 
@@ -129,6 +130,14 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
         })
       : "";
 
+  function trackBracketShare() {
+    track("share_click", {
+      channel: "whatsapp",
+      contentType: "bracket",
+      contentId: "world-cup-2026-bracket",
+    });
+  }
+
   if (teamGroups.length === 0) {
     return <div className="h-72 animate-pulse rounded-2xl bg-[var(--card)]" aria-hidden />;
   }
@@ -243,6 +252,7 @@ export function BracketBuilder({ groups, initial, authed = false }: Props) {
                 href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={trackBracketShare}
                 className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:border-[var(--brand)]"
               >
                 {t("share")}

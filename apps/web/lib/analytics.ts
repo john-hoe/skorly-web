@@ -11,6 +11,13 @@ export type ConsentState = "loading" | "granted" | "denied" | "unset";
 
 type AnalyticsPrimitive = string | number | boolean | null;
 type AnalyticsPayload = Record<string, AnalyticsPrimitive | undefined>;
+export type ShareContentType =
+  | "article"
+  | "prediction"
+  | "league"
+  | "leaderboard"
+  | "bracket"
+  | "page";
 
 export type AnalyticsEventMap = {
   predict_submit: {
@@ -30,7 +37,7 @@ export type AnalyticsEventMap = {
   league_create: { leagueId: number };
   league_join: { leagueId: number };
   comment_post: { targetType: "article" | "prediction"; targetId: string };
-  share_click: { channel: string; contentType: string; contentId: string };
+  share_click: { channel: string; contentType: ShareContentType; contentId: string };
 };
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;
@@ -169,6 +176,7 @@ export async function trackServer<Event extends AnalyticsEventName>(
     const gaId = process.env.NEXT_PUBLIC_GA_ID;
     const gaSecret = process.env.GA4_API_SECRET;
     const clean = cleanProperties(properties);
+    const currentUrl = options.url ? analyticsSafeUrl(options.url) : null;
     const signal =
       typeof AbortSignal.timeout === "function"
         ? AbortSignal.timeout(SERVER_ANALYTICS_TIMEOUT_MS)
@@ -187,7 +195,7 @@ export async function trackServer<Event extends AnalyticsEventName>(
               ...clean,
               ...(options.userId ? { user_id: options.userId } : {}),
               ...(options.userAgent ? { $user_agent: options.userAgent } : {}),
-              ...(options.url ? { $current_url: options.url } : {}),
+              ...(currentUrl ? { $current_url: currentUrl } : {}),
             },
           }),
           cache: "no-store",
@@ -218,6 +226,17 @@ export async function trackServer<Event extends AnalyticsEventName>(
     await Promise.allSettled(tasks);
   } catch {
     /* analytics must never break product flows */
+  }
+}
+
+function analyticsSafeUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return rawUrl.split(/[?#]/, 1)[0] ?? rawUrl;
   }
 }
 

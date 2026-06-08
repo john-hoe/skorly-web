@@ -107,6 +107,8 @@ export default async function LeaderboardPage({
           url={localizedPath("/peringkat", locale)}
           text={t("shareText")}
           compact
+          contentType="leaderboard"
+          contentId="world-cup-2026"
         />
       </div>
     </div>

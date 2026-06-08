@@ -159,7 +159,15 @@ export function PredictScore({
         ) : (
           <p className="text-sm text-[var(--muted)]">{t("locked")}</p>
         )}
-        {saved && sharePath && <ShareButtons url={sharePath} text={shareText} compact />}
+        {saved && sharePath && (
+          <ShareButtons
+            url={sharePath}
+            text={shareText}
+            compact
+            contentType="prediction"
+            contentId={String(fixtureId)}
+          />
+        )}
         <LeaderboardLink label={t("leaderboardLink")} />
       </div>
     );

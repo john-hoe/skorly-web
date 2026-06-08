@@ -208,7 +208,12 @@ export default async function ArticlePage({
         </section>
       )}
 
-      <ShareButtons url={articlePath} text={`${article.title} | ${SITE_NAME}`} />
+      <ShareButtons
+        url={articlePath}
+        text={`${article.title} | ${SITE_NAME}`}
+        contentType="article"
+        contentId={slug}
+      />
 
       {sources.length > 0 && (
         <section className="border-t border-[var(--border)] pt-4">

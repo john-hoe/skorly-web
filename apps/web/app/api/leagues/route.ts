@@ -1,4 +1,6 @@
 import { json, readJson } from "@/lib/api/http";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 import { rateLimit } from "@/lib/ratelimit";
 import { createRuntimeMiniLeague } from "@/lib/runtime-data";
 import { getSessionUser } from "@/lib/supabase/server";
@@ -20,5 +22,17 @@ export async function POST(request: Request) {
 
   const league = await createRuntimeMiniLeague(user.id, name).catch(() => null);
   if (!league) return json({ ok: false, error: "generic" });
+  const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), user.id);
+  trackServerAfter(
+    "league_create",
+    analytics.distinctId,
+    { leagueId: league.id },
+    {
+      consentGranted: analytics.consentGranted,
+      userId: user.id,
+      userAgent: request.headers.get("user-agent"),
+      url: request.url,
+    },
+  );
   return json({ ok: true, slug: league.slug });
 }
