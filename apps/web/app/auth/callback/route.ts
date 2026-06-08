@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { analyticsIdentityFromCookieHeader, trackServer, type AnalyticsEventMap } from "@/lib/analytics";
 import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "@/lib/supabase/cookies";
 
 /**
@@ -43,11 +44,19 @@ export async function GET(request: NextRequest) {
   );
 
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return successResponse;
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      await trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
+      return successResponse;
+    }
   } else if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return successResponse;
+    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+    if (!error) {
+      if (type !== "recovery") {
+        await trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
+      }
+      return successResponse;
+    }
   }
 
   // Failed — bounce to the login page of the locale we were heading to.
@@ -125,4 +134,29 @@ function recoveryBridge(next: string, tokenHash?: string | null) {
   response.headers.set("Pragma", "no-cache");
   response.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
   return response;
+}
+
+async function trackAuthCallbackLogin(
+  request: NextRequest,
+  userId: string | null,
+  provider: unknown,
+): Promise<void> {
+  const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), userId);
+  await trackServer(
+    "login",
+    analytics.distinctId,
+    { method: loginMethod(provider) },
+    {
+      consentGranted: analytics.consentGranted,
+      userId,
+      userAgent: request.headers.get("user-agent"),
+      url: request.url,
+    },
+  );
+}
+
+function loginMethod(provider: unknown): AnalyticsEventMap["login"]["method"] {
+  if (provider === "google" || provider === "facebook") return provider;
+  if (provider === "email") return "email";
+  return "oauth";
 }

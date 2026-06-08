@@ -4,6 +4,7 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { sendEmail, optInEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/seo";
 import { upsertRuntimeSubscriber } from "@/lib/runtime-data";
+import { analyticsIdentityFromCookieHeader, trackServer } from "@/lib/analytics";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOCALES = new Set(["id", "vi", "en", "zh"]);
@@ -71,6 +72,17 @@ export async function POST(req: Request): Promise<NextResponse> {
       return NextResponse.json({ ok: false, error: "email" }, { status: 502 });
     }
 
+    const analytics = analyticsIdentityFromCookieHeader(req.headers.get("cookie"));
+    await trackServer(
+      "email_subscribe",
+      analytics.distinctId,
+      { locale, source: source ?? "unknown" },
+      {
+        consentGranted: analytics.consentGranted,
+        userAgent: req.headers.get("user-agent"),
+        url: req.url,
+      },
+    );
     return NextResponse.json({ ok: true, pending: true });
   } catch {
     return NextResponse.json({ ok: false, error: "generic" }, { status: 500 });

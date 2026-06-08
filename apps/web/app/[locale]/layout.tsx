@@ -23,6 +23,8 @@ const notoSc = Noto_Sans_SC({
   variable: "--font-noto-sc",
 });
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
 const HTML_LANG: Record<Locale, string> = {
   id: "id",
@@ -104,7 +106,11 @@ export default async function LocaleLayout({
         <JsonLd data={[orgLd, siteLd]} />
         <PwaRegister />
         <NextIntlClientProvider>
-          <AnalyticsProvider gaId={gaId} />
+          <AnalyticsProvider
+            gaId={gaId}
+            posthogKey={posthogKey}
+            posthogHost={posthogHost}
+          />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />

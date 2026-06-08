@@ -6,6 +6,7 @@ import {
   type RuntimePushTopics,
 } from "@/lib/runtime-data";
 import { getSessionUser } from "@/lib/supabase/server";
+import { analyticsIdentityFromCookieHeader, trackServer } from "@/lib/analytics";
 
 type SubscribeBody = {
   subscription?: {
@@ -42,6 +43,16 @@ export async function POST(request: Request) {
       locale: options?.locale,
       topics: options?.topics,
       userAgent: h.get("user-agent"),
+    });
+    const analytics = analyticsIdentityFromCookieHeader(
+      request.headers.get("cookie"),
+      user?.id ?? null,
+    );
+    await trackServer("push_opt_in", analytics.distinctId, {}, {
+      consentGranted: analytics.consentGranted,
+      userId: user?.id ?? null,
+      userAgent: h.get("user-agent"),
+      url: request.url,
     });
     return json({ ok: true });
   } catch {
