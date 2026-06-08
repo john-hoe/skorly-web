@@ -84,6 +84,9 @@ const env = {
   NEXT_PUBLIC_SITE_URL: "https://skorly.cc",
   NEXT_PUBLIC_DEFAULT_LOCALE: "id",
   NEXT_PUBLIC_GA_ID: "G-98VPG3BHXS",
+  GA4_API_SECRET: get("ga4 api secret") || get("ga4_api_secret"),
+  NEXT_PUBLIC_POSTHOG_KEY: get("posthog key") || get("posthog_project_api_key"),
+  NEXT_PUBLIC_POSTHOG_HOST: get("posthog host") || "https://us.i.posthog.com",
   NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
 };

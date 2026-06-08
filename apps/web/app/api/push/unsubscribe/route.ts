@@ -1,5 +1,7 @@
 import { json, readJson } from "@/lib/api/http";
 import { deleteRuntimePushSubscription } from "@/lib/runtime-data";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 
 type UnsubscribeBody = {
   endpoint?: string;
@@ -11,6 +13,12 @@ export async function POST(request: Request) {
 
   try {
     await deleteRuntimePushSubscription(input.endpoint);
+    const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"));
+    trackServerAfter("push_opt_out", analytics.distinctId, {}, {
+      consentGranted: analytics.consentGranted,
+      userAgent: request.headers.get("user-agent"),
+      url: request.url,
+    });
     return json({ ok: true });
   } catch {
     return json({ ok: false });

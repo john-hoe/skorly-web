@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
+import {
+  getOrCreateAnalyticsId,
+  identifyAnalyticsUser,
+  readAnalyticsConsent,
+  setPostHogClient,
+  subscribeToAnalyticsConsent,
+  writeAnalyticsConsent,
+  type ConsentState,
+} from "@/lib/analytics";
 
-const CONSENT_COOKIE = "skorly_analytics_consent";
-const CONSENT_STORAGE_KEY = "skorly.analytics.consent";
-const CONSENT_CHANGE_EVENT = "skorly-analytics-consent-change";
-const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 const GA_SCRIPT_ID = "google-analytics-loader";
-
-type ConsentState = "loading" | "granted" | "denied" | "unset";
+const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 
 declare global {
   interface Window {
@@ -20,9 +24,11 @@ declare global {
 
 type AnalyticsProviderProps = {
   gaId?: string | null;
+  posthogKey?: string | null;
+  posthogHost?: string | null;
 };
 
-export function AnalyticsProvider({ gaId }: AnalyticsProviderProps) {
+export function AnalyticsProvider({ gaId, posthogKey, posthogHost }: AnalyticsProviderProps) {
   const t = useTranslations("analyticsConsent");
   const consent = useSyncExternalStore(
     subscribeToAnalyticsConsent,
@@ -30,7 +36,7 @@ export function AnalyticsProvider({ gaId }: AnalyticsProviderProps) {
     () => "loading" as ConsentState,
   );
 
-  if (!gaId) return null;
+  if (!gaId && !posthogKey) return null;
 
   const saveConsent = (nextConsent: Exclude<ConsentState, "loading" | "unset">) => {
     writeAnalyticsConsent(nextConsent);
@@ -39,6 +45,9 @@ export function AnalyticsProvider({ gaId }: AnalyticsProviderProps) {
   return (
     <>
       {consent === "granted" ? <GoogleAnalyticsScripts gaId={gaId} /> : null}
+      {consent === "granted" && posthogKey ? (
+        <PostHogScripts posthogKey={posthogKey} posthogHost={posthogHost} />
+      ) : null}
       {consent === "unset" ? (
         <ConsentBanner
           ariaLabel={t("ariaLabel")}
@@ -54,8 +63,10 @@ export function AnalyticsProvider({ gaId }: AnalyticsProviderProps) {
   );
 }
 
-function GoogleAnalyticsScripts({ gaId }: { gaId: string }) {
+function GoogleAnalyticsScripts({ gaId }: { gaId?: string | null }) {
   useEffect(() => {
+    if (!gaId) return;
+
     window.dataLayer = window.dataLayer || [];
     window.gtag =
       window.gtag ??
@@ -91,6 +102,49 @@ function GoogleAnalyticsScripts({ gaId }: { gaId: string }) {
     script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`;
     document.head.appendChild(script);
   }, [gaId]);
+
+  return null;
+}
+
+function PostHogScripts({
+  posthogKey,
+  posthogHost,
+}: {
+  posthogKey: string;
+  posthogHost?: string | null;
+}) {
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    let cancelled = false;
+    const distinctId = getOrCreateAnalyticsId();
+    void import("posthog-js").then(({ default: posthog }) => {
+      if (cancelled) return;
+      posthog.init(posthogKey, {
+        api_host: (posthogHost || DEFAULT_POSTHOG_HOST).replace(/\/$/, ""),
+        capture_pageview: true,
+        bootstrap: distinctId ? { distinctID: distinctId } : undefined,
+        loaded: (client) => {
+          setPostHogClient(client);
+          void fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" })
+            .then((response) => (response.ok ? response.json() : null))
+            .then((payload: { userId?: unknown } | null) => {
+              if (typeof payload?.userId === "string") {
+                identifyAnalyticsUser(payload.userId);
+              }
+            })
+            .catch(() => {});
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [posthogHost, posthogKey]);
 
   return null;
 }
@@ -144,46 +198,4 @@ function ConsentBanner({
       </div>
     </section>
   );
-}
-
-function readAnalyticsConsent(): ConsentState {
-  try {
-    const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
-    if (stored === "granted" || stored === "denied") return stored;
-  } catch {
-    /* ignore blocked storage */
-  }
-
-  const cookieValue = document.cookie
-    .split("; ")
-    .find((entry) => entry.startsWith(`${CONSENT_COOKIE}=`))
-    ?.split("=")[1];
-
-  if (cookieValue === "granted" || cookieValue === "denied") {
-    return cookieValue;
-  }
-
-  return "unset";
-}
-
-function writeAnalyticsConsent(consent: "granted" | "denied") {
-  try {
-    window.localStorage.setItem(CONSENT_STORAGE_KEY, consent);
-  } catch {
-    /* ignore blocked storage */
-  }
-
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${CONSENT_COOKIE}=${consent}; Path=/; Max-Age=${CONSENT_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
-  window.dispatchEvent(new Event(CONSENT_CHANGE_EVENT));
-}
-
-function subscribeToAnalyticsConsent(onStoreChange: () => void) {
-  window.addEventListener(CONSENT_CHANGE_EVENT, onStoreChange);
-  window.addEventListener("storage", onStoreChange);
-
-  return () => {
-    window.removeEventListener(CONSENT_CHANGE_EVENT, onStoreChange);
-    window.removeEventListener("storage", onStoreChange);
-  };
 }

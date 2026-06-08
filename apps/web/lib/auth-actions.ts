@@ -6,6 +6,8 @@ import { updateRuntimeProfile } from "./runtime-data";
 import { verifyTurnstile } from "./turnstile";
 import { rateLimit, clientIp } from "./ratelimit";
 import { recoveryEmail, sendEmail } from "./email";
+import { analyticsIdentityFromCookieHeader } from "./analytics";
+import { trackServerAfter } from "./analytics-server";
 
 export interface ActionResult {
   ok: boolean;
@@ -57,7 +59,7 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
 
   const origin = await getOrigin();
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -70,6 +72,13 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
     },
   });
   if (error) return { ok: false, error: error.message };
+  const analytics = analyticsIdentityFromCookieHeader(h.get("cookie"), data.user?.id ?? null);
+  trackServerAfter("signup", analytics.distinctId, { method: "email" }, {
+    consentGranted: analytics.consentGranted,
+    userId: data.user?.id ?? null,
+    userAgent: h.get("user-agent"),
+    url: origin,
+  });
   return { ok: true, message: "checkEmail" };
 }
 
@@ -89,8 +98,14 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
   if (!(await verifyTurnstile(token, ip))) return { ok: false, error: "captcha" };
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: "invalidCredentials" };
+  const analytics = analyticsIdentityFromCookieHeader(h.get("cookie"), data.user?.id ?? null);
+  trackServerAfter("login", analytics.distinctId, { method: "email" }, {
+    consentGranted: analytics.consentGranted,
+    userId: data.user?.id ?? null,
+    userAgent: h.get("user-agent"),
+  });
   return { ok: true };
 }
 

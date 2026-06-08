@@ -5,6 +5,8 @@ import {
 } from "@/lib/runtime-data";
 import { rateLimit } from "@/lib/ratelimit";
 import { getSessionUser } from "@/lib/supabase/server";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 
 type PredictionBody = {
   home?: number;
@@ -58,5 +60,22 @@ export async function POST(
             : "generic",
     });
   }
+  const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), user.id);
+  trackServerAfter(
+    "predict_submit",
+    analytics.distinctId,
+    {
+      fixtureId,
+      league: "world_cup",
+      predHome: home,
+      predAway: away,
+    },
+    {
+      consentGranted: analytics.consentGranted,
+      userId: user.id,
+      userAgent: request.headers.get("user-agent"),
+      url: request.url,
+    },
+  );
   return json({ ok: true, home, away });
 }
