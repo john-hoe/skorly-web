@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
 import { json, readJson } from "@/lib/api/http";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 import { screenComment } from "@/lib/comment-filter";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import {
@@ -37,6 +39,16 @@ function validTarget(target: unknown): target is RuntimeCommentTargetInput {
     return Number.isInteger(articleId) && articleId > 0;
   }
   return false;
+}
+
+function analyticsTarget(target: RuntimeCommentTargetInput): {
+  targetType: "article" | "prediction";
+  targetId: string;
+} {
+  if ("articleId" in target) {
+    return { targetType: "article", targetId: String(target.articleId) };
+  }
+  return { targetType: "prediction", targetId: String(target.fixtureId) };
 }
 
 export async function GET(request: Request) {
@@ -79,5 +91,17 @@ export async function POST(request: Request) {
     parentId: input.parentId ?? null,
   }).catch(() => null);
   if (!res?.ok) return json({ ok: false, error: "invalid" });
+  const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), user.id);
+  trackServerAfter(
+    "comment_post",
+    analytics.distinctId,
+    analyticsTarget(input.target),
+    {
+      consentGranted: analytics.consentGranted,
+      userId: user.id,
+      userAgent: request.headers.get("user-agent"),
+      url: request.url,
+    },
+  );
   return json({ ok: true });
 }

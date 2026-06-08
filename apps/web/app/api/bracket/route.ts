@@ -1,4 +1,6 @@
 import { json, readJson } from "@/lib/api/http";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 import { rateLimit } from "@/lib/ratelimit";
 import {
   getRuntimeBracket,
@@ -30,7 +32,27 @@ export async function POST(request: Request) {
     if (!rl.success) return json({ ok: false, error: "rateLimited" });
 
     const res = await saveRuntimeBracket(user.id, picks);
-    if (res.ok) return json({ ok: true });
+    if (res.ok) {
+      const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), user.id);
+      trackServerAfter(
+        "bracket_save",
+        analytics.distinctId,
+        {
+          numPicks:
+            picks.semifinalists.length +
+            picks.finalists.length +
+            (picks.champion == null ? 0 : 1),
+          championTeamId: picks.champion,
+        },
+        {
+          consentGranted: analytics.consentGranted,
+          userId: user.id,
+          userAgent: request.headers.get("user-agent"),
+          url: request.url,
+        },
+      );
+      return json({ ok: true });
+    }
     return json({ ok: false, error: res.reason === "invalid" ? "invalid" : "generic" });
   } catch {
     return json({ ok: false, error: "generic" });
