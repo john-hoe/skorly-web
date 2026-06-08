@@ -41,6 +41,36 @@ const get = (needle) => {
   return k ? v[k] : "";
 };
 
+function parseEnvFile(path) {
+  try {
+    const text = readFileSync(path, "utf8");
+    const map = {};
+    for (const line of text.split("\n")) {
+      const t = line.trim();
+      if (!t || t.startsWith("#") || !t.includes("=")) continue;
+      const idx = t.indexOf("=");
+      const key = t.slice(0, idx).trim();
+      map[key] = t.slice(idx + 1).trim().replace(/^"|"$/g, "");
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+const existingEnv = parseEnvFile(join(ROOT, ".env"));
+const existing = (key) => existingEnv[key] ?? "";
+
+const getSkorlyGa4ApiSecret = () => {
+  const direct = get("ga4 api secret") || get("ga4_api_secret");
+  if (direct) return direct;
+
+  const k = Object.keys(v).find(
+    (key) => key.includes("ga4") && key.includes("skorly") && key.includes("api_secret")
+  );
+  return k ? v[k] : "";
+};
+
 const dbPassword = get("supabase database password");
 const databaseUrl = dbPassword
   ? `postgresql://postgres.${SUPABASE_REF}:${encodeURIComponent(dbPassword)}@${POOLER_HOST}:6543/postgres`
@@ -78,14 +108,16 @@ const env = {
   CLOUDFLARE_ACCOUNT_ID: get("cloudflare account id"),
   CLOUDFLARE_API_TOKEN: get("cloudflare deploy token"),
   // Admin jobs bridge
-  JOBS_ADMIN_SECRET: get("jobs admin secret") || get("jobs_admin_secret"),
-  JOBS_ADMIN_URL: get("jobs admin url") || get("jobs_admin_url"),
+  JOBS_ADMIN_SECRET:
+    get("jobs admin secret") || get("jobs_admin_secret") || existing("JOBS_ADMIN_SECRET"),
+  JOBS_ADMIN_URL: get("jobs admin url") || get("jobs_admin_url") || existing("JOBS_ADMIN_URL"),
   // Public site
   NEXT_PUBLIC_SITE_URL: "https://skorly.cc",
   NEXT_PUBLIC_DEFAULT_LOCALE: "id",
   NEXT_PUBLIC_GA_ID: "G-98VPG3BHXS",
-  GA4_API_SECRET: get("ga4 api secret") || get("ga4_api_secret"),
-  NEXT_PUBLIC_POSTHOG_KEY: get("posthog key") || get("posthog_project_api_key"),
+  GA4_API_SECRET: getSkorlyGa4ApiSecret() || existing("GA4_API_SECRET"),
+  NEXT_PUBLIC_POSTHOG_KEY:
+    get("posthog key") || get("posthog_project_api_key") || existing("NEXT_PUBLIC_POSTHOG_KEY"),
   NEXT_PUBLIC_POSTHOG_HOST: get("posthog host") || "https://us.i.posthog.com",
   NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
