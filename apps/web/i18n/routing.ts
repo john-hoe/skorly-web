@@ -79,6 +79,12 @@ export const routing = defineRouting({
       en: "/article/[slug]",
       zh: "/wenzhang/[slug]",
     },
+    "/author/[slug]": {
+      id: "/penulis/[slug]",
+      vi: "/tac-gia/[slug]",
+      en: "/author/[slug]",
+      zh: "/zuozhe/[slug]",
+    },
     "/berita": {
       id: "/berita",
       vi: "/tin-tuc",

@@ -5,6 +5,7 @@ import {
   getAllTeamSlugs,
 } from "@skorly/db";
 import { routing } from "@/i18n/routing";
+import { ARTICLE_AUTHOR_SLUG } from "@/lib/article-author";
 import { absoluteUrl, buildLanguageAlternates, localizedPath } from "@/lib/seo";
 import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
 
@@ -90,6 +91,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
   entries.push(
     ...withAlternates("/nonton", generatedAt, { changeFrequency: "weekly", priority: 0.6 })
+  );
+  entries.push(
+    ...withAlternates(
+      { pathname: "/author/[slug]", params: { slug: ARTICLE_AUTHOR_SLUG } },
+      generatedAt,
+      { changeFrequency: "monthly", priority: 0.5 }
+    )
   );
 
   // AMP Web Stories per fixture (Discover surface)

@@ -8,6 +8,7 @@ import { SocialEmbed } from "@/components/social-embed";
 import { CommentsSection } from "@/components/comments-section";
 import { JsonLd } from "@/components/json-ld";
 import { ShareButtons } from "@/components/share-buttons";
+import { ARTICLE_AUTHOR_NAME, articleAuthorUrl } from "@/lib/article-author";
 import { renderMarkdown } from "@/lib/markdown";
 import {
   SITE_NAME,
@@ -26,8 +27,6 @@ const articleCache = new Map<string, Promise<Article>>();
 let articleLocalesBySlugCache: Promise<Map<string, string[]>> | undefined;
 const NEWS_IMAGE_WIDTH = 1200;
 const NEWS_IMAGE_HEIGHT = 630;
-const ARTICLE_AUTHOR_NAME =
-  process.env.NEWS_ARTICLE_AUTHOR_NAME?.trim() || "John Vega";
 
 function getArticleForPage(slug: string, locale: string): Promise<Article> {
   const key = `${locale}:${slug}`;
@@ -202,7 +201,11 @@ export default async function ArticlePage({
     datePublished: article.publishedAt?.toISOString(),
     dateModified,
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    author: { "@type": "Person", name: ARTICLE_AUTHOR_NAME },
+    author: {
+      "@type": "Person",
+      name: ARTICLE_AUTHOR_NAME,
+      url: articleAuthorUrl(locale),
+    },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,

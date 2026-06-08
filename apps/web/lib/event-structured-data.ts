@@ -1,6 +1,8 @@
 import type { FixtureView } from "@skorly/db";
 import { absoluteUrl } from "@/lib/seo";
 
+const SOCCER_MATCH_EVENT_DURATION_MS = 2 * 60 * 60 * 1000;
+
 type TeamLd = {
   "@type": "SportsTeam";
   name: string;
@@ -54,6 +56,10 @@ function eventStatusLd(status: string): string {
   return "https://schema.org/EventScheduled";
 }
 
+function estimatedSoccerEndDate(kickoffAt: Date): string {
+  return new Date(kickoffAt.getTime() + SOCCER_MATCH_EVENT_DURATION_MS).toISOString();
+}
+
 export function buildFixtureSportsEventLd({
   fixture,
   url,
@@ -76,6 +82,7 @@ export function buildFixtureSportsEventLd({
     name: `${fixture.home.name} vs ${fixture.away.name}`,
     sport: "Soccer",
     startDate: fixture.kickoffAt.toISOString(),
+    endDate: estimatedSoccerEndDate(fixture.kickoffAt),
     eventStatus: eventStatusLd(fixture.status),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     location,
