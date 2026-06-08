@@ -139,7 +139,6 @@ function PostHogScripts({
             .catch(() => {});
         },
       });
-      setPostHogClient(posthog);
     });
 
     return () => {

@@ -5,7 +5,8 @@ import {
 } from "@/lib/runtime-data";
 import { rateLimit } from "@/lib/ratelimit";
 import { getSessionUser } from "@/lib/supabase/server";
-import { analyticsIdentityFromCookieHeader, trackServer } from "@/lib/analytics";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 
 type PredictionBody = {
   home?: number;
@@ -60,7 +61,7 @@ export async function POST(
     });
   }
   const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), user.id);
-  await trackServer(
+  trackServerAfter(
     "predict_submit",
     analytics.distinctId,
     {

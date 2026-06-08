@@ -4,7 +4,8 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { sendEmail, optInEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/seo";
 import { upsertRuntimeSubscriber } from "@/lib/runtime-data";
-import { analyticsIdentityFromCookieHeader, trackServer } from "@/lib/analytics";
+import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LOCALES = new Set(["id", "vi", "en", "zh"]);
@@ -73,7 +74,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
 
     const analytics = analyticsIdentityFromCookieHeader(req.headers.get("cookie"));
-    await trackServer(
+    trackServerAfter(
       "email_subscribe",
       analytics.distinctId,
       { locale, source: source ?? "unknown" },

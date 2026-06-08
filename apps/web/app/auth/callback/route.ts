@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { analyticsIdentityFromCookieHeader, trackServer, type AnalyticsEventMap } from "@/lib/analytics";
+import { analyticsIdentityFromCookieHeader, type AnalyticsEventMap } from "@/lib/analytics";
+import { trackServerAfter } from "@/lib/analytics-server";
 import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "@/lib/supabase/cookies";
 
 /**
@@ -46,14 +47,14 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      await trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
+      trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
       return successResponse;
     }
   } else if (tokenHash && type) {
     const { data, error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (!error) {
       if (type !== "recovery") {
-        await trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
+        trackAuthCallbackLogin(request, data.user?.id ?? null, data.user?.app_metadata?.provider);
       }
       return successResponse;
     }
@@ -136,13 +137,13 @@ function recoveryBridge(next: string, tokenHash?: string | null) {
   return response;
 }
 
-async function trackAuthCallbackLogin(
+function trackAuthCallbackLogin(
   request: NextRequest,
   userId: string | null,
   provider: unknown,
-): Promise<void> {
+): void {
   const analytics = analyticsIdentityFromCookieHeader(request.headers.get("cookie"), userId);
-  await trackServer(
+  trackServerAfter(
     "login",
     analytics.distinctId,
     { method: loginMethod(provider) },

@@ -35,6 +35,13 @@ export type AnalyticsEventMap = {
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;
 
+export type ServerAnalyticsOptions = {
+  consentGranted: boolean;
+  userId?: string | null;
+  userAgent?: string | null;
+  url?: string | null;
+};
+
 type PostHogClient = {
   capture: (event: string, properties?: Record<string, unknown>) => void;
   identify: (distinctId: string) => void;
@@ -149,26 +156,23 @@ export async function trackServer<Event extends AnalyticsEventName>(
   event: Event,
   distinctId: string | null | undefined,
   properties: AnalyticsEventMap[Event],
-  options: {
-    consentGranted: boolean;
-    userId?: string | null;
-    userAgent?: string | null;
-    url?: string | null;
-  },
+  options: ServerAnalyticsOptions,
 ): Promise<void> {
   if (!options.consentGranted || !distinctId) return;
 
-  const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || DEFAULT_POSTHOG_HOST).replace(
-    /\/$/,
-    "",
-  );
-  const gaId = process.env.NEXT_PUBLIC_GA_ID;
-  const gaSecret = process.env.GA4_API_SECRET;
-  const clean = cleanProperties(properties);
-  const signal = AbortSignal.timeout(SERVER_ANALYTICS_TIMEOUT_MS);
-
   try {
+    const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const posthogHost = (process.env.NEXT_PUBLIC_POSTHOG_HOST || DEFAULT_POSTHOG_HOST).replace(
+      /\/$/,
+      "",
+    );
+    const gaId = process.env.NEXT_PUBLIC_GA_ID;
+    const gaSecret = process.env.GA4_API_SECRET;
+    const clean = cleanProperties(properties);
+    const signal =
+      typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(SERVER_ANALYTICS_TIMEOUT_MS)
+        : undefined;
     const tasks: Promise<unknown>[] = [];
     if (posthogKey) {
       tasks.push(
@@ -227,10 +231,11 @@ function cleanProperties(input: AnalyticsPayload): Record<string, AnalyticsPrimi
 }
 
 function readCookieFromDocument(name: string): string | null {
-  return document.cookie
+  const value = document.cookie
     .split("; ")
     .find((entry) => entry.startsWith(`${name}=`))
-    ?.split("=")[1] ?? null;
+    ?.slice(name.length + 1) ?? null;
+  return value ? decodeCookieValue(value) : null;
 }
 
 function readCookieFromHeader(
@@ -238,16 +243,24 @@ function readCookieFromHeader(
   name: string,
 ): string | null {
   if (!cookieHeader) return null;
-  return (
+  const value =
     cookieHeader
       .split(";")
       .map((entry) => entry.trim())
       .find((entry) => entry.startsWith(`${name}=`))
-      ?.split("=")[1] ?? null
-  );
+      ?.slice(name.length + 1) ?? null;
+  return value ? decodeCookieValue(value) : null;
 }
 
 function writeDocumentCookie(name: string, value: string): void {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${name}=${value}; Path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
+}
+
+function decodeCookieValue(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
