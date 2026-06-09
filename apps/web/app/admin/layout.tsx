@@ -18,7 +18,7 @@ const notoSc = Noto_Sans_SC({
 const NAV = [
   { href: "/admin", label: "Overview", enabled: true },
   { href: "/admin/operations", label: "Operations", enabled: true },
-  { href: "/admin/comments", label: "Comments", enabled: false },
+  { href: "/admin/comments", label: "Comments", enabled: true },
   { href: "/admin/users", label: "Users", enabled: false },
   { href: "/admin/content", label: "Content", enabled: false },
   { href: "/admin/subscribers", label: "Subscribers", enabled: false },

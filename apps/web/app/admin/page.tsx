@@ -179,7 +179,7 @@ function OverviewDashboard({ stats }: { stats: RuntimeAdminOverviewStats }) {
         <StatCard
           label="Comment reports"
           value={formatNumber(stats.engagement.commentReportsTotal)}
-          helper="all reports; no resolved state yet"
+          helper="review in Comments"
           tone={stats.engagement.commentReportsTotal > 0 ? "warning" : "neutral"}
         />
       </section>

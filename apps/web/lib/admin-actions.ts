@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import {
   insertRuntimeAdminAuditLog,
+  markRuntimeAdminCommentReportsReviewed,
+  setRuntimeAdminCommentHidden,
   updateRuntimeAdminAuditLogMeta,
   type RuntimeAdminAuditMeta,
 } from "./runtime-data";
@@ -24,6 +26,16 @@ export type RunAdminOperationResult =
       operation?: AdminOperationId;
       status?: number;
       error: "invalid" | "notConfigured" | "upstream" | "audit";
+      response?: string;
+    };
+
+export type AdminCommentModerationResult =
+  | { ok: true; commentId: number; action: "hide" | "unhide" | "review" }
+  | {
+      ok: false;
+      commentId?: number;
+      action?: "hide" | "unhide" | "review";
+      error: "invalid" | "audit" | "upstream";
       response?: string;
     };
 
@@ -151,5 +163,112 @@ export async function runAdminOperation(
     };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function validCommentId(commentId: number): boolean {
+  return Number.isInteger(commentId) && commentId > 0;
+}
+
+async function startCommentAudit(
+  actorId: string,
+  action: "comments.hide" | "comments.unhide" | "comments.reports.review",
+  commentId: number,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `comment:${commentId}`,
+    meta: {
+      commentId,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishCommentAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+export async function setAdminCommentHidden(
+  commentId: number,
+  hidden: boolean,
+): Promise<AdminCommentModerationResult> {
+  if (!validCommentId(commentId)) return { ok: false, error: "invalid" };
+  const admin = await requireAdmin();
+  const action = hidden ? "hide" : "unhide";
+  let auditId = 0;
+  try {
+    auditId = await startCommentAudit(
+      admin.user.id,
+      hidden ? "comments.hide" : "comments.unhide",
+      commentId,
+    );
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, commentId, action, error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminCommentHidden(commentId, hidden);
+    await finishCommentAudit(auditId, {
+      commentId,
+      status: "succeeded",
+      hidden,
+    });
+    revalidatePath("/admin/comments");
+    return { ok: true, commentId, action };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishCommentAudit(auditId, {
+      commentId,
+      status: "failed",
+      hidden,
+      error: preview(message),
+    });
+    revalidatePath("/admin/comments");
+    return { ok: false, commentId, action, error: "upstream", response: preview(message) };
+  }
+}
+
+export async function reviewAdminCommentReports(
+  commentId: number,
+): Promise<AdminCommentModerationResult> {
+  if (!validCommentId(commentId)) return { ok: false, error: "invalid" };
+  const admin = await requireAdmin();
+  let auditId = 0;
+  try {
+    auditId = await startCommentAudit(admin.user.id, "comments.reports.review", commentId);
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, commentId, action: "review", error: "audit" };
+  }
+
+  try {
+    await markRuntimeAdminCommentReportsReviewed(commentId, admin.user.id);
+    await finishCommentAudit(auditId, {
+      commentId,
+      status: "succeeded",
+      reviewed: true,
+    });
+    revalidatePath("/admin/comments");
+    return { ok: true, commentId, action: "review" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishCommentAudit(auditId, {
+      commentId,
+      status: "failed",
+      reviewed: true,
+      error: preview(message),
+    });
+    revalidatePath("/admin/comments");
+    return { ok: false, commentId, action: "review", error: "upstream", response: preview(message) };
   }
 }

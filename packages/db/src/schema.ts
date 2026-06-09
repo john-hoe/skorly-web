@@ -349,7 +349,12 @@ export const commentReports = pgTable("comment_reports", {
   userId: uuid("user_id").references(() => profiles.id),
   reason: text("reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: uuid("reviewed_by").references(() => profiles.id, { onDelete: "set null" }),
+}, (t) => [
+  index("comment_reports_review_idx").on(t.reviewedAt, t.createdAt),
+  index("comment_reports_comment_review_idx").on(t.commentId, t.reviewedAt),
+]);
 
 /* ------------------------------------------------------------------ */
 /* Phase 1.3 - campaigns + predict & win                              */

@@ -87,6 +87,37 @@ export interface RuntimeCommentView {
   likedByMe: boolean;
 }
 
+export interface RuntimeAdminCommentModerationItem {
+  commentId: number;
+  body: string;
+  isHidden: boolean;
+  parentId: number | null;
+  createdAt: Date | null;
+  author: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    avatarUrl: string | null;
+  };
+  target: {
+    type: "article" | "fixture" | "unknown";
+    label: string;
+    href: string | null;
+  };
+  reportCount: number;
+  pendingReportCount: number;
+  latestReportAt: Date | null;
+  reasons: string[];
+  reports: Array<{
+    id: number;
+    reason: string | null;
+    reporterName: string | null;
+    reporterEmail: string | null;
+    createdAt: Date | null;
+    reviewedAt: Date | null;
+  }>;
+}
+
 export interface RuntimeMiniLeague {
   id: number;
   slug: string;
@@ -375,12 +406,32 @@ interface CommentRow {
   body: string;
   parent_id: number | null;
   user_id: string;
+  article_id?: number | null;
+  fixture_id?: number | null;
+  is_hidden?: boolean;
   created_at: string | null;
 }
 
 interface CommentLikeRow {
   comment_id: number;
   user_id: string;
+}
+
+interface CommentReportRow {
+  id: number;
+  comment_id: number;
+  user_id: string | null;
+  reason: string | null;
+  created_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+interface AdminArticleTargetRow {
+  id: number;
+  slug: string;
+  locale: string;
+  title: string;
 }
 
 interface SubscriberRow {
@@ -1289,6 +1340,177 @@ export async function reportRuntimeComment(
   if (count >= 3) {
     await updateRows("comments", { id: `eq.${commentId}` }, { is_hidden: true }, { returning: false });
   }
+}
+
+export type RuntimeAdminCommentModerationStatus = "pending" | "hidden" | "all";
+
+function adminCommentReportQuery(status: RuntimeAdminCommentModerationStatus) {
+  const query: Record<string, string | number | boolean | null | undefined> = {
+    select: "id,comment_id,user_id,reason,created_at,reviewed_at,reviewed_by",
+    order: "created_at.desc",
+    limit: 500,
+  };
+  if (status === "pending") query.reviewed_at = "is.null";
+  return query;
+}
+
+function latestDate(values: Array<Date | null>): Date | null {
+  const timestamps = values
+    .map((value) => value?.getTime() ?? 0)
+    .filter((value) => value > 0);
+  if (timestamps.length === 0) return null;
+  return new Date(Math.max(...timestamps));
+}
+
+function uniqueReasons(reports: CommentReportRow[]): string[] {
+  return Array.from(
+    new Set(
+      reports
+        .map((report) => report.reason?.trim())
+        .filter((reason): reason is string => !!reason),
+    ),
+  ).slice(0, 5);
+}
+
+function commentTarget(
+  comment: CommentRow,
+  articles: Map<number, AdminArticleTargetRow>,
+  fixtures: Map<number, RuntimeFixtureView>,
+): RuntimeAdminCommentModerationItem["target"] {
+  if (comment.article_id != null) {
+    const article = articles.get(comment.article_id);
+    if (!article) {
+      return { type: "article", label: `Article #${comment.article_id}`, href: null };
+    }
+    return {
+      type: "article",
+      label: article.title,
+      href: `/${article.locale}/artikel/${article.slug}`,
+    };
+  }
+  if (comment.fixture_id != null) {
+    const fixture = fixtures.get(comment.fixture_id);
+    if (!fixture) {
+      return { type: "fixture", label: `Fixture #${comment.fixture_id}`, href: null };
+    }
+    return {
+      type: "fixture",
+      label: `${fixture.home.name} vs ${fixture.away.name}`,
+      href: `/id/pertandingan/${fixture.slug}`,
+    };
+  }
+  return { type: "unknown", label: "Unknown target", href: null };
+}
+
+export async function getRuntimeAdminCommentModerationItems(
+  status: RuntimeAdminCommentModerationStatus = "pending",
+): Promise<RuntimeAdminCommentModerationItem[]> {
+  const reports = await selectRows<CommentReportRow>(
+    "comment_reports",
+    adminCommentReportQuery(status),
+  );
+  const commentIds = compactIds(reports.map((report) => report.comment_id));
+  if (commentIds.length === 0) return [];
+
+  let comments = await selectRows<CommentRow>("comments", {
+    select: "id,body,parent_id,user_id,article_id,fixture_id,is_hidden,created_at",
+    id: inFilter(commentIds),
+    order: "created_at.desc",
+    limit: 500,
+  });
+  if (status === "hidden") {
+    comments = comments.filter((comment) => comment.is_hidden);
+  }
+  const commentsById = new Map(comments.map((comment) => [comment.id, comment]));
+  const groupedReports = new Map<number, CommentReportRow[]>();
+  for (const report of reports) {
+    if (!commentsById.has(report.comment_id)) continue;
+    const group = groupedReports.get(report.comment_id) ?? [];
+    group.push(report);
+    groupedReports.set(report.comment_id, group);
+  }
+
+  const articleIds = compactIds(comments.map((comment) => comment.article_id));
+  const fixtureIds = compactIds(comments.map((comment) => comment.fixture_id));
+  const [profiles, reporterProfiles, articles, fixtureRows] = await Promise.all([
+    profilesById(comments.map((comment) => comment.user_id)),
+    profilesById(reports.map((report) => report.user_id)),
+    articleIds.length
+      ? selectRows<AdminArticleTargetRow>("articles", {
+          select: "id,slug,locale,title",
+          id: inFilter(articleIds),
+        })
+      : Promise.resolve([]),
+    fixtureIds.length
+      ? selectRows<FixtureRow>("fixtures", {
+          select: FIXTURE_SELECT,
+          id: inFilter(fixtureIds),
+        })
+      : Promise.resolve([]),
+  ]);
+  const articleById = new Map(articles.map((article) => [article.id, article]));
+  const fixtureViews = await fixtureRowsToViews(fixtureRows);
+  const fixtureById = new Map(fixtureViews.map((fixture) => [fixture.id, fixture]));
+
+  return comments
+    .map((comment) => {
+      const commentReports = groupedReports.get(comment.id) ?? [];
+      const author = profiles.get(comment.user_id);
+      return {
+        commentId: comment.id,
+        body: comment.body,
+        isHidden: !!comment.is_hidden,
+        parentId: comment.parent_id,
+        createdAt: safeDate(comment.created_at),
+        author: {
+          id: comment.user_id,
+          email: author?.email ?? null,
+          name: author?.display_name ?? null,
+          avatarUrl: author?.avatar_url ?? null,
+        },
+        target: commentTarget(comment, articleById, fixtureById),
+        reportCount: commentReports.length,
+        pendingReportCount: commentReports.filter((report) => report.reviewed_at == null).length,
+        latestReportAt: latestDate(commentReports.map((report) => safeDate(report.created_at))),
+        reasons: uniqueReasons(commentReports),
+        reports: commentReports.slice(0, 5).map((report) => {
+          const reporter = report.user_id ? reporterProfiles.get(report.user_id) : undefined;
+          return {
+            id: report.id,
+            reason: report.reason,
+            reporterName: reporter?.display_name ?? null,
+            reporterEmail: reporter?.email ?? null,
+            createdAt: safeDate(report.created_at),
+            reviewedAt: safeDate(report.reviewed_at),
+          };
+        }),
+      };
+    })
+    .sort((a, b) => (b.latestReportAt?.getTime() ?? 0) - (a.latestReportAt?.getTime() ?? 0));
+}
+
+export async function setRuntimeAdminCommentHidden(
+  commentId: number,
+  hidden: boolean,
+): Promise<void> {
+  await updateRows(
+    "comments",
+    { id: `eq.${commentId}` },
+    { is_hidden: hidden },
+    { returning: false },
+  );
+}
+
+export async function markRuntimeAdminCommentReportsReviewed(
+  commentId: number,
+  reviewerId: string,
+): Promise<void> {
+  await updateRows(
+    "comment_reports",
+    { comment_id: `eq.${commentId}`, reviewed_at: "is.null" },
+    { reviewed_at: new Date().toISOString(), reviewed_by: reviewerId },
+    { returning: false },
+  );
 }
 
 function leagueName(name: unknown): string {
