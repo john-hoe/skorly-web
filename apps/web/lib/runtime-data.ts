@@ -268,6 +268,74 @@ export interface RuntimeAdminUserList {
   role: RuntimeAdminUserRole | "all";
 }
 
+export type RuntimeAdminArticleStatus = "draft" | "published";
+export type RuntimeAdminArticlePublishedFilter = "all" | "set" | "missing";
+export type RuntimeAdminArticleType =
+  | "preview"
+  | "watchpoints"
+  | "prediction"
+  | "recap"
+  | "tactical"
+  | "group_analysis"
+  | "news";
+
+export interface RuntimeAdminArticleListParams {
+  query?: string;
+  status?: RuntimeAdminArticleStatus | "all";
+  type?: RuntimeAdminArticleType | "all";
+  locale?: string;
+  published?: RuntimeAdminArticlePublishedFilter;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RuntimeAdminArticleListItem {
+  id: number;
+  slug: string;
+  locale: string;
+  type: string;
+  title: string;
+  summary: string | null;
+  bodyExcerpt: string;
+  fixtureId: number | null;
+  teamId: number | null;
+  groupName: string | null;
+  topicId: number | null;
+  imageUrl: string | null;
+  status: RuntimeAdminArticleStatus;
+  qualityScore: number | null;
+  model: string | null;
+  publishedAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface RuntimeAdminArticleDetail extends RuntimeAdminArticleListItem {
+  body: string;
+}
+
+export interface RuntimeAdminArticleList {
+  articles: RuntimeAdminArticleListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  query: string;
+  status: RuntimeAdminArticleStatus | "all";
+  type: RuntimeAdminArticleType | "all";
+  locale: string;
+  published: RuntimeAdminArticlePublishedFilter;
+}
+
+export interface RuntimeAdminArticleUpdateInput {
+  title: string;
+  summary: string | null;
+  body: string;
+  imageUrl: string | null;
+  status: RuntimeAdminArticleStatus;
+  publishedAt: string | null;
+}
+
 export interface RuntimeTeamOption {
   id: number;
   name: string;
@@ -439,6 +507,27 @@ interface ArticleCardRow {
   image_url: string | null;
 }
 
+interface AdminArticleRow {
+  id: number;
+  slug: string;
+  locale: string | null;
+  type: string;
+  title: string;
+  summary: string | null;
+  body?: string | null;
+  fixture_id: number | null;
+  team_id: number | null;
+  group_name: string | null;
+  topic_id: number | null;
+  image_url: string | null;
+  status: string;
+  quality_score: number | null;
+  model: string | null;
+  published_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 interface CampaignRow {
   id: number;
   slug: string;
@@ -506,10 +595,14 @@ interface SubscriberMatchRow {
 const FIXTURE_SELECT =
   "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
 const TEAM_SELECT = "id,name,slug,logo,code";
+const ADMIN_ARTICLE_LIST_SELECT =
+  "id,slug,locale,type,title,summary,fixture_id,team_id,group_name,topic_id,image_url,status,quality_score,model,published_at,created_at,updated_at";
+const ADMIN_ARTICLE_DETAIL_SELECT = `${ADMIN_ARTICLE_LIST_SELECT},body`;
 const BRACKET_SLUG = "wc2026-bracket";
 const ADMIN_LOCALES = ["id", "vi", "en", "zh"] as const;
 const ADMIN_ROLES = ["member", "premium", "admin"] as const;
 const ADMIN_USER_PAGE_SIZE = 25;
+const ADMIN_ARTICLE_PAGE_SIZE = 20;
 const ADMIN_ARTICLE_TYPES = [
   "preview",
   "watchpoints",
@@ -1080,6 +1173,173 @@ export async function setRuntimeAdminUserDeleted(
     { deleted_at: deleted ? new Date().toISOString() : null },
     { returning: false },
   );
+}
+
+function adminArticleStatus(value: string | null | undefined): RuntimeAdminArticleStatus {
+  return value === "published" ? "published" : "draft";
+}
+
+function adminArticleStatusFilter(
+  value: string | null | undefined,
+): RuntimeAdminArticleStatus | "all" {
+  return value === "draft" || value === "published" ? value : "all";
+}
+
+function adminArticleType(value: string | null | undefined): RuntimeAdminArticleType | "all" {
+  return ADMIN_ARTICLE_TYPES.some((type) => type === value) ? (value as RuntimeAdminArticleType) : "all";
+}
+
+function adminArticleLocale(value: string | null | undefined): string {
+  return value && ADMIN_LOCALES.some((locale) => locale === value) ? value : "all";
+}
+
+function adminArticlePublishedFilter(
+  value: string | null | undefined,
+): RuntimeAdminArticlePublishedFilter {
+  return value === "set" || value === "missing" ? value : "all";
+}
+
+function normalizeAdminArticleSearch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 120);
+}
+
+function adminArticleSearchOrFilter(search: string): string | null {
+  if (!search) return null;
+  return `(title.ilike.*${search}*,slug.ilike.*${search}*)`;
+}
+
+function normalizeAdminArticlePage(value: number | null | undefined): number {
+  return Number.isInteger(value) && value && value > 0 ? value : 1;
+}
+
+function textExcerpt(value: string | null | undefined, limit = 180): string {
+  const text = (value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit - 1)}...`;
+}
+
+function adminArticleFromRow(row: AdminArticleRow): RuntimeAdminArticleDetail {
+  return {
+    id: row.id,
+    slug: row.slug,
+    locale: row.locale ?? "id",
+    type: row.type,
+    title: row.title,
+    summary: row.summary,
+    bodyExcerpt: textExcerpt(row.summary ?? row.body ?? ""),
+    body: row.body ?? "",
+    fixtureId: row.fixture_id,
+    teamId: row.team_id,
+    groupName: row.group_name,
+    topicId: row.topic_id,
+    imageUrl: row.image_url,
+    status: adminArticleStatus(row.status),
+    qualityScore: row.quality_score,
+    model: row.model,
+    publishedAt: safeDate(row.published_at),
+    createdAt: safeDate(row.created_at),
+    updatedAt: safeDate(row.updated_at),
+  };
+}
+
+export async function getRuntimeAdminArticles(
+  input: RuntimeAdminArticleListParams = {},
+): Promise<RuntimeAdminArticleList> {
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize && input.pageSize > 0
+      ? Math.min(input.pageSize, 100)
+      : ADMIN_ARTICLE_PAGE_SIZE;
+  const page = normalizeAdminArticlePage(input.page);
+  const status = adminArticleStatusFilter(input.status);
+  const type = adminArticleType(input.type);
+  const locale = adminArticleLocale(input.locale);
+  const published = adminArticlePublishedFilter(input.published);
+  const query = normalizeAdminArticleSearch(input.query);
+  const searchFilter = adminArticleSearchOrFilter(query);
+
+  const params: Record<string, string | number | boolean | null | undefined> = {
+    select: ADMIN_ARTICLE_LIST_SELECT,
+    order: "updated_at.desc,created_at.desc",
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  };
+  if (status !== "all") params.status = `eq.${status}`;
+  if (type !== "all") params.type = `eq.${type}`;
+  if (locale !== "all") params.locale = `eq.${locale}`;
+  if (published === "set") params.published_at = "not.is.null";
+  if (published === "missing") params.published_at = "is.null";
+  if (searchFilter) params.or = searchFilter;
+
+  const { rows, total } = await selectRowsWithCount<AdminArticleRow>("articles", params);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    articles: rows.map((row) => adminArticleFromRow(row)),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    query,
+    status,
+    type,
+    locale,
+    published,
+  };
+}
+
+export async function getRuntimeAdminArticle(
+  articleId: number,
+): Promise<RuntimeAdminArticleDetail | null> {
+  const rows = await selectRows<AdminArticleRow>("articles", {
+    select: ADMIN_ARTICLE_DETAIL_SELECT,
+    id: `eq.${articleId}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  return row ? adminArticleFromRow(row) : null;
+}
+
+export async function setRuntimeAdminArticleStatus(
+  articleId: number,
+  status: RuntimeAdminArticleStatus,
+  publishedAt?: string | null,
+): Promise<void> {
+  const patch: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+  if (publishedAt !== undefined) patch.published_at = publishedAt;
+  await updateRows("articles", { id: `eq.${articleId}` }, patch, { returning: false });
+}
+
+export async function updateRuntimeAdminArticle(
+  articleId: number,
+  input: RuntimeAdminArticleUpdateInput,
+): Promise<void> {
+  await updateRows(
+    "articles",
+    { id: `eq.${articleId}` },
+    {
+      title: input.title,
+      summary: input.summary,
+      body: input.body,
+      image_url: input.imageUrl,
+      status: input.status,
+      published_at: input.publishedAt,
+      updated_at: new Date().toISOString(),
+    },
+    { returning: false },
+  );
+}
+
+export async function deleteRuntimeAdminArticle(articleId: number): Promise<void> {
+  await deleteRows("articles", { id: `eq.${articleId}` });
 }
 
 export async function insertRuntimeAdminAuditLog(

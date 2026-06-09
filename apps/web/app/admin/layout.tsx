@@ -20,7 +20,7 @@ const NAV = [
   { href: "/admin/operations", label: "Operations", enabled: true },
   { href: "/admin/comments", label: "Comments", enabled: true },
   { href: "/admin/users", label: "Users", enabled: true },
-  { href: "/admin/content", label: "Content", enabled: false },
+  { href: "/admin/content", label: "Content", enabled: true },
   { href: "/admin/subscribers", label: "Subscribers", enabled: false },
   { href: "/admin/matches", label: "Matches", enabled: false },
   { href: "/admin/media", label: "Media", enabled: false },
