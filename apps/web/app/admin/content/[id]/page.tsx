@@ -180,6 +180,7 @@ function ArticleEditForm({ article, returnTo }: { article: RuntimeAdminArticleDe
             name="body"
             defaultValue={article.body}
             required
+            maxLength={120000}
             rows={22}
             className="min-h-[28rem] rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 font-mono text-sm leading-6 outline-none focus:border-[var(--brand)]"
           />
@@ -187,8 +188,10 @@ function ArticleEditForm({ article, returnTo }: { article: RuntimeAdminArticleDe
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Image URL">
             <input
+              type="url"
               name="imageUrl"
               defaultValue={article.imageUrl ?? ""}
+              maxLength={2000}
               className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm outline-none focus:border-[var(--brand)]"
             />
           </Field>

@@ -1339,7 +1339,7 @@ export async function updateRuntimeAdminArticle(
 }
 
 export async function deleteRuntimeAdminArticle(articleId: number): Promise<void> {
-  await deleteRows("articles", { id: `eq.${articleId}` });
+  await deleteRows("articles", { id: `eq.${articleId}`, status: "eq.draft" });
 }
 
 export async function insertRuntimeAdminAuditLog(

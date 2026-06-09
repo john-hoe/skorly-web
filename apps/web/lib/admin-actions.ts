@@ -800,6 +800,31 @@ export async function deleteAdminArticle(
 
   try {
     await deleteRuntimeAdminArticle(articleId);
+    const remaining = await getRuntimeAdminArticle(articleId).catch((error) => {
+      console.warn("[admin] article delete verification failed", error);
+      throw error;
+    });
+    if (remaining) {
+      const message =
+        remaining.status === "published"
+          ? "Article became published before delete"
+          : "Article was not deleted";
+      await finishArticleAudit(auditId, {
+        status: "failed",
+        title: article.title,
+        articleStatus: article.status,
+        currentStatus: remaining.status,
+        error: preview(message),
+      });
+      revalidateArticleAdminPaths(article);
+      return {
+        ok: false,
+        articleId,
+        action: "delete",
+        error: remaining.status === "published" ? "publishedDelete" : "upstream",
+        response: preview(message),
+      };
+    }
     await finishArticleAudit(auditId, {
       status: "succeeded",
       title: article.title,

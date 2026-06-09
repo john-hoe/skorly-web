@@ -21,7 +21,7 @@ vi.mock("@skorly/predict-model", () => ({
   forecastSummary: vi.fn(),
 }));
 
-const { reportRuntimeComment } = await import("./runtime-data");
+const { deleteRuntimeAdminArticle, reportRuntimeComment } = await import("./runtime-data");
 
 describe("reportRuntimeComment", () => {
   beforeEach(() => {
@@ -59,5 +59,21 @@ describe("reportRuntimeComment", () => {
       { is_hidden: true },
       { returning: false },
     );
+  });
+});
+
+describe("deleteRuntimeAdminArticle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rest.deleteRows.mockResolvedValue(undefined);
+  });
+
+  it("deletes only draft articles", async () => {
+    await deleteRuntimeAdminArticle(42);
+
+    expect(rest.deleteRows).toHaveBeenCalledWith("articles", {
+      id: "eq.42",
+      status: "eq.draft",
+    });
   });
 });

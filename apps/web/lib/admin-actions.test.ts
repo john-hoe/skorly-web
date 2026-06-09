@@ -241,6 +241,26 @@ describe("admin article management actions", () => {
     expect(cache.revalidatePath).toHaveBeenCalledWith(`/${target.locale}/artikel/${target.slug}`);
   });
 
+  it("unpublishes a published article without clearing publishedAt", async () => {
+    const target = article("published");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await setAdminArticleStatus(target.id, "draft");
+
+    expect(result).toEqual({ ok: true, articleId: target.id, action: "status" });
+    expect(runtime.setRuntimeAdminArticleStatus).toHaveBeenCalledWith(target.id, "draft", undefined);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({
+        status: "succeeded",
+        fromStatus: "published",
+        toStatus: "draft",
+        fromPublishedAt: target.publishedAt?.toISOString(),
+        toPublishedAt: target.publishedAt?.toISOString(),
+      }),
+    );
+  });
+
   it("updates article fields without writing body text into audit metadata", async () => {
     const target = article("draft");
     runtime.getRuntimeAdminArticle.mockResolvedValue(target);
@@ -308,7 +328,7 @@ describe("admin article management actions", () => {
 
   it("writes audit logs around a confirmed draft article delete", async () => {
     const target = article("draft");
-    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+    runtime.getRuntimeAdminArticle.mockResolvedValueOnce(target).mockResolvedValueOnce(null);
 
     const result = await deleteAdminArticle(target.id, { confirmDelete: true });
 
@@ -327,6 +347,31 @@ describe("admin article management actions", () => {
     expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
       321,
       expect.objectContaining({ status: "succeeded", title: target.title }),
+    );
+  });
+
+  it("does not report success when a draft becomes published before delete verification", async () => {
+    const target = article("draft");
+    const nowPublished = article("published");
+    runtime.getRuntimeAdminArticle.mockResolvedValueOnce(target).mockResolvedValueOnce(nowPublished);
+
+    const result = await deleteAdminArticle(target.id, { confirmDelete: true });
+
+    expect(result).toEqual({
+      ok: false,
+      articleId: target.id,
+      action: "delete",
+      error: "publishedDelete",
+      response: "Article became published before delete",
+    });
+    expect(runtime.deleteRuntimeAdminArticle).toHaveBeenCalledWith(target.id);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({
+        status: "failed",
+        currentStatus: "published",
+        error: "Article became published before delete",
+      }),
     );
   });
 });
