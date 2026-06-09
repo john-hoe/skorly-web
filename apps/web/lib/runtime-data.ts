@@ -6,6 +6,7 @@ import {
   insertRows,
   selectCount,
   selectRows,
+  selectRowsWithCount,
   updateRows,
   upsertRows,
 } from "@/lib/runtime/supabase-rest";
@@ -154,6 +155,7 @@ export interface RuntimeProfileView {
   role: string;
   consentMarketing: boolean;
   createdAt: Date | null;
+  deletedAt: Date | null;
 }
 
 export type RuntimeAdminAuditMeta = Record<string, unknown>;
@@ -216,6 +218,54 @@ export interface RuntimeAdminOverviewStats {
   campaigns: {
     entriesTotal: number;
   };
+}
+
+export type RuntimeAdminUserRole = "member" | "premium" | "admin";
+export type RuntimeAdminUserStatus = "active" | "deleted" | "all";
+
+export interface RuntimeAdminUserListParams {
+  query?: string;
+  status?: RuntimeAdminUserStatus;
+  role?: RuntimeAdminUserRole | "all";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RuntimeAdminUserListItem {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  whatsappNumber: string | null;
+  locale: string;
+  role: RuntimeAdminUserRole;
+  consentMarketing: boolean;
+  consentAt: Date | null;
+  createdAt: Date | null;
+  deletedAt: Date | null;
+  activity: {
+    predictions: number;
+    comments: number;
+    pushSubscriptions: number;
+    subscriberMatches: number;
+  };
+}
+
+export interface RuntimeAdminUserBasic {
+  id: string;
+  role: RuntimeAdminUserRole;
+  deletedAt: Date | null;
+}
+
+export interface RuntimeAdminUserList {
+  users: RuntimeAdminUserListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  query: string;
+  status: RuntimeAdminUserStatus;
+  role: RuntimeAdminUserRole | "all";
 }
 
 export interface RuntimeTeamOption {
@@ -356,7 +406,9 @@ interface ProfileRow {
   favorite_team_id?: number | null;
   role?: string;
   consent_marketing?: boolean;
+  consent_at?: string | null;
   created_at?: string | null;
+  deleted_at?: string | null;
 }
 
 interface AdminAuditLogRow {
@@ -446,12 +498,18 @@ interface UserIdRow {
   user_id: string;
 }
 
+interface SubscriberMatchRow {
+  email?: string | null;
+  whatsapp_number?: string | null;
+}
+
 const FIXTURE_SELECT =
   "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
 const TEAM_SELECT = "id,name,slug,logo,code";
 const BRACKET_SLUG = "wc2026-bracket";
 const ADMIN_LOCALES = ["id", "vi", "en", "zh"] as const;
 const ADMIN_ROLES = ["member", "premium", "admin"] as const;
+const ADMIN_USER_PAGE_SIZE = 25;
 const ADMIN_ARTICLE_TYPES = [
   "preview",
   "watchpoints",
@@ -785,7 +843,7 @@ export async function getRuntimePublicPicks(
 export async function getRuntimeProfile(id: string): Promise<RuntimeProfileView | null> {
   const rows = await selectRows<ProfileRow>("profiles", {
     select:
-      "id,email,display_name,avatar_url,whatsapp_number,locale,favorite_team_id,role,consent_marketing,created_at",
+      "id,email,display_name,avatar_url,whatsapp_number,locale,favorite_team_id,role,consent_marketing,created_at,deleted_at",
     id: `eq.${id}`,
     limit: 1,
   });
@@ -802,8 +860,226 @@ export async function getRuntimeProfile(id: string): Promise<RuntimeProfileView 
         role: r.role ?? "member",
         consentMarketing: r.consent_marketing ?? false,
         createdAt: safeDate(r.created_at),
+        deletedAt: safeDate(r.deleted_at),
       }
     : null;
+}
+
+function adminUserRole(value: string | null | undefined): RuntimeAdminUserRole {
+  return value === "premium" || value === "admin" ? value : "member";
+}
+
+function adminUserStatus(value: string | null | undefined): RuntimeAdminUserStatus {
+  return value === "deleted" || value === "all" ? value : "active";
+}
+
+function normalizeAdminUserSearch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
+
+function normalizeAdminUserPage(value: number | null | undefined): number {
+  return Number.isInteger(value) && value && value > 0 ? value : 1;
+}
+
+function adminUserSearchOrFilter(search: string): string | null {
+  if (!search) return null;
+  return `(email.ilike.*${search}*,display_name.ilike.*${search}*)`;
+}
+
+function profileToAdminUser(
+  row: ProfileRow,
+  activity: Map<string, RuntimeAdminUserListItem["activity"]>,
+): RuntimeAdminUserListItem {
+  return {
+    id: row.id,
+    email: row.email ?? null,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    whatsappNumber: row.whatsapp_number ?? null,
+    locale: row.locale ?? "id",
+    role: adminUserRole(row.role),
+    consentMarketing: row.consent_marketing ?? false,
+    consentAt: safeDate(row.consent_at),
+    createdAt: safeDate(row.created_at),
+    deletedAt: safeDate(row.deleted_at),
+    activity: activity.get(row.id) ?? {
+      predictions: 0,
+      comments: 0,
+      pushSubscriptions: 0,
+      subscriberMatches: 0,
+    },
+  };
+}
+
+function incrementCount(map: Map<string, number>, key: string | null | undefined): void {
+  if (!key) return;
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+async function countRowsByUser(table: string, userIds: string[]): Promise<Map<string, number>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await selectRows<UserIdRow>(table, {
+    select: "user_id",
+    user_id: inFilter(userIds),
+    limit: 5_000,
+  });
+  const counts = new Map<string, number>();
+  for (const row of rows) incrementCount(counts, row.user_id);
+  return counts;
+}
+
+async function subscriberMatchCounts(profiles: ProfileRow[]): Promise<Map<string, number>> {
+  const byEmail = new Map<string, string>();
+  const byWhatsapp = new Map<string, string>();
+  for (const profile of profiles) {
+    const email = profile.email?.trim().toLowerCase();
+    const whatsapp = profile.whatsapp_number?.trim();
+    if (email) byEmail.set(email, profile.id);
+    if (whatsapp) byWhatsapp.set(whatsapp, profile.id);
+  }
+
+  const [emailRows, whatsappRows] = await Promise.all([
+    byEmail.size
+      ? selectRows<SubscriberMatchRow>("subscribers", {
+          select: "email",
+          email: inFilter(Array.from(byEmail.keys())),
+          limit: 5_000,
+        })
+      : Promise.resolve([]),
+    byWhatsapp.size
+      ? selectRows<SubscriberMatchRow>("subscribers", {
+          select: "whatsapp_number",
+          whatsapp_number: inFilter(Array.from(byWhatsapp.keys())),
+          limit: 5_000,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const counts = new Map<string, number>();
+  for (const row of emailRows) incrementCount(counts, byEmail.get(row.email?.toLowerCase() ?? ""));
+  for (const row of whatsappRows) incrementCount(counts, byWhatsapp.get(row.whatsapp_number ?? ""));
+  return counts;
+}
+
+async function adminUserActivity(
+  profiles: ProfileRow[],
+): Promise<Map<string, RuntimeAdminUserListItem["activity"]>> {
+  const userIds = profiles.map((profile) => profile.id);
+  const [predictions, comments, pushSubscriptions, subscriberMatches] = await Promise.all([
+    countRowsByUser("predictions", userIds),
+    countRowsByUser("comments", userIds),
+    countRowsByUser("push_subscriptions", userIds),
+    subscriberMatchCounts(profiles),
+  ]);
+
+  return new Map(
+    userIds.map((userId) => [
+      userId,
+      {
+        predictions: predictions.get(userId) ?? 0,
+        comments: comments.get(userId) ?? 0,
+        pushSubscriptions: pushSubscriptions.get(userId) ?? 0,
+        subscriberMatches: subscriberMatches.get(userId) ?? 0,
+      },
+    ]),
+  );
+}
+
+export async function getRuntimeAdminUsers(
+  input: RuntimeAdminUserListParams = {},
+): Promise<RuntimeAdminUserList> {
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize && input.pageSize > 0
+      ? Math.min(input.pageSize, 100)
+      : ADMIN_USER_PAGE_SIZE;
+  const page = normalizeAdminUserPage(input.page);
+  const status = adminUserStatus(input.status);
+  const role = input.role === "member" || input.role === "premium" || input.role === "admin"
+    ? input.role
+    : "all";
+  const query = normalizeAdminUserSearch(input.query);
+  const searchFilter = adminUserSearchOrFilter(query);
+
+  const params: Record<string, string | number | boolean | null | undefined> = {
+    select:
+      "id,email,display_name,avatar_url,whatsapp_number,locale,role,consent_marketing,consent_at,created_at,deleted_at",
+    order: "created_at.desc",
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  };
+  if (status === "active") params.deleted_at = "is.null";
+  if (status === "deleted") params.deleted_at = "not.is.null";
+  if (role !== "all") params.role = `eq.${role}`;
+  if (searchFilter) params.or = searchFilter;
+
+  const { rows, total } = await selectRowsWithCount<ProfileRow>("profiles", params);
+  const activity = await adminUserActivity(rows);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    users: rows.map((row) => profileToAdminUser(row, activity)),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    query,
+    status,
+    role,
+  };
+}
+
+export async function getRuntimeAdminUser(id: string): Promise<RuntimeAdminUserListItem | null> {
+  const rows = await selectRows<ProfileRow>("profiles", {
+    select:
+      "id,email,display_name,avatar_url,whatsapp_number,locale,role,consent_marketing,consent_at,created_at,deleted_at",
+    id: `eq.${id}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  return profileToAdminUser(row, await adminUserActivity([row]));
+}
+
+export async function getRuntimeAdminUserBasic(id: string): Promise<RuntimeAdminUserBasic | null> {
+  const rows = await selectRows<Pick<ProfileRow, "id" | "role" | "deleted_at">>("profiles", {
+    select: "id,role,deleted_at",
+    id: `eq.${id}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    role: adminUserRole(row.role),
+    deletedAt: safeDate(row.deleted_at),
+  };
+}
+
+export async function countRuntimeActiveAdmins(): Promise<number> {
+  return selectCount("profiles", { role: "eq.admin", deleted_at: "is.null" });
+}
+
+export async function setRuntimeAdminUserRole(
+  userId: string,
+  role: RuntimeAdminUserRole,
+): Promise<void> {
+  await updateRows("profiles", { id: `eq.${userId}` }, { role }, { returning: false });
+}
+
+export async function setRuntimeAdminUserDeleted(
+  userId: string,
+  deleted: boolean,
+): Promise<void> {
+  await updateRows(
+    "profiles",
+    { id: `eq.${userId}` },
+    { deleted_at: deleted ? new Date().toISOString() : null },
+    { returning: false },
+  );
 }
 
 export async function insertRuntimeAdminAuditLog(
