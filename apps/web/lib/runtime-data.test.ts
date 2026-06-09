@@ -6,6 +6,7 @@ const rest = vi.hoisted(() => ({
   insertRows: vi.fn(),
   selectCount: vi.fn(),
   selectRows: vi.fn(),
+  selectRowsWithCount: vi.fn(),
   updateRows: vi.fn(),
   upsertRows: vi.fn(),
 }));

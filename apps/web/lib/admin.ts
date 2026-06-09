@@ -18,6 +18,6 @@ export async function requireAdmin(): Promise<AdminSession> {
     return null;
   });
 
-  if (profile?.role !== "admin") notFound();
+  if (profile?.role !== "admin" || profile.deletedAt) notFound();
   return { user, profile };
 }

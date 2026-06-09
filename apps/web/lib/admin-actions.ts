@@ -2,10 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  countRuntimeActiveAdmins,
+  getRuntimeAdminUser,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
+  setRuntimeAdminUserDeleted,
+  setRuntimeAdminUserRole,
   setRuntimeAdminCommentHidden,
   updateRuntimeAdminAuditLogMeta,
+  type RuntimeAdminUserRole,
   type RuntimeAdminAuditMeta,
 } from "./runtime-data";
 import { getAdminOperation, type AdminOperationId } from "./admin-operations";
@@ -38,6 +43,29 @@ export type AdminCommentModerationResult =
       error: "invalid" | "audit" | "upstream";
       response?: string;
     };
+
+export type AdminUserManagementResult =
+  | {
+      ok: true;
+      userId: string;
+      action: "role" | "deactivate" | "restore";
+    }
+  | {
+      ok: false;
+      userId?: string;
+      action?: "role" | "deactivate" | "restore";
+      error:
+        | "invalid"
+        | "audit"
+        | "upstream"
+        | "notFound"
+        | "confirmAdmin"
+        | "selfAdmin"
+        | "lastAdmin";
+      response?: string;
+    };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function jobsAdminUrl(): string | null {
   const raw = process.env.JOBS_ADMIN_URL?.trim();
@@ -170,6 +198,14 @@ function validCommentId(commentId: number): boolean {
   return Number.isInteger(commentId) && commentId > 0;
 }
 
+function validUserId(userId: string): boolean {
+  return UUID_RE.test(userId);
+}
+
+function validAdminUserRole(role: string): role is RuntimeAdminUserRole {
+  return role === "member" || role === "premium" || role === "admin";
+}
+
 async function startCommentAudit(
   actorId: string,
   action: "comments.hide" | "comments.unhide" | "comments.reports.review",
@@ -270,5 +306,161 @@ export async function reviewAdminCommentReports(
     });
     revalidatePath("/admin/comments");
     return { ok: false, commentId, action: "review", error: "upstream", response: preview(message) };
+  }
+}
+
+async function startUserAudit(
+  actorId: string,
+  action: "users.role.set" | "users.deactivate" | "users.restore",
+  userId: string,
+  meta: RuntimeAdminAuditMeta,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `user:${userId}`,
+    meta: {
+      ...meta,
+      userId,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishUserAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+export async function setAdminUserRole(
+  userId: string,
+  role: string,
+  options: { confirmAdminChange?: boolean } = {},
+): Promise<AdminUserManagementResult> {
+  if (!validUserId(userId) || !validAdminUserRole(role)) {
+    return { ok: false, userId, action: "role", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const target = await getRuntimeAdminUser(userId).catch((error) => {
+    console.warn("[admin] user lookup failed", error);
+    return null;
+  });
+  if (!target) return { ok: false, userId, action: "role", error: "notFound" };
+  if (target.role === role) return { ok: true, userId, action: "role" };
+
+  const touchesAdminRole = target.role === "admin" || role === "admin";
+  if (touchesAdminRole && !options.confirmAdminChange) {
+    return { ok: false, userId, action: "role", error: "confirmAdmin" };
+  }
+  if (target.role === "admin" && role !== "admin") {
+    if (target.id === admin.user.id) {
+      return { ok: false, userId, action: "role", error: "selfAdmin" };
+    }
+    const activeAdmins = await countRuntimeActiveAdmins().catch(() => 0);
+    if (activeAdmins <= 1) return { ok: false, userId, action: "role", error: "lastAdmin" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startUserAudit(admin.user.id, "users.role.set", userId, {
+      fromRole: target.role,
+      toRole: role,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, userId, action: "role", error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminUserRole(userId, role);
+    await finishUserAudit(auditId, {
+      status: "succeeded",
+      fromRole: target.role,
+      toRole: role,
+    });
+    revalidatePath("/admin/users");
+    revalidatePath("/admin");
+    return { ok: true, userId, action: "role" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishUserAudit(auditId, {
+      status: "failed",
+      fromRole: target.role,
+      toRole: role,
+      error: preview(message),
+    });
+    revalidatePath("/admin/users");
+    return { ok: false, userId, action: "role", error: "upstream", response: preview(message) };
+  }
+}
+
+export async function setAdminUserDeleted(
+  userId: string,
+  deleted: boolean,
+  options: { confirmAdminChange?: boolean } = {},
+): Promise<AdminUserManagementResult> {
+  if (!validUserId(userId)) return { ok: false, userId, error: "invalid" };
+  const admin = await requireAdmin();
+  const action = deleted ? "deactivate" : "restore";
+  const target = await getRuntimeAdminUser(userId).catch((error) => {
+    console.warn("[admin] user lookup failed", error);
+    return null;
+  });
+  if (!target) return { ok: false, userId, action, error: "notFound" };
+  if (Boolean(target.deletedAt) === deleted) return { ok: true, userId, action };
+
+  if (deleted && target.role === "admin") {
+    if (!options.confirmAdminChange) {
+      return { ok: false, userId, action, error: "confirmAdmin" };
+    }
+    if (target.id === admin.user.id) {
+      return { ok: false, userId, action, error: "selfAdmin" };
+    }
+    const activeAdmins = await countRuntimeActiveAdmins().catch(() => 0);
+    if (activeAdmins <= 1) return { ok: false, userId, action, error: "lastAdmin" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startUserAudit(
+      admin.user.id,
+      deleted ? "users.deactivate" : "users.restore",
+      userId,
+      {
+        role: target.role,
+        deleted,
+      },
+    );
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, userId, action, error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminUserDeleted(userId, deleted);
+    await finishUserAudit(auditId, {
+      status: "succeeded",
+      role: target.role,
+      deleted,
+    });
+    revalidatePath("/admin/users");
+    revalidatePath("/admin");
+    return { ok: true, userId, action };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishUserAudit(auditId, {
+      status: "failed",
+      role: target.role,
+      deleted,
+      error: preview(message),
+    });
+    revalidatePath("/admin/users");
+    return { ok: false, userId, action, error: "upstream", response: preview(message) };
   }
 }

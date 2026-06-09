@@ -89,6 +89,19 @@ export async function selectRows<T>(
   return data;
 }
 
+export async function selectRowsWithCount<T>(
+  table: string,
+  query: Record<string, string | number | boolean | null | undefined>,
+): Promise<{ rows: T[]; total: number }> {
+  const { data, response } = await request<T[]>(table, {
+    params: params(query),
+    headers: { Prefer: "count=exact" },
+  });
+  const range = response.headers.get("content-range");
+  const total = range?.split("/")[1];
+  return { rows: data, total: total && total !== "*" ? Number(total) || 0 : data.length };
+}
+
 export async function selectCount(
   table: string,
   query: Record<string, string | number | boolean | null | undefined>,
