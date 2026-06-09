@@ -144,6 +144,48 @@ export interface RuntimeAdminAuditLogInput {
   meta?: RuntimeAdminAuditMeta | null;
 }
 
+export interface RuntimeAdminOverviewStats {
+  generatedAt: Date;
+  users: {
+    total: number;
+    new7d: number;
+    new30d: number;
+    deleted: number;
+    byRole: Array<{ role: string; count: number }>;
+    byLocale: Array<{ locale: string; count: number }>;
+  };
+  predictions: {
+    total: number;
+    last7d: number;
+    weeklyActivePredictors: number;
+    predictionsPerUser: number;
+  };
+  subscriptions: {
+    subscribersTotal: number;
+    subscribersConfirmed: number;
+    subscribersEmail: number;
+    subscribersWhatsapp: number;
+    subscribersNew7d: number;
+    pushSubscriptions: number;
+  };
+  content: {
+    articlesTotal: number;
+    published: number;
+    draft: number;
+    publishedLast48h: number;
+    byType: Array<{ type: string; count: number }>;
+    byLocale: Array<{ locale: string; count: number }>;
+  };
+  engagement: {
+    commentsTotal: number;
+    commentsLast7d: number;
+    commentReportsTotal: number;
+  };
+  campaigns: {
+    entriesTotal: number;
+  };
+}
+
 export interface RuntimeTeamOption {
   id: number;
   name: string;
@@ -348,15 +390,42 @@ interface SubscriberRow {
   confirm_token: string | null;
 }
 
+interface UserIdRow {
+  user_id: string;
+}
+
 const FIXTURE_SELECT =
   "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
 const TEAM_SELECT = "id,name,slug,logo,code";
 const BRACKET_SLUG = "wc2026-bracket";
+const ADMIN_LOCALES = ["id", "vi", "en", "zh"] as const;
+const ADMIN_ROLES = ["member", "premium", "admin"] as const;
+const ADMIN_ARTICLE_TYPES = [
+  "preview",
+  "watchpoints",
+  "prediction",
+  "recap",
+  "tactical",
+  "group_analysis",
+  "news",
+] as const;
 
 function safeDate(v: string | null | undefined): Date | null {
   if (!v) return null;
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function daysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function hoursAgo(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+function roundMetric(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 function cleanArticleText(body: string): string {
@@ -731,6 +800,158 @@ export async function getRuntimeRecentAdminAuditLogs(
       createdAt: safeDate(r.created_at),
     };
   });
+}
+
+async function fixedDistribution(
+  table: string,
+  column: string,
+  values: readonly string[],
+  baseQuery: Record<string, string | number | boolean | null | undefined> = {},
+): Promise<Array<{ label: string; count: number }>> {
+  const counts = await Promise.all(
+    values.map(async (value) => ({
+      label: value,
+      count: await selectCount(table, { ...baseQuery, [column]: `eq.${value}` }),
+    })),
+  );
+  return counts;
+}
+
+function withOther<Key extends "role" | "locale" | "type">(
+  total: number,
+  rows: Array<{ label: string; count: number }>,
+  key: Key,
+) {
+  const known = rows.reduce((sum, row) => sum + row.count, 0);
+  const out = rows.map((row) => ({ [key]: row.label, count: row.count }));
+  const other = Math.max(0, total - known);
+  if (known > total) {
+    console.warn("[admin] distribution counts exceeded total", { key, total, known });
+  }
+  if (other > 0) out.push({ [key]: "other", count: other });
+  return out as Array<Record<Key, string> & { count: number }>;
+}
+
+async function weeklyActivePredictors(since: string): Promise<number> {
+  const pageSize = 1_000;
+  const users = new Set<string>();
+  for (let offset = 0; ; offset += pageSize) {
+    const rows = await selectRows<UserIdRow>("predictions", {
+      select: "user_id",
+      submitted_at: `gte.${since}`,
+      order: "user_id.asc,fixture_id.asc",
+      limit: pageSize,
+      offset,
+    });
+    for (const row of rows) users.add(row.user_id);
+    if (rows.length < pageSize) break;
+  }
+  return users.size;
+}
+
+export async function getRuntimeAdminOverviewStats(): Promise<RuntimeAdminOverviewStats> {
+  const since7d = daysAgo(7);
+  const since30d = daysAgo(30);
+  const since48h = hoursAgo(48);
+
+  const [
+    usersTotal,
+    usersNew7d,
+    usersNew30d,
+    usersDeleted,
+    userRoles,
+    userLocales,
+    predictionsTotal,
+    predictionsLast7d,
+    wap,
+    subscribersTotal,
+    subscribersConfirmed,
+    subscribersEmail,
+    subscribersWhatsapp,
+    subscribersNew7d,
+    pushSubscriptionsTotal,
+    articlesTotal,
+    articlesPublished,
+    articlesDraft,
+    articlesPublishedLast48h,
+    articleTypes,
+    articleLocales,
+    commentsTotal,
+    commentsLast7d,
+    commentReportsTotal,
+    campaignEntriesTotal,
+  ] = await Promise.all([
+    selectCount("profiles", { deleted_at: "is.null" }),
+    selectCount("profiles", { created_at: `gte.${since7d}`, deleted_at: "is.null" }),
+    selectCount("profiles", { created_at: `gte.${since30d}`, deleted_at: "is.null" }),
+    selectCount("profiles", { deleted_at: "not.is.null" }),
+    fixedDistribution("profiles", "role", ADMIN_ROLES, { deleted_at: "is.null" }),
+    fixedDistribution("profiles", "locale", ADMIN_LOCALES, { deleted_at: "is.null" }),
+    selectCount("predictions", {}),
+    selectCount("predictions", { submitted_at: `gte.${since7d}` }),
+    weeklyActivePredictors(since7d),
+    selectCount("subscribers", {}),
+    selectCount("subscribers", { confirmed_at: "not.is.null" }),
+    selectCount("subscribers", { email: "not.is.null" }),
+    selectCount("subscribers", { whatsapp_number: "not.is.null" }),
+    selectCount("subscribers", { created_at: `gte.${since7d}` }),
+    selectCount("push_subscriptions", {}),
+    selectCount("articles", {}),
+    selectCount("articles", { status: "eq.published" }),
+    selectCount("articles", { status: "eq.draft" }),
+    selectCount("articles", {
+      status: "eq.published",
+      published_at: `gte.${since48h}`,
+    }),
+    fixedDistribution("articles", "type", ADMIN_ARTICLE_TYPES),
+    fixedDistribution("articles", "locale", ADMIN_LOCALES),
+    selectCount("comments", {}),
+    selectCount("comments", { created_at: `gte.${since7d}` }),
+    selectCount("comment_reports", {}),
+    selectCount("campaign_entries", {}),
+  ]);
+
+  return {
+    generatedAt: new Date(),
+    users: {
+      total: usersTotal,
+      new7d: usersNew7d,
+      new30d: usersNew30d,
+      deleted: usersDeleted,
+      byRole: withOther(usersTotal, userRoles, "role"),
+      byLocale: withOther(usersTotal, userLocales, "locale"),
+    },
+    predictions: {
+      total: predictionsTotal,
+      last7d: predictionsLast7d,
+      weeklyActivePredictors: wap,
+      predictionsPerUser: usersTotal > 0 ? roundMetric(predictionsTotal / usersTotal) : 0,
+    },
+    subscriptions: {
+      subscribersTotal,
+      subscribersConfirmed,
+      subscribersEmail,
+      subscribersWhatsapp,
+      subscribersNew7d,
+      pushSubscriptions: pushSubscriptionsTotal,
+    },
+    content: {
+      articlesTotal,
+      published: articlesPublished,
+      draft: articlesDraft,
+      publishedLast48h: articlesPublishedLast48h,
+      byType: withOther(articlesTotal, articleTypes, "type"),
+      byLocale: withOther(articlesTotal, articleLocales, "locale"),
+    },
+    engagement: {
+      commentsTotal,
+      commentsLast7d,
+      commentReportsTotal,
+    },
+    campaigns: {
+      entriesTotal: campaignEntriesTotal,
+    },
+  };
 }
 
 export async function getRuntimeTeamOptions(): Promise<RuntimeTeamOption[]> {
