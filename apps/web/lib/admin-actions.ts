@@ -3,13 +3,20 @@
 import { revalidatePath } from "next/cache";
 import {
   countRuntimeActiveAdmins,
+  deleteRuntimeAdminArticle,
+  getRuntimeAdminArticle,
   getRuntimeAdminUserBasic,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
+  setRuntimeAdminArticleStatus,
   setRuntimeAdminUserDeleted,
   setRuntimeAdminUserRole,
   setRuntimeAdminCommentHidden,
+  updateRuntimeAdminArticle,
   updateRuntimeAdminAuditLogMeta,
+  type RuntimeAdminArticleDetail,
+  type RuntimeAdminArticleStatus,
+  type RuntimeAdminArticleUpdateInput,
   type RuntimeAdminUserRole,
   type RuntimeAdminAuditMeta,
 } from "./runtime-data";
@@ -18,6 +25,10 @@ import { requireAdmin } from "./admin";
 
 const RESPONSE_PREVIEW_LIMIT = 2_000;
 const JOB_TIMEOUT_MS = 120_000;
+const ARTICLE_TITLE_MAX = 240;
+const ARTICLE_SUMMARY_MAX = 600;
+const ARTICLE_BODY_MAX = 120_000;
+const ARTICLE_IMAGE_URL_MAX = 2_000;
 
 export type RunAdminOperationResult =
   | {
@@ -62,6 +73,26 @@ export type AdminUserManagementResult =
         | "confirmAdmin"
         | "selfAdmin"
         | "lastAdmin";
+      response?: string;
+    };
+
+export type AdminArticleManagementResult =
+  | {
+      ok: true;
+      articleId: number;
+      action: "status" | "update" | "delete";
+    }
+  | {
+      ok: false;
+      articleId?: number;
+      action?: "status" | "update" | "delete";
+      error:
+        | "invalid"
+        | "audit"
+        | "upstream"
+        | "notFound"
+        | "confirmDelete"
+        | "publishedDelete";
       response?: string;
     };
 
@@ -198,12 +229,115 @@ function validCommentId(commentId: number): boolean {
   return Number.isInteger(commentId) && commentId > 0;
 }
 
+function validArticleId(articleId: number): boolean {
+  return Number.isInteger(articleId) && articleId > 0;
+}
+
 function validUserId(userId: string): boolean {
   return UUID_RE.test(userId);
 }
 
 function validAdminUserRole(role: string): role is RuntimeAdminUserRole {
   return role === "member" || role === "premium" || role === "admin";
+}
+
+function validAdminArticleStatus(status: string | null | undefined): status is RuntimeAdminArticleStatus {
+  return status === "draft" || status === "published";
+}
+
+function normalizeText(value: string | null | undefined, maxLength: number): string | null {
+  const next = (value ?? "").trim();
+  if (!next) return null;
+  return next.length <= maxLength ? next : null;
+}
+
+function normalizeNullableText(value: string | null | undefined, maxLength: number): string | null | undefined {
+  const next = (value ?? "").trim();
+  if (!next) return null;
+  return next.length <= maxLength ? next : undefined;
+}
+
+function normalizePublishedAt(value: string | null | undefined): string | null | undefined {
+  const next = (value ?? "").trim();
+  if (!next) return null;
+  const parsed = new Date(next);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+}
+
+function normalizeImageUrl(value: string | null | undefined): string | null | undefined {
+  const next = (value ?? "").trim();
+  if (!next) return null;
+  if (next.length > ARTICLE_IMAGE_URL_MAX) return undefined;
+  try {
+    const url = new URL(next);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeArticleUpdateInput(input: {
+  title?: string | null;
+  summary?: string | null;
+  body?: string | null;
+  imageUrl?: string | null;
+  status?: string | null;
+  publishedAt?: string | null;
+}): RuntimeAdminArticleUpdateInput | null {
+  const title = normalizeText(input.title, ARTICLE_TITLE_MAX);
+  const summary = normalizeNullableText(input.summary, ARTICLE_SUMMARY_MAX);
+  const body = normalizeText(input.body, ARTICLE_BODY_MAX);
+  const imageUrl = normalizeImageUrl(input.imageUrl);
+  let publishedAt = normalizePublishedAt(input.publishedAt);
+  if (
+    !title ||
+    summary === undefined ||
+    !body ||
+    imageUrl === undefined ||
+    publishedAt === undefined ||
+    !validAdminArticleStatus(input.status)
+  ) {
+    return null;
+  }
+  if (input.status === "published" && publishedAt === null) {
+    publishedAt = new Date().toISOString();
+  }
+  return {
+    title,
+    summary,
+    body,
+    imageUrl,
+    status: input.status,
+    publishedAt,
+  };
+}
+
+function changedArticleFields(
+  current: RuntimeAdminArticleDetail,
+  next: RuntimeAdminArticleUpdateInput,
+): string[] {
+  const fields: string[] = [];
+  if (current.title !== next.title) fields.push("title");
+  if ((current.summary ?? null) !== next.summary) fields.push("summary");
+  if (current.body !== next.body) fields.push("body");
+  if ((current.imageUrl ?? null) !== next.imageUrl) fields.push("imageUrl");
+  if (current.status !== next.status) fields.push("status");
+  if ((current.publishedAt?.toISOString() ?? null) !== next.publishedAt) {
+    fields.push("publishedAt");
+  }
+  return fields;
+}
+
+function revalidateArticleAdminPaths(article: Pick<RuntimeAdminArticleDetail, "id" | "locale" | "slug">): void {
+  revalidatePath("/admin");
+  revalidatePath("/admin/content");
+  revalidatePath(`/admin/content/${article.id}`);
+  revalidatePath(`/${article.locale}/artikel/${article.slug}`);
+  revalidatePath(`/${article.locale}/arsip`);
+  revalidatePath(`/${article.locale}/berita`);
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/news-sitemap.xml");
 }
 
 async function startCommentAudit(
@@ -462,5 +596,251 @@ export async function setAdminUserDeleted(
     });
     revalidatePath("/admin/users");
     return { ok: false, userId, action, error: "upstream", response: preview(message) };
+  }
+}
+
+async function loadAdminArticle(
+  articleId: number,
+): Promise<
+  | { article: RuntimeAdminArticleDetail }
+  | { error: "notFound" | "upstream"; response?: string }
+> {
+  try {
+    const article = await getRuntimeAdminArticle(articleId);
+    return article ? { article } : { error: "notFound" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn("[admin] article lookup failed", error);
+    return { error: "upstream", response: preview(message) };
+  }
+}
+
+async function startArticleAudit(
+  actorId: string,
+  action: "articles.status.set" | "articles.update" | "articles.delete",
+  article: RuntimeAdminArticleDetail,
+  meta: RuntimeAdminAuditMeta,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `article:${article.id}`,
+    meta: {
+      ...meta,
+      articleId: article.id,
+      slug: article.slug,
+      locale: article.locale,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishArticleAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+export async function setAdminArticleStatus(
+  articleId: number,
+  status: string,
+): Promise<AdminArticleManagementResult> {
+  if (!validArticleId(articleId) || !validAdminArticleStatus(status)) {
+    return { ok: false, articleId, action: "status", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminArticle(articleId);
+  if ("error" in loaded) {
+    return { ok: false, articleId, action: "status", ...loaded };
+  }
+  const article = loaded.article;
+  const nextPublishedAt =
+    status === "published" ? article.publishedAt?.toISOString() ?? new Date().toISOString() : undefined;
+  if (
+    article.status === status &&
+    (status !== "published" || Boolean(article.publishedAt))
+  ) {
+    return { ok: true, articleId, action: "status" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startArticleAudit(admin.user.id, "articles.status.set", article, {
+      fromStatus: article.status,
+      toStatus: status,
+      fromPublishedAt: article.publishedAt?.toISOString() ?? null,
+      toPublishedAt: nextPublishedAt ?? article.publishedAt?.toISOString() ?? null,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, articleId, action: "status", error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminArticleStatus(articleId, status, nextPublishedAt);
+    await finishArticleAudit(auditId, {
+      status: "succeeded",
+      fromStatus: article.status,
+      toStatus: status,
+      fromPublishedAt: article.publishedAt?.toISOString() ?? null,
+      toPublishedAt: nextPublishedAt ?? article.publishedAt?.toISOString() ?? null,
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: true, articleId, action: "status" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishArticleAudit(auditId, {
+      status: "failed",
+      fromStatus: article.status,
+      toStatus: status,
+      error: preview(message),
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: false, articleId, action: "status", error: "upstream", response: preview(message) };
+  }
+}
+
+export async function updateAdminArticle(
+  articleId: number,
+  input: {
+    title?: string | null;
+    summary?: string | null;
+    body?: string | null;
+    imageUrl?: string | null;
+    status?: string | null;
+    publishedAt?: string | null;
+  },
+): Promise<AdminArticleManagementResult> {
+  const next = normalizeArticleUpdateInput(input);
+  if (!validArticleId(articleId) || !next) {
+    return { ok: false, articleId, action: "update", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminArticle(articleId);
+  if ("error" in loaded) {
+    return { ok: false, articleId, action: "update", ...loaded };
+  }
+  const article = loaded.article;
+  const changedFields = changedArticleFields(article, next);
+  if (changedFields.length === 0) return { ok: true, articleId, action: "update" };
+
+  let auditId = 0;
+  try {
+    auditId = await startArticleAudit(admin.user.id, "articles.update", article, {
+      changedFields,
+      fromStatus: article.status,
+      toStatus: next.status,
+      fromPublishedAt: article.publishedAt?.toISOString() ?? null,
+      toPublishedAt: next.publishedAt,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, articleId, action: "update", error: "audit" };
+  }
+
+  try {
+    await updateRuntimeAdminArticle(articleId, next);
+    await finishArticleAudit(auditId, {
+      status: "succeeded",
+      changedFields,
+      fromStatus: article.status,
+      toStatus: next.status,
+      fromPublishedAt: article.publishedAt?.toISOString() ?? null,
+      toPublishedAt: next.publishedAt,
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: true, articleId, action: "update" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishArticleAudit(auditId, {
+      status: "failed",
+      changedFields,
+      error: preview(message),
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: false, articleId, action: "update", error: "upstream", response: preview(message) };
+  }
+}
+
+export async function deleteAdminArticle(
+  articleId: number,
+  options: { confirmDelete?: boolean } = {},
+): Promise<AdminArticleManagementResult> {
+  if (!validArticleId(articleId)) {
+    return { ok: false, articleId, action: "delete", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminArticle(articleId);
+  if ("error" in loaded) {
+    return { ok: false, articleId, action: "delete", ...loaded };
+  }
+  const article = loaded.article;
+  if (article.status === "published") {
+    return { ok: false, articleId, action: "delete", error: "publishedDelete" };
+  }
+  if (!options.confirmDelete) {
+    return { ok: false, articleId, action: "delete", error: "confirmDelete" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startArticleAudit(admin.user.id, "articles.delete", article, {
+      title: article.title,
+      articleStatus: article.status,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, articleId, action: "delete", error: "audit" };
+  }
+
+  try {
+    await deleteRuntimeAdminArticle(articleId);
+    const remaining = await getRuntimeAdminArticle(articleId).catch((error) => {
+      console.warn("[admin] article delete verification failed", error);
+      throw error;
+    });
+    if (remaining) {
+      const message =
+        remaining.status === "published"
+          ? "Article became published before delete"
+          : "Article was not deleted";
+      await finishArticleAudit(auditId, {
+        status: "failed",
+        title: article.title,
+        articleStatus: article.status,
+        currentStatus: remaining.status,
+        error: preview(message),
+      });
+      revalidateArticleAdminPaths(article);
+      return {
+        ok: false,
+        articleId,
+        action: "delete",
+        error: remaining.status === "published" ? "publishedDelete" : "upstream",
+        response: preview(message),
+      };
+    }
+    await finishArticleAudit(auditId, {
+      status: "succeeded",
+      title: article.title,
+      articleStatus: article.status,
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: true, articleId, action: "delete" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishArticleAudit(auditId, {
+      status: "failed",
+      title: article.title,
+      articleStatus: article.status,
+      error: preview(message),
+    });
+    revalidateArticleAdminPaths(article);
+    return { ok: false, articleId, action: "delete", error: "upstream", response: preview(message) };
   }
 }

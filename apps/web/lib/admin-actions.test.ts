@@ -6,12 +6,16 @@ const admin = vi.hoisted(() => ({
 
 const runtime = vi.hoisted(() => ({
   countRuntimeActiveAdmins: vi.fn(),
+  deleteRuntimeAdminArticle: vi.fn(),
+  getRuntimeAdminArticle: vi.fn(),
   getRuntimeAdminUserBasic: vi.fn(),
   insertRuntimeAdminAuditLog: vi.fn(),
   markRuntimeAdminCommentReportsReviewed: vi.fn(),
+  setRuntimeAdminArticleStatus: vi.fn(),
   setRuntimeAdminCommentHidden: vi.fn(),
   setRuntimeAdminUserDeleted: vi.fn(),
   setRuntimeAdminUserRole: vi.fn(),
+  updateRuntimeAdminArticle: vi.fn(),
   updateRuntimeAdminAuditLogMeta: vi.fn(),
 }));
 
@@ -23,7 +27,13 @@ vi.mock("next/cache", () => cache);
 vi.mock("./admin", () => admin);
 vi.mock("./runtime-data", () => runtime);
 
-const { setAdminUserDeleted, setAdminUserRole } = await import("./admin-actions");
+const {
+  deleteAdminArticle,
+  setAdminArticleStatus,
+  setAdminUserDeleted,
+  setAdminUserRole,
+  updateAdminArticle,
+} = await import("./admin-actions");
 
 const actor = {
   user: { id: "00000000-0000-4000-8000-000000000001" },
@@ -49,6 +59,30 @@ function user(role = "member", id = "00000000-0000-4000-8000-000000000002") {
       pushSubscriptions: 0,
       subscriberMatches: 0,
     },
+  };
+}
+
+function article(status = "draft") {
+  return {
+    id: 42,
+    slug: "argentina-vs-brazil-preview",
+    locale: "id",
+    type: "preview",
+    title: "Argentina vs Brazil preview",
+    summary: "Match preview",
+    bodyExcerpt: "Match preview",
+    body: "Existing article body",
+    fixtureId: 10,
+    teamId: null,
+    groupName: null,
+    topicId: null,
+    imageUrl: null,
+    status,
+    qualityScore: null,
+    model: null,
+    publishedAt: status === "published" ? new Date("2026-06-01T10:00:00.000Z") : null,
+    createdAt: new Date("2026-05-01T10:00:00.000Z"),
+    updatedAt: new Date("2026-05-02T10:00:00.000Z"),
   };
 }
 
@@ -158,5 +192,186 @@ describe("admin user management actions", () => {
       error: "invalid",
     });
     expect(admin.requireAdmin).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin article management actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    admin.requireAdmin.mockResolvedValue(actor);
+    runtime.getRuntimeAdminArticle.mockResolvedValue(article());
+    runtime.insertRuntimeAdminAuditLog.mockResolvedValue(321);
+    runtime.setRuntimeAdminArticleStatus.mockResolvedValue(undefined);
+    runtime.updateRuntimeAdminArticle.mockResolvedValue(undefined);
+    runtime.deleteRuntimeAdminArticle.mockResolvedValue(undefined);
+    runtime.updateRuntimeAdminAuditLogMeta.mockResolvedValue(undefined);
+  });
+
+  it("publishes a draft article with an audited status update and publishedAt", async () => {
+    const target = article("draft");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await setAdminArticleStatus(target.id, "published");
+
+    expect(result).toEqual({ ok: true, articleId: target.id, action: "status" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "articles.status.set",
+      target: `article:${target.id}`,
+      meta: expect.objectContaining({
+        articleId: target.id,
+        slug: target.slug,
+        locale: target.locale,
+        fromStatus: "draft",
+        toStatus: "published",
+        fromPublishedAt: null,
+        toPublishedAt: expect.any(String),
+      }),
+    });
+    expect(runtime.setRuntimeAdminArticleStatus).toHaveBeenCalledWith(
+      target.id,
+      "published",
+      expect.any(String),
+    );
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({ status: "succeeded", fromStatus: "draft", toStatus: "published" }),
+    );
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/content");
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/${target.locale}/artikel/${target.slug}`);
+  });
+
+  it("unpublishes a published article without clearing publishedAt", async () => {
+    const target = article("published");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await setAdminArticleStatus(target.id, "draft");
+
+    expect(result).toEqual({ ok: true, articleId: target.id, action: "status" });
+    expect(runtime.setRuntimeAdminArticleStatus).toHaveBeenCalledWith(target.id, "draft", undefined);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({
+        status: "succeeded",
+        fromStatus: "published",
+        toStatus: "draft",
+        fromPublishedAt: target.publishedAt?.toISOString(),
+        toPublishedAt: target.publishedAt?.toISOString(),
+      }),
+    );
+  });
+
+  it("updates article fields without writing body text into audit metadata", async () => {
+    const target = article("draft");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await updateAdminArticle(target.id, {
+      title: "Updated title",
+      summary: "Updated summary",
+      body: "Updated body",
+      imageUrl: "https://example.com/cover.jpg",
+      status: "published",
+      publishedAt: "2026-06-09T12:00:00.000Z",
+    });
+
+    expect(result).toEqual({ ok: true, articleId: target.id, action: "update" });
+    expect(runtime.updateRuntimeAdminArticle).toHaveBeenCalledWith(target.id, {
+      title: "Updated title",
+      summary: "Updated summary",
+      body: "Updated body",
+      imageUrl: "https://example.com/cover.jpg",
+      status: "published",
+      publishedAt: "2026-06-09T12:00:00.000Z",
+    });
+    const auditInput = runtime.insertRuntimeAdminAuditLog.mock.calls[0]?.[0];
+    expect(auditInput.meta.changedFields).toEqual([
+      "title",
+      "summary",
+      "body",
+      "imageUrl",
+      "status",
+      "publishedAt",
+    ]);
+    expect(JSON.stringify(auditInput.meta)).not.toContain("Updated body");
+  });
+
+  it("requires explicit confirmation before deleting a draft article", async () => {
+    const target = article("draft");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await deleteAdminArticle(target.id);
+
+    expect(result).toEqual({
+      ok: false,
+      articleId: target.id,
+      action: "delete",
+      error: "confirmDelete",
+    });
+    expect(runtime.insertRuntimeAdminAuditLog).not.toHaveBeenCalled();
+    expect(runtime.deleteRuntimeAdminArticle).not.toHaveBeenCalled();
+  });
+
+  it("blocks hard deletion of published articles", async () => {
+    const target = article("published");
+    runtime.getRuntimeAdminArticle.mockResolvedValue(target);
+
+    const result = await deleteAdminArticle(target.id, { confirmDelete: true });
+
+    expect(result).toEqual({
+      ok: false,
+      articleId: target.id,
+      action: "delete",
+      error: "publishedDelete",
+    });
+    expect(runtime.deleteRuntimeAdminArticle).not.toHaveBeenCalled();
+  });
+
+  it("writes audit logs around a confirmed draft article delete", async () => {
+    const target = article("draft");
+    runtime.getRuntimeAdminArticle.mockResolvedValueOnce(target).mockResolvedValueOnce(null);
+
+    const result = await deleteAdminArticle(target.id, { confirmDelete: true });
+
+    expect(result).toEqual({ ok: true, articleId: target.id, action: "delete" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "articles.delete",
+      target: `article:${target.id}`,
+      meta: expect.objectContaining({
+        articleId: target.id,
+        title: target.title,
+        articleStatus: "draft",
+      }),
+    });
+    expect(runtime.deleteRuntimeAdminArticle).toHaveBeenCalledWith(target.id);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({ status: "succeeded", title: target.title }),
+    );
+  });
+
+  it("does not report success when a draft becomes published before delete verification", async () => {
+    const target = article("draft");
+    const nowPublished = article("published");
+    runtime.getRuntimeAdminArticle.mockResolvedValueOnce(target).mockResolvedValueOnce(nowPublished);
+
+    const result = await deleteAdminArticle(target.id, { confirmDelete: true });
+
+    expect(result).toEqual({
+      ok: false,
+      articleId: target.id,
+      action: "delete",
+      error: "publishedDelete",
+      response: "Article became published before delete",
+    });
+    expect(runtime.deleteRuntimeAdminArticle).toHaveBeenCalledWith(target.id);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      321,
+      expect.objectContaining({
+        status: "failed",
+        currentStatus: "published",
+        error: "Article became published before delete",
+      }),
+    );
   });
 });
