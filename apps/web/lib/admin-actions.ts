@@ -5,10 +5,13 @@ import {
   countRuntimeActiveAdmins,
   deleteRuntimeAdminArticle,
   getRuntimeAdminArticle,
+  getRuntimeAdminSubscriberBasic,
   getRuntimeAdminUserBasic,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
   setRuntimeAdminArticleStatus,
+  setRuntimeAdminSubscriberConfirmToken,
+  setRuntimeAdminSubscriberUnsubscribed,
   setRuntimeAdminUserDeleted,
   setRuntimeAdminUserRole,
   setRuntimeAdminCommentHidden,
@@ -17,9 +20,12 @@ import {
   type RuntimeAdminArticleDetail,
   type RuntimeAdminArticleStatus,
   type RuntimeAdminArticleUpdateInput,
+  type RuntimeAdminSubscriberBasic,
   type RuntimeAdminUserRole,
   type RuntimeAdminAuditMeta,
 } from "./runtime-data";
+import { sendEmail, optInEmail } from "./email";
+import { SITE_URL } from "./seo";
 import { getAdminOperation, type AdminOperationId } from "./admin-operations";
 import { requireAdmin } from "./admin";
 
@@ -93,6 +99,28 @@ export type AdminArticleManagementResult =
         | "notFound"
         | "confirmDelete"
         | "publishedDelete";
+      response?: string;
+    };
+
+export type AdminSubscriberManagementResult =
+  | {
+      ok: true;
+      subscriberId: number;
+      action: "unsubscribe" | "restore" | "resendConfirm";
+    }
+  | {
+      ok: false;
+      subscriberId?: number;
+      action?: "unsubscribe" | "restore" | "resendConfirm";
+      error:
+        | "invalid"
+        | "audit"
+        | "upstream"
+        | "notFound"
+        | "confirmRestore"
+        | "alreadyConfirmed"
+        | "unsubscribed"
+        | "email";
       response?: string;
     };
 
@@ -231,6 +259,10 @@ function validCommentId(commentId: number): boolean {
 
 function validArticleId(articleId: number): boolean {
   return Number.isInteger(articleId) && articleId > 0;
+}
+
+function validSubscriberId(subscriberId: number): boolean {
+  return Number.isInteger(subscriberId) && subscriberId > 0;
 }
 
 function validUserId(userId: string): boolean {
@@ -596,6 +628,194 @@ export async function setAdminUserDeleted(
     });
     revalidatePath("/admin/users");
     return { ok: false, userId, action, error: "upstream", response: preview(message) };
+  }
+}
+
+async function loadAdminSubscriber(
+  subscriberId: number,
+): Promise<
+  | { subscriber: RuntimeAdminSubscriberBasic }
+  | { error: "notFound" | "upstream"; response?: string }
+> {
+  try {
+    const subscriber = await getRuntimeAdminSubscriberBasic(subscriberId);
+    return subscriber ? { subscriber } : { error: "notFound" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn("[admin] subscriber lookup failed", error);
+    return { error: "upstream", response: preview(message) };
+  }
+}
+
+function subscriberAuditMeta(
+  subscriber: RuntimeAdminSubscriberBasic,
+): RuntimeAdminAuditMeta {
+  return {
+    subscriberId: subscriber.id,
+    locale: subscriber.locale,
+    confirmed: !!subscriber.confirmedAt,
+    unsubscribed: !!subscriber.unsubscribedAt,
+    consentMarketing: subscriber.consentMarketing,
+    hasWhatsapp: !!subscriber.whatsappNumber,
+    source: subscriber.source ?? null,
+  };
+}
+
+async function startSubscriberAudit(
+  actorId: string,
+  action: "subscribers.unsubscribe" | "subscribers.restore" | "subscribers.confirm.resend",
+  subscriber: RuntimeAdminSubscriberBasic,
+  meta: RuntimeAdminAuditMeta,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `subscriber:${subscriber.id}`,
+    meta: {
+      ...subscriberAuditMeta(subscriber),
+      ...meta,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishSubscriberAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+export async function setAdminSubscriberUnsubscribed(
+  subscriberId: number,
+  unsubscribed: boolean,
+  options: { confirmRestore?: boolean } = {},
+): Promise<AdminSubscriberManagementResult> {
+  const action = unsubscribed ? "unsubscribe" : "restore";
+  if (!validSubscriberId(subscriberId)) {
+    return { ok: false, subscriberId, action, error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminSubscriber(subscriberId);
+  if ("error" in loaded) return { ok: false, subscriberId, action, ...loaded };
+  const subscriber = loaded.subscriber;
+  if (Boolean(subscriber.unsubscribedAt) === unsubscribed) {
+    return { ok: true, subscriberId, action };
+  }
+  if (!unsubscribed && !options.confirmRestore) {
+    return { ok: false, subscriberId, action, error: "confirmRestore" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startSubscriberAudit(
+      admin.user.id,
+      unsubscribed ? "subscribers.unsubscribe" : "subscribers.restore",
+      subscriber,
+      { toUnsubscribed: unsubscribed },
+    );
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, subscriberId, action, error: "audit" };
+  }
+
+  try {
+    const updated = await setRuntimeAdminSubscriberUnsubscribed(subscriberId, unsubscribed);
+    if (!updated) {
+      const message = "Subscriber state changed before update";
+      await finishSubscriberAudit(auditId, {
+        status: "failed",
+        toUnsubscribed: unsubscribed,
+        error: message,
+      });
+      revalidatePath("/admin/subscribers");
+      return { ok: false, subscriberId, action, error: "upstream", response: message };
+    }
+    await finishSubscriberAudit(auditId, {
+      status: "succeeded",
+      toUnsubscribed: unsubscribed,
+    });
+    revalidatePath("/admin/subscribers");
+    revalidatePath("/admin");
+    return { ok: true, subscriberId, action };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishSubscriberAudit(auditId, {
+      status: "failed",
+      toUnsubscribed: unsubscribed,
+      error: preview(message),
+    });
+    revalidatePath("/admin/subscribers");
+    return { ok: false, subscriberId, action, error: "upstream", response: preview(message) };
+  }
+}
+
+export async function resendAdminSubscriberConfirmation(
+  subscriberId: number,
+): Promise<AdminSubscriberManagementResult> {
+  if (!validSubscriberId(subscriberId)) {
+    return { ok: false, subscriberId, action: "resendConfirm", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminSubscriber(subscriberId);
+  if ("error" in loaded) return { ok: false, subscriberId, action: "resendConfirm", ...loaded };
+  const subscriber = loaded.subscriber;
+  if (subscriber.confirmedAt) {
+    return { ok: false, subscriberId, action: "resendConfirm", error: "alreadyConfirmed" };
+  }
+  if (subscriber.unsubscribedAt || !subscriber.consentMarketing) {
+    return { ok: false, subscriberId, action: "resendConfirm", error: "unsubscribed" };
+  }
+
+  let auditId = 0;
+  const token = subscriber.confirmToken ?? crypto.randomUUID();
+  try {
+    auditId = await startSubscriberAudit(
+      admin.user.id,
+      "subscribers.confirm.resend",
+      subscriber,
+      { tokenCreated: !subscriber.confirmToken },
+    );
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, subscriberId, action: "resendConfirm", error: "audit" };
+  }
+
+  try {
+    if (!subscriber.confirmToken) {
+      await setRuntimeAdminSubscriberConfirmToken(subscriberId, token);
+    }
+    const confirmUrl = `${SITE_URL}/api/subscribe/confirm?token=${encodeURIComponent(token)}&l=${encodeURIComponent(subscriber.locale)}`;
+    const { subject, html } = optInEmail(subscriber.locale, confirmUrl);
+    const emailSent = await sendEmail({ to: subscriber.email, subject, html });
+    if (!emailSent) {
+      await finishSubscriberAudit(auditId, {
+        status: "failed",
+        tokenCreated: !subscriber.confirmToken,
+        error: "Email provider unavailable",
+      });
+      revalidatePath("/admin/subscribers");
+      return { ok: false, subscriberId, action: "resendConfirm", error: "email" };
+    }
+    await finishSubscriberAudit(auditId, {
+      status: "succeeded",
+      tokenCreated: !subscriber.confirmToken,
+    });
+    revalidatePath("/admin/subscribers");
+    return { ok: true, subscriberId, action: "resendConfirm" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishSubscriberAudit(auditId, {
+      status: "failed",
+      tokenCreated: !subscriber.confirmToken,
+      error: preview(message),
+    });
+    revalidatePath("/admin/subscribers");
+    return { ok: false, subscriberId, action: "resendConfirm", error: "upstream", response: preview(message) };
   }
 }
 

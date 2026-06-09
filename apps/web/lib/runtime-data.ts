@@ -268,6 +268,55 @@ export interface RuntimeAdminUserList {
   role: RuntimeAdminUserRole | "all";
 }
 
+export type RuntimeAdminSubscriberStatus = "active" | "unsubscribed" | "all";
+export type RuntimeAdminSubscriberConfirmation = "all" | "confirmed" | "unconfirmed";
+export type RuntimeAdminSubscriberChannel = "all" | "email" | "whatsapp";
+
+export interface RuntimeAdminSubscriberListParams {
+  query?: string;
+  status?: RuntimeAdminSubscriberStatus;
+  confirmation?: RuntimeAdminSubscriberConfirmation;
+  channel?: RuntimeAdminSubscriberChannel;
+  locale?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RuntimeAdminSubscriberListItem {
+  id: number;
+  email: string;
+  whatsappNumber: string | null;
+  locale: string;
+  source: string | null;
+  consentMarketing: boolean;
+  consentAt: Date | null;
+  country: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  confirmedAt: Date | null;
+  giftSent: boolean;
+  giftSentAt: Date | null;
+  unsubscribedAt: Date | null;
+  createdAt: Date | null;
+}
+
+export interface RuntimeAdminSubscriberBasic extends RuntimeAdminSubscriberListItem {
+  confirmToken: string | null;
+}
+
+export interface RuntimeAdminSubscriberList {
+  subscribers: RuntimeAdminSubscriberListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  query: string;
+  status: RuntimeAdminSubscriberStatus;
+  confirmation: RuntimeAdminSubscriberConfirmation;
+  channel: RuntimeAdminSubscriberChannel;
+  locale: string;
+}
+
 export type RuntimeAdminArticleStatus = "draft" | "published";
 export type RuntimeAdminArticlePublishedFilter = "all" | "set" | "missing";
 export type RuntimeAdminArticleType =
@@ -583,6 +632,25 @@ interface SubscriberRow {
   confirm_token: string | null;
 }
 
+interface AdminSubscriberRow {
+  id: number;
+  email: string;
+  whatsapp_number: string | null;
+  locale: string | null;
+  source: string | null;
+  consent_marketing: boolean | null;
+  consent_at: string | null;
+  ip: string | null;
+  country: string | null;
+  user_agent: string | null;
+  confirmed_at: string | null;
+  confirm_token: string | null;
+  gift_sent: boolean | null;
+  gift_sent_at: string | null;
+  unsubscribed_at: string | null;
+  created_at: string | null;
+}
+
 interface UserIdRow {
   user_id: string;
 }
@@ -602,7 +670,12 @@ const BRACKET_SLUG = "wc2026-bracket";
 const ADMIN_LOCALES = ["id", "vi", "en", "zh"] as const;
 const ADMIN_ROLES = ["member", "premium", "admin"] as const;
 const ADMIN_USER_PAGE_SIZE = 25;
+const ADMIN_SUBSCRIBER_PAGE_SIZE = 25;
+const ADMIN_SUBSCRIBER_EXPORT_LIMIT = 5_000;
 const ADMIN_ARTICLE_PAGE_SIZE = 20;
+const ADMIN_SUBSCRIBER_LIST_SELECT =
+  "id,email,whatsapp_number,locale,source,consent_marketing,consent_at,ip,country,user_agent,confirmed_at,gift_sent,gift_sent_at,unsubscribed_at,created_at";
+const ADMIN_SUBSCRIBER_BASIC_SELECT = `${ADMIN_SUBSCRIBER_LIST_SELECT},confirm_token`;
 const ADMIN_ARTICLE_TYPES = [
   "preview",
   "watchpoints",
@@ -1171,6 +1244,181 @@ export async function setRuntimeAdminUserDeleted(
     "profiles",
     { id: `eq.${userId}` },
     { deleted_at: deleted ? new Date().toISOString() : null },
+    { returning: false },
+  );
+}
+
+function adminSubscriberStatus(
+  value: string | null | undefined,
+): RuntimeAdminSubscriberStatus {
+  return value === "unsubscribed" || value === "all" ? value : "active";
+}
+
+function adminSubscriberConfirmation(
+  value: string | null | undefined,
+): RuntimeAdminSubscriberConfirmation {
+  return value === "confirmed" || value === "unconfirmed" ? value : "all";
+}
+
+function adminSubscriberChannel(
+  value: string | null | undefined,
+): RuntimeAdminSubscriberChannel {
+  return value === "email" || value === "whatsapp" ? value : "all";
+}
+
+function adminSubscriberLocale(value: string | null | undefined): string {
+  return value && ADMIN_LOCALES.some((locale) => locale === value) ? value : "all";
+}
+
+function normalizeAdminSubscriberSearch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 120);
+}
+
+function adminSubscriberSearchOrFilter(search: string): string | null {
+  if (!search) return null;
+  return `(email.ilike.*${search}*,whatsapp_number.ilike.*${search}*,source.ilike.*${search}*,country.ilike.*${search}*)`;
+}
+
+function normalizeAdminSubscriberPage(value: number | null | undefined): number {
+  return Number.isInteger(value) && value && value > 0 ? value : 1;
+}
+
+function subscriberToAdminItem(row: AdminSubscriberRow): RuntimeAdminSubscriberListItem {
+  return {
+    id: row.id,
+    email: row.email,
+    whatsappNumber: row.whatsapp_number,
+    locale: row.locale ?? "id",
+    source: row.source,
+    consentMarketing: row.consent_marketing ?? false,
+    consentAt: safeDate(row.consent_at),
+    country: row.country,
+    ip: row.ip,
+    userAgent: row.user_agent,
+    confirmedAt: safeDate(row.confirmed_at),
+    giftSent: row.gift_sent ?? false,
+    giftSentAt: safeDate(row.gift_sent_at),
+    unsubscribedAt: safeDate(row.unsubscribed_at),
+    createdAt: safeDate(row.created_at),
+  };
+}
+
+function subscriberToAdminBasic(row: AdminSubscriberRow): RuntimeAdminSubscriberBasic {
+  return {
+    ...subscriberToAdminItem(row),
+    confirmToken: row.confirm_token,
+  };
+}
+
+function adminSubscriberFilters(input: RuntimeAdminSubscriberListParams) {
+  const status = adminSubscriberStatus(input.status);
+  const confirmation = adminSubscriberConfirmation(input.confirmation);
+  const channel = adminSubscriberChannel(input.channel);
+  const locale = adminSubscriberLocale(input.locale);
+  const query = normalizeAdminSubscriberSearch(input.query);
+  const searchFilter = adminSubscriberSearchOrFilter(query);
+
+  const params: Record<string, string | number | boolean | null | undefined> = {};
+  if (status === "active") params.unsubscribed_at = "is.null";
+  if (status === "unsubscribed") params.unsubscribed_at = "not.is.null";
+  if (confirmation === "confirmed") params.confirmed_at = "not.is.null";
+  if (confirmation === "unconfirmed") params.confirmed_at = "is.null";
+  if (channel === "email") params.whatsapp_number = "is.null";
+  if (channel === "whatsapp") params.whatsapp_number = "not.is.null";
+  if (locale !== "all") params.locale = `eq.${locale}`;
+  if (searchFilter) params.or = searchFilter;
+
+  return { params, query, status, confirmation, channel, locale };
+}
+
+export async function getRuntimeAdminSubscribers(
+  input: RuntimeAdminSubscriberListParams = {},
+): Promise<RuntimeAdminSubscriberList> {
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize && input.pageSize > 0
+      ? Math.min(input.pageSize, 100)
+      : ADMIN_SUBSCRIBER_PAGE_SIZE;
+  const page = normalizeAdminSubscriberPage(input.page);
+  const { params, query, status, confirmation, channel, locale } = adminSubscriberFilters(input);
+
+  const { rows, total } = await selectRowsWithCount<AdminSubscriberRow>("subscribers", {
+    select: ADMIN_SUBSCRIBER_LIST_SELECT,
+    order: "created_at.desc",
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+    ...params,
+  });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    subscribers: rows.map((row) => subscriberToAdminItem(row)),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    query,
+    status,
+    confirmation,
+    channel,
+    locale,
+  };
+}
+
+export async function getRuntimeAdminSubscriberBasic(
+  subscriberId: number,
+): Promise<RuntimeAdminSubscriberBasic | null> {
+  const rows = await selectRows<AdminSubscriberRow>("subscribers", {
+    select: ADMIN_SUBSCRIBER_BASIC_SELECT,
+    id: `eq.${subscriberId}`,
+    limit: 1,
+  });
+  return rows[0] ? subscriberToAdminBasic(rows[0]) : null;
+}
+
+export async function getRuntimeAdminSubscriberExportRows(
+  input: RuntimeAdminSubscriberListParams = {},
+): Promise<RuntimeAdminSubscriberListItem[]> {
+  const { params } = adminSubscriberFilters(input);
+  const rows = await selectRows<AdminSubscriberRow>("subscribers", {
+    select: ADMIN_SUBSCRIBER_LIST_SELECT,
+    order: "created_at.desc",
+    limit: ADMIN_SUBSCRIBER_EXPORT_LIMIT,
+    ...params,
+  });
+  return rows.map((row) => subscriberToAdminItem(row));
+}
+
+export async function setRuntimeAdminSubscriberUnsubscribed(
+  subscriberId: number,
+  unsubscribed: boolean,
+): Promise<boolean> {
+  const now = new Date().toISOString();
+  const rows = await updateRows<{ id: number }>(
+    "subscribers",
+    {
+      id: `eq.${subscriberId}`,
+      unsubscribed_at: unsubscribed ? "is.null" : "not.is.null",
+      select: "id",
+    },
+    unsubscribed
+      ? { unsubscribed_at: now, consent_marketing: false }
+      : { unsubscribed_at: null, consent_marketing: true, consent_at: now },
+  );
+  return rows.length > 0;
+}
+
+export async function setRuntimeAdminSubscriberConfirmToken(
+  subscriberId: number,
+  confirmToken: string,
+): Promise<void> {
+  await updateRows(
+    "subscribers",
+    { id: `eq.${subscriberId}` },
+    { confirm_token: confirmToken },
     { returning: false },
   );
 }

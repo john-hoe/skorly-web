@@ -8,10 +8,13 @@ const runtime = vi.hoisted(() => ({
   countRuntimeActiveAdmins: vi.fn(),
   deleteRuntimeAdminArticle: vi.fn(),
   getRuntimeAdminArticle: vi.fn(),
+  getRuntimeAdminSubscriberBasic: vi.fn(),
   getRuntimeAdminUserBasic: vi.fn(),
   insertRuntimeAdminAuditLog: vi.fn(),
   markRuntimeAdminCommentReportsReviewed: vi.fn(),
   setRuntimeAdminArticleStatus: vi.fn(),
+  setRuntimeAdminSubscriberConfirmToken: vi.fn(),
+  setRuntimeAdminSubscriberUnsubscribed: vi.fn(),
   setRuntimeAdminCommentHidden: vi.fn(),
   setRuntimeAdminUserDeleted: vi.fn(),
   setRuntimeAdminUserRole: vi.fn(),
@@ -23,13 +26,22 @@ const cache = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
 }));
 
+const email = vi.hoisted(() => ({
+  optInEmail: vi.fn(),
+  sendEmail: vi.fn(),
+}));
+
 vi.mock("next/cache", () => cache);
 vi.mock("./admin", () => admin);
+vi.mock("./email", () => email);
 vi.mock("./runtime-data", () => runtime);
+vi.mock("./seo", () => ({ SITE_URL: "https://skorly.test" }));
 
 const {
   deleteAdminArticle,
+  resendAdminSubscriberConfirmation,
   setAdminArticleStatus,
+  setAdminSubscriberUnsubscribed,
   setAdminUserDeleted,
   setAdminUserRole,
   updateAdminArticle,
@@ -83,6 +95,50 @@ function article(status = "draft") {
     publishedAt: status === "published" ? new Date("2026-06-01T10:00:00.000Z") : null,
     createdAt: new Date("2026-05-01T10:00:00.000Z"),
     updatedAt: new Date("2026-05-02T10:00:00.000Z"),
+  };
+}
+
+type TestSubscriber = {
+  id: number;
+  email: string;
+  whatsappNumber: string | null;
+  locale: string;
+  source: string | null;
+  consentMarketing: boolean;
+  consentAt: Date | null;
+  country: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  confirmedAt: Date | null;
+  confirmToken: string | null;
+  giftSent: boolean;
+  giftSentAt: Date | null;
+  unsubscribedAt: Date | null;
+  createdAt: Date | null;
+};
+
+function subscriber(overrides: Partial<TestSubscriber> = {}): TestSubscriber {
+  return { ...subscriberBase(), ...overrides };
+}
+
+function subscriberBase(): TestSubscriber {
+  return {
+    id: 77,
+    email: "subscriber@example.com",
+    whatsappNumber: "+628123456789",
+    locale: "id",
+    source: "home",
+    consentMarketing: true,
+    consentAt: new Date("2026-01-01T00:00:00.000Z"),
+    country: "ID",
+    ip: "203.0.113.10",
+    userAgent: "Test UA",
+    confirmedAt: null,
+    confirmToken: "confirm-token",
+    giftSent: false,
+    giftSentAt: null,
+    unsubscribedAt: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
   };
 }
 
@@ -192,6 +248,148 @@ describe("admin user management actions", () => {
       error: "invalid",
     });
     expect(admin.requireAdmin).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin subscriber management actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    admin.requireAdmin.mockResolvedValue(actor);
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(subscriber());
+    runtime.insertRuntimeAdminAuditLog.mockResolvedValue(456);
+    runtime.setRuntimeAdminSubscriberConfirmToken.mockResolvedValue(undefined);
+    runtime.setRuntimeAdminSubscriberUnsubscribed.mockResolvedValue(true);
+    runtime.updateRuntimeAdminAuditLogMeta.mockResolvedValue(undefined);
+    email.optInEmail.mockReturnValue({ subject: "Confirm", html: "<p>Confirm</p>" });
+    email.sendEmail.mockResolvedValue(true);
+  });
+
+  it("requires explicit confirmation before restoring marketing consent", async () => {
+    const target = subscriber({ unsubscribedAt: new Date("2026-02-01T00:00:00.000Z"), consentMarketing: false });
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(target);
+
+    const result = await setAdminSubscriberUnsubscribed(target.id, false);
+
+    expect(result).toEqual({
+      ok: false,
+      subscriberId: target.id,
+      action: "restore",
+      error: "confirmRestore",
+    });
+    expect(runtime.insertRuntimeAdminAuditLog).not.toHaveBeenCalled();
+    expect(runtime.setRuntimeAdminSubscriberUnsubscribed).not.toHaveBeenCalled();
+  });
+
+  it("writes audited unsubscribe updates without storing full contact values in audit metadata", async () => {
+    const target = subscriber();
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(target);
+
+    const result = await setAdminSubscriberUnsubscribed(target.id, true);
+
+    expect(result).toEqual({ ok: true, subscriberId: target.id, action: "unsubscribe" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "subscribers.unsubscribe",
+      target: `subscriber:${target.id}`,
+      meta: expect.objectContaining({
+        subscriberId: target.id,
+        locale: target.locale,
+        confirmed: false,
+        hasWhatsapp: true,
+        toUnsubscribed: true,
+      }),
+    });
+    const auditInput = runtime.insertRuntimeAdminAuditLog.mock.calls[0]?.[0];
+    expect(JSON.stringify(auditInput.meta)).not.toContain(target.email);
+    expect(JSON.stringify(auditInput.meta)).not.toContain(target.whatsappNumber);
+    expect(runtime.setRuntimeAdminSubscriberUnsubscribed).toHaveBeenCalledWith(target.id, true);
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/subscribers");
+  });
+
+  it("reports an upstream failure when subscriber state changes before the write", async () => {
+    const target = subscriber();
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(target);
+    runtime.setRuntimeAdminSubscriberUnsubscribed.mockResolvedValue(false);
+
+    const result = await setAdminSubscriberUnsubscribed(target.id, true);
+
+    expect(result).toEqual({
+      ok: false,
+      subscriberId: target.id,
+      action: "unsubscribe",
+      error: "upstream",
+      response: "Subscriber state changed before update",
+    });
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      456,
+      expect.objectContaining({
+        status: "failed",
+        toUnsubscribed: true,
+        error: "Subscriber state changed before update",
+      }),
+    );
+  });
+
+  it("resends confirmation email with the existing double opt-in token", async () => {
+    const target = subscriber({ confirmToken: "existing-token" });
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(target);
+
+    const result = await resendAdminSubscriberConfirmation(target.id);
+
+    expect(result).toEqual({ ok: true, subscriberId: target.id, action: "resendConfirm" });
+    expect(runtime.setRuntimeAdminSubscriberConfirmToken).not.toHaveBeenCalled();
+    expect(email.optInEmail).toHaveBeenCalledWith(
+      target.locale,
+      "https://skorly.test/api/subscribe/confirm?token=existing-token&l=id",
+    );
+    expect(email.sendEmail).toHaveBeenCalledWith({
+      to: target.email,
+      subject: "Confirm",
+      html: "<p>Confirm</p>",
+    });
+  });
+
+  it("creates a confirmation token before resending when one is missing", async () => {
+    const target = subscriber({ confirmToken: null });
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValue(target);
+    const token = "00000000-0000-4000-8000-000000000077";
+    const randomUUID = vi.spyOn(crypto, "randomUUID").mockReturnValue(token);
+
+    const result = await resendAdminSubscriberConfirmation(target.id);
+
+    expect(result).toEqual({ ok: true, subscriberId: target.id, action: "resendConfirm" });
+    expect(runtime.setRuntimeAdminSubscriberConfirmToken).toHaveBeenCalledWith(target.id, token);
+    expect(email.optInEmail).toHaveBeenCalledWith(
+      target.locale,
+      `https://skorly.test/api/subscribe/confirm?token=${token}&l=id`,
+    );
+    randomUUID.mockRestore();
+  });
+
+  it("does not resend confirmation to confirmed or unsubscribed subscribers", async () => {
+    const confirmed = subscriber({ confirmedAt: new Date("2026-02-01T00:00:00.000Z") });
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValueOnce(confirmed);
+
+    await expect(resendAdminSubscriberConfirmation(confirmed.id)).resolves.toEqual({
+      ok: false,
+      subscriberId: confirmed.id,
+      action: "resendConfirm",
+      error: "alreadyConfirmed",
+    });
+
+    const unsubscribed = subscriber({
+      unsubscribedAt: new Date("2026-02-02T00:00:00.000Z"),
+      consentMarketing: false,
+    });
+    runtime.getRuntimeAdminSubscriberBasic.mockResolvedValueOnce(unsubscribed);
+
+    await expect(resendAdminSubscriberConfirmation(unsubscribed.id)).resolves.toEqual({
+      ok: false,
+      subscriberId: unsubscribed.id,
+      action: "resendConfirm",
+      error: "unsubscribed",
+    });
+    expect(email.sendEmail).not.toHaveBeenCalled();
   });
 });
 
