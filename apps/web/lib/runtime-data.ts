@@ -1336,6 +1336,7 @@ export async function reportRuntimeComment(
   const count = await selectCount("comment_reports", {
     select: "id",
     comment_id: `eq.${commentId}`,
+    reviewed_at: "is.null",
   });
   if (count >= 3) {
     await updateRows("comments", { id: `eq.${commentId}` }, { is_hidden: true }, { returning: false });

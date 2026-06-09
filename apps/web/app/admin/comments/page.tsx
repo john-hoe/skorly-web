@@ -218,6 +218,18 @@ function CommentCard({ item }: { item: RuntimeAdminCommentModerationItem }) {
   );
 }
 
+function ModerationErrorState() {
+  return (
+    <section className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-900">
+      <h2 className="text-base font-semibold">Moderation queue unavailable</h2>
+      <p className="mt-2 text-sm">
+        Unable to load reported comments right now. Check server logs before taking moderation
+        decisions.
+      </p>
+    </section>
+  );
+}
+
 export default async function AdminCommentsPage({
   searchParams,
 }: {
@@ -225,10 +237,14 @@ export default async function AdminCommentsPage({
 }) {
   const { status: rawStatus } = await searchParams;
   const status = statusFromSearch(rawStatus);
-  const items = await getRuntimeAdminCommentModerationItems(status).catch((error) => {
-    console.warn("[admin] comment moderation query failed", error);
-    return [];
-  });
+  const result = await getRuntimeAdminCommentModerationItems(status).then(
+    (items) => ({ ok: true as const, items }),
+    (error) => {
+      console.warn("[admin] comment moderation query failed", error);
+      return { ok: false as const };
+    },
+  );
+  const items = result.ok ? result.items : [];
   const pendingTotal = items.reduce((sum, item) => sum + item.pendingReportCount, 0);
 
   return (
@@ -246,21 +262,25 @@ export default async function AdminCommentsPage({
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
           <div className="text-sm font-medium text-[var(--muted)]">Reported comments</div>
-          <div className="mt-2 text-2xl font-bold">{items.length}</div>
+          <div className="mt-2 text-2xl font-bold">{result.ok ? items.length : "-"}</div>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
           <div className="text-sm font-medium text-[var(--muted)]">Pending reports</div>
-          <div className="mt-2 text-2xl font-bold text-amber-600">{pendingTotal}</div>
+          <div className="mt-2 text-2xl font-bold text-amber-600">
+            {result.ok ? pendingTotal : "-"}
+          </div>
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
           <div className="text-sm font-medium text-[var(--muted)]">Hidden in view</div>
           <div className="mt-2 text-2xl font-bold">
-            {items.filter((item) => item.isHidden).length}
+            {result.ok ? items.filter((item) => item.isHidden).length : "-"}
           </div>
         </div>
       </section>
 
-      {items.length === 0 ? (
+      {!result.ok ? (
+        <ModerationErrorState />
+      ) : items.length === 0 ? (
         <section className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-8 text-center">
           <h2 className="text-base font-semibold">No comments to review</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
