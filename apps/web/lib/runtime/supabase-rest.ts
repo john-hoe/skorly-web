@@ -102,6 +102,17 @@ export async function selectCount(
   return total && total !== "*" ? Number(total) || 0 : 0;
 }
 
+export async function callRpc<T>(
+  name: string,
+  body: Record<string, unknown> = {},
+): Promise<T> {
+  const { data } = await request<T>(`/rest/v1/rpc/${name}`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return data;
+}
+
 export async function insertRows<T>(
   table: string,
   body: unknown,

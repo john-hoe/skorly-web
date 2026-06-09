@@ -1,5 +1,6 @@
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 import {
+  callRpc,
   deleteRows,
   inFilter,
   insertRows,
@@ -849,7 +850,96 @@ async function weeklyActivePredictors(since: string): Promise<number> {
   return users.size;
 }
 
-export async function getRuntimeAdminOverviewStats(): Promise<RuntimeAdminOverviewStats> {
+function recordOf(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function arrayOf(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function countValue(value: unknown): number {
+  const next = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(next) ? Math.max(0, next) : 0;
+}
+
+function textValue(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function rpcDistribution(value: unknown): Array<{ label: string; count: number }> {
+  return arrayOf(value).map((row, index) => {
+    const record = recordOf(row);
+    return {
+      label: textValue(record.label, `unknown_${index + 1}`),
+      count: countValue(record.count),
+    };
+  });
+}
+
+function parseAdminOverviewStatsRpc(value: unknown): RuntimeAdminOverviewStats {
+  const root = recordOf(value);
+  const users = recordOf(root.users);
+  const predictions = recordOf(root.predictions);
+  const subscriptions = recordOf(root.subscriptions);
+  const content = recordOf(root.content);
+  const engagement = recordOf(root.engagement);
+  const campaigns = recordOf(root.campaigns);
+
+  const usersTotal = countValue(users.total);
+  const predictionsTotal = countValue(predictions.total);
+  const articleTotal = countValue(content.articlesTotal);
+
+  return {
+    generatedAt: safeDate(typeof root.generatedAt === "string" ? root.generatedAt : null) ?? new Date(),
+    users: {
+      total: usersTotal,
+      new7d: countValue(users.new7d),
+      new30d: countValue(users.new30d),
+      deleted: countValue(users.deleted),
+      byRole: withOther(usersTotal, rpcDistribution(users.roles), "role"),
+      byLocale: withOther(usersTotal, rpcDistribution(users.locales), "locale"),
+    },
+    predictions: {
+      total: predictionsTotal,
+      last7d: countValue(predictions.last7d),
+      weeklyActivePredictors: countValue(predictions.weeklyActivePredictors),
+      predictionsPerUser: usersTotal > 0 ? roundMetric(predictionsTotal / usersTotal) : 0,
+    },
+    subscriptions: {
+      subscribersTotal: countValue(subscriptions.subscribersTotal),
+      subscribersConfirmed: countValue(subscriptions.subscribersConfirmed),
+      subscribersEmail: countValue(subscriptions.subscribersEmail),
+      subscribersWhatsapp: countValue(subscriptions.subscribersWhatsapp),
+      subscribersNew7d: countValue(subscriptions.subscribersNew7d),
+      pushSubscriptions: countValue(subscriptions.pushSubscriptions),
+    },
+    content: {
+      articlesTotal: articleTotal,
+      published: countValue(content.published),
+      draft: countValue(content.draft),
+      publishedLast48h: countValue(content.publishedLast48h),
+      byType: withOther(articleTotal, rpcDistribution(content.types), "type"),
+      byLocale: withOther(articleTotal, rpcDistribution(content.locales), "locale"),
+    },
+    engagement: {
+      commentsTotal: countValue(engagement.commentsTotal),
+      commentsLast7d: countValue(engagement.commentsLast7d),
+      commentReportsTotal: countValue(engagement.commentReportsTotal),
+    },
+    campaigns: {
+      entriesTotal: countValue(campaigns.entriesTotal),
+    },
+  };
+}
+
+async function getRuntimeAdminOverviewStatsFromRpc(): Promise<RuntimeAdminOverviewStats> {
+  return parseAdminOverviewStatsRpc(await callRpc<unknown>("admin_overview_stats"));
+}
+
+async function getRuntimeAdminOverviewStatsFromRest(): Promise<RuntimeAdminOverviewStats> {
   const since7d = daysAgo(7);
   const since30d = daysAgo(30);
   const since48h = hoursAgo(48);
@@ -952,6 +1042,15 @@ export async function getRuntimeAdminOverviewStats(): Promise<RuntimeAdminOvervi
       entriesTotal: campaignEntriesTotal,
     },
   };
+}
+
+export async function getRuntimeAdminOverviewStats(): Promise<RuntimeAdminOverviewStats> {
+  try {
+    return await getRuntimeAdminOverviewStatsFromRpc();
+  } catch (error) {
+    console.warn("[admin] admin_overview_stats RPC failed; falling back to REST aggregate", error);
+    return getRuntimeAdminOverviewStatsFromRest();
+  }
 }
 
 export async function getRuntimeTeamOptions(): Promise<RuntimeTeamOption[]> {
