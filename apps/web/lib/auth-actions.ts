@@ -100,6 +100,10 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: "invalidCredentials" };
+  if (data.user && !(await getSessionUser())) {
+    await supabase.auth.signOut().catch(() => {});
+    return { ok: false, error: "invalidCredentials" };
+  }
   const analytics = analyticsIdentityFromCookieHeader(h.get("cookie"), data.user?.id ?? null);
   trackServerAfter("login", analytics.distinctId, { method: "email" }, {
     consentGranted: analytics.consentGranted,

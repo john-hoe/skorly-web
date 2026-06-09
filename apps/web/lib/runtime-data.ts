@@ -251,6 +251,12 @@ export interface RuntimeAdminUserListItem {
   };
 }
 
+export interface RuntimeAdminUserBasic {
+  id: string;
+  role: RuntimeAdminUserRole;
+  deletedAt: Date | null;
+}
+
 export interface RuntimeAdminUserList {
   users: RuntimeAdminUserListItem[];
   total: number;
@@ -870,7 +876,7 @@ function adminUserStatus(value: string | null | undefined): RuntimeAdminUserStat
 function normalizeAdminUserSearch(value: string | null | undefined): string {
   return (value ?? "")
     .trim()
-    .replace(/[*,()]/g, " ")
+    .replace(/[%_*(),]/g, " ")
     .replace(/\s+/g, " ")
     .slice(0, 80);
 }
@@ -1036,6 +1042,21 @@ export async function getRuntimeAdminUser(id: string): Promise<RuntimeAdminUserL
   const row = rows[0];
   if (!row) return null;
   return profileToAdminUser(row, await adminUserActivity([row]));
+}
+
+export async function getRuntimeAdminUserBasic(id: string): Promise<RuntimeAdminUserBasic | null> {
+  const rows = await selectRows<Pick<ProfileRow, "id" | "role" | "deleted_at">>("profiles", {
+    select: "id,role,deleted_at",
+    id: `eq.${id}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.id,
+    role: adminUserRole(row.role),
+    deletedAt: safeDate(row.deleted_at),
+  };
 }
 
 export async function countRuntimeActiveAdmins(): Promise<number> {

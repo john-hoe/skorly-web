@@ -89,7 +89,15 @@ function resultParams(result: AdminUserManagementResult): { notice?: string; err
 
 function returnPathFromForm(formData: FormData): string {
   const value = String(formData.get("returnTo") ?? "");
-  return value.startsWith("/admin/users") ? value : "/admin/users";
+  try {
+    const url = new URL(value, "https://skorly.local");
+    if (url.origin !== "https://skorly.local" || url.pathname !== "/admin/users") {
+      return "/admin/users";
+    }
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return "/admin/users";
+  }
 }
 
 function redirectWithResult(returnTo: string, result: AdminUserManagementResult): never {

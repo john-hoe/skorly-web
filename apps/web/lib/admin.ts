@@ -10,7 +10,7 @@ export interface AdminSession {
 }
 
 export async function requireAdmin(): Promise<AdminSession> {
-  const user = await getSessionUser().catch(() => null);
+  const user = await getSessionUser({ includeDeactivated: true }).catch(() => null);
   if (!user) redirect("/id/masuk");
 
   const profile = await getRuntimeProfile(user.id).catch((error) => {

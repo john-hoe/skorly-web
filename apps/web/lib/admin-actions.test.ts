@@ -6,7 +6,7 @@ const admin = vi.hoisted(() => ({
 
 const runtime = vi.hoisted(() => ({
   countRuntimeActiveAdmins: vi.fn(),
-  getRuntimeAdminUser: vi.fn(),
+  getRuntimeAdminUserBasic: vi.fn(),
   insertRuntimeAdminAuditLog: vi.fn(),
   markRuntimeAdminCommentReportsReviewed: vi.fn(),
   setRuntimeAdminCommentHidden: vi.fn(),
@@ -56,7 +56,7 @@ describe("admin user management actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     admin.requireAdmin.mockResolvedValue(actor);
-    runtime.getRuntimeAdminUser.mockResolvedValue(user());
+    runtime.getRuntimeAdminUserBasic.mockResolvedValue(user());
     runtime.countRuntimeActiveAdmins.mockResolvedValue(2);
     runtime.insertRuntimeAdminAuditLog.mockResolvedValue(123);
     runtime.setRuntimeAdminUserRole.mockResolvedValue(undefined);
@@ -78,7 +78,7 @@ describe("admin user management actions", () => {
   });
 
   it("prevents an admin from demoting themselves", async () => {
-    runtime.getRuntimeAdminUser.mockResolvedValue(user("admin", actor.user.id));
+    runtime.getRuntimeAdminUserBasic.mockResolvedValue(user("admin", actor.user.id));
 
     const result = await setAdminUserRole(actor.user.id, "member", {
       confirmAdminChange: true,
@@ -93,9 +93,25 @@ describe("admin user management actions", () => {
     expect(runtime.setRuntimeAdminUserRole).not.toHaveBeenCalled();
   });
 
+  it("prevents an admin from deactivating themselves", async () => {
+    runtime.getRuntimeAdminUserBasic.mockResolvedValue(user("admin", actor.user.id));
+
+    const result = await setAdminUserDeleted(actor.user.id, true, {
+      confirmAdminChange: true,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      userId: actor.user.id,
+      action: "deactivate",
+      error: "selfAdmin",
+    });
+    expect(runtime.setRuntimeAdminUserDeleted).not.toHaveBeenCalled();
+  });
+
   it("writes audit logs around a normal role update", async () => {
     const target = user("member");
-    runtime.getRuntimeAdminUser.mockResolvedValue(target);
+    runtime.getRuntimeAdminUserBasic.mockResolvedValue(target);
 
     const result = await setAdminUserRole(target.id, "premium");
 
@@ -116,7 +132,7 @@ describe("admin user management actions", () => {
 
   it("prevents deactivating the last active admin", async () => {
     const target = user("admin");
-    runtime.getRuntimeAdminUser.mockResolvedValue(target);
+    runtime.getRuntimeAdminUserBasic.mockResolvedValue(target);
     runtime.countRuntimeActiveAdmins.mockResolvedValue(1);
 
     const result = await setAdminUserDeleted(target.id, true, {
@@ -130,5 +146,17 @@ describe("admin user management actions", () => {
       error: "lastAdmin",
     });
     expect(runtime.setRuntimeAdminUserDeleted).not.toHaveBeenCalled();
+  });
+
+  it("returns an action for invalid status changes", async () => {
+    const result = await setAdminUserDeleted("not-a-uuid", true);
+
+    expect(result).toEqual({
+      ok: false,
+      userId: "not-a-uuid",
+      action: "deactivate",
+      error: "invalid",
+    });
+    expect(admin.requireAdmin).not.toHaveBeenCalled();
   });
 });

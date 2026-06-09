@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import {
   countRuntimeActiveAdmins,
-  getRuntimeAdminUser,
+  getRuntimeAdminUserBasic,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
   setRuntimeAdminUserDeleted,
@@ -347,7 +347,7 @@ export async function setAdminUserRole(
     return { ok: false, userId, action: "role", error: "invalid" };
   }
   const admin = await requireAdmin();
-  const target = await getRuntimeAdminUser(userId).catch((error) => {
+  const target = await getRuntimeAdminUserBasic(userId).catch((error) => {
     console.warn("[admin] user lookup failed", error);
     return null;
   });
@@ -405,10 +405,10 @@ export async function setAdminUserDeleted(
   deleted: boolean,
   options: { confirmAdminChange?: boolean } = {},
 ): Promise<AdminUserManagementResult> {
-  if (!validUserId(userId)) return { ok: false, userId, error: "invalid" };
-  const admin = await requireAdmin();
   const action = deleted ? "deactivate" : "restore";
-  const target = await getRuntimeAdminUser(userId).catch((error) => {
+  if (!validUserId(userId)) return { ok: false, userId, action, error: "invalid" };
+  const admin = await requireAdmin();
+  const target = await getRuntimeAdminUserBasic(userId).catch((error) => {
     console.warn("[admin] user lookup failed", error);
     return null;
   });
