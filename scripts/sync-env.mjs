@@ -105,6 +105,20 @@ const env = {
   // Email
   RESEND_API_KEY: get("resend"),
   RESEND_FROM: "Skorly <noreply@skorly.cc>",
+  // News pipeline (signals + research + fallback LLMs)
+  SOCIALDATA_API_KEY: get("socialdata") || existing("SOCIALDATA_API_KEY"),
+  MINIMAX_API_KEY: get("mimimax") || existing("MINIMAX_API_KEY"),
+  MIMO_API_KEY: get("xiaomimimo") || existing("MIMO_API_KEY"),
+  TAVILY_API_KEY: get("tavily") || existing("TAVILY_API_KEY"),
+  // Anti-abuse
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+    get("turnstile site") || existing("NEXT_PUBLIC_TURNSTILE_SITE_KEY"),
+  TURNSTILE_SECRET_KEY: get("turnstile secret") || existing("TURNSTILE_SECRET_KEY"),
+  // Web Push (VAPID)
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY:
+    get("vapid_public") || existing("NEXT_PUBLIC_VAPID_PUBLIC_KEY"),
+  VAPID_PRIVATE_KEY: get("vapid_private") || existing("VAPID_PRIVATE_KEY"),
+  VAPID_SUBJECT: get("vapid_subject") || existing("VAPID_SUBJECT") || "mailto:business@skorly.cc",
   // Cloudflare (deploy)
   CLOUDFLARE_ACCOUNT_ID: get("cloudflare account id"),
   CLOUDFLARE_API_TOKEN: get("cloudflare deploy token"),
