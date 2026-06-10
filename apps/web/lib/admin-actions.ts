@@ -4,14 +4,18 @@ import { revalidatePath } from "next/cache";
 import {
   countRuntimeActiveAdmins,
   deleteRuntimeAdminArticle,
+  deleteRuntimeAdminMediaItem,
   getRuntimeAdminArticle,
   getRuntimeAdminMatch,
+  getRuntimeAdminMediaItem,
   getRuntimeAdminSubscriberBasic,
   getRuntimeAdminUserBasic,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
+  retryRuntimeAdminMediaItem,
   setRuntimeAdminArticleStatus,
   setRuntimeAdminMatchStatus,
+  setRuntimeAdminMediaUrl,
   setRuntimeAdminSubscriberConfirmToken,
   setRuntimeAdminSubscriberUnsubscribed,
   setRuntimeAdminUserDeleted,
@@ -24,6 +28,7 @@ import {
   type RuntimeAdminArticleUpdateInput,
   type RuntimeAdminMatchBasic,
   type RuntimeAdminMatchStatus,
+  type RuntimeAdminMediaItem,
   type RuntimeAdminSubscriberBasic,
   type RuntimeAdminUserRole,
   type RuntimeAdminAuditMeta,
@@ -39,6 +44,7 @@ const ARTICLE_TITLE_MAX = 240;
 const ARTICLE_SUMMARY_MAX = 600;
 const ARTICLE_BODY_MAX = 120_000;
 const ARTICLE_IMAGE_URL_MAX = 2_000;
+const MEDIA_IMAGE_URL_MAX = 2_000;
 const PUBLIC_LOCALES = ["id", "vi", "en", "zh"] as const;
 
 export type RunAdminOperationResult =
@@ -140,6 +146,28 @@ export type AdminMatchManagementResult =
       matchId?: number;
       action?: "status";
       error: "invalid" | "audit" | "upstream" | "notFound" | "confirmStatus";
+      response?: string;
+    };
+
+export type AdminMediaManagementResult =
+  | {
+      ok: true;
+      imageId: number;
+      action: "url" | "retry" | "delete";
+    }
+  | {
+      ok: false;
+      imageId?: number;
+      action?: "url" | "retry" | "delete";
+      error:
+        | "invalid"
+        | "invalidUrl"
+        | "audit"
+        | "upstream"
+        | "notFound"
+        | "confirmRetry"
+        | "confirmDelete"
+        | "missingPrompt";
       response?: string;
     };
 
@@ -288,6 +316,10 @@ function validMatchId(matchId: number): boolean {
   return Number.isInteger(matchId) && matchId > 0;
 }
 
+function validMediaId(imageId: number): boolean {
+  return Number.isInteger(imageId) && imageId > 0;
+}
+
 function validUserId(userId: string): boolean {
   return UUID_RE.test(userId);
 }
@@ -339,6 +371,17 @@ function normalizeImageUrl(value: string | null | undefined): string | null | un
     return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
   } catch {
     return undefined;
+  }
+}
+
+function normalizeMediaImageUrl(value: string | null | undefined): string | null {
+  const next = (value ?? "").trim();
+  if (!next || next.length > MEDIA_IMAGE_URL_MAX) return null;
+  try {
+    const url = new URL(next);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
   }
 }
 
@@ -977,6 +1020,235 @@ export async function setAdminMatchStatus(
     });
     revalidateMatchAdminPaths(match);
     return { ok: false, matchId, action: "status", error: "upstream", response: preview(message) };
+  }
+}
+
+async function loadAdminMedia(
+  imageId: number,
+): Promise<
+  | { image: RuntimeAdminMediaItem }
+  | { error: "notFound" | "upstream"; response?: string }
+> {
+  try {
+    const image = await getRuntimeAdminMediaItem(imageId);
+    return image ? { image } : { error: "notFound" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn("[admin] media lookup failed", error);
+    return { error: "upstream", response: preview(message) };
+  }
+}
+
+function mediaUrlHost(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).host;
+  } catch {
+    return null;
+  }
+}
+
+function mediaAuditMeta(image: RuntimeAdminMediaItem): RuntimeAdminAuditMeta {
+  return {
+    imageId: image.id,
+    fixtureId: image.fixtureId,
+    fixtureSlug: image.fixture?.slug ?? null,
+    kind: image.kind,
+    variant: image.variant,
+    category: image.category,
+    team: image.team,
+    imageStatus: image.status,
+    hasUrl: !!image.url,
+    urlHost: mediaUrlHost(image.url),
+    hasPrompt: !!image.prompt,
+    promptLength: image.prompt?.length ?? 0,
+    createdAt: image.createdAt?.toISOString() ?? null,
+  };
+}
+
+async function startMediaAudit(
+  actorId: string,
+  action: "media.url.set" | "media.retry" | "media.delete",
+  image: RuntimeAdminMediaItem,
+  meta: RuntimeAdminAuditMeta,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `image:${image.id}`,
+    meta: {
+      ...mediaAuditMeta(image),
+      ...meta,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishMediaAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+function revalidateMediaAdminPaths(image: RuntimeAdminMediaItem): void {
+  revalidatePath("/admin");
+  revalidatePath("/admin/media");
+  const slug = image.fixture?.slug;
+  if (slug) {
+    for (const locale of PUBLIC_LOCALES) {
+      revalidatePath(`/${locale}/pertandingan/${slug}`);
+    }
+  }
+}
+
+export async function setAdminMediaUrl(
+  imageId: number,
+  url: string,
+): Promise<AdminMediaManagementResult> {
+  const nextUrl = normalizeMediaImageUrl(url);
+  if (!validMediaId(imageId)) return { ok: false, imageId, action: "url", error: "invalid" };
+  if (!nextUrl) return { ok: false, imageId, action: "url", error: "invalidUrl" };
+
+  const admin = await requireAdmin();
+  const loaded = await loadAdminMedia(imageId);
+  if ("error" in loaded) return { ok: false, imageId, action: "url", ...loaded };
+  const image = loaded.image;
+  if (image.url === nextUrl && image.status === "ready") {
+    return { ok: true, imageId, action: "url" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startMediaAudit(admin.user.id, "media.url.set", image, {
+      fromStatus: image.status,
+      toStatus: "ready",
+      fromUrlHost: mediaUrlHost(image.url),
+      toUrlHost: mediaUrlHost(nextUrl),
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, imageId, action: "url", error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminMediaUrl(imageId, nextUrl);
+    await finishMediaAudit(auditId, {
+      status: "succeeded",
+      fromStatus: image.status,
+      toStatus: "ready",
+      fromUrlHost: mediaUrlHost(image.url),
+      toUrlHost: mediaUrlHost(nextUrl),
+    });
+    revalidateMediaAdminPaths(image);
+    return { ok: true, imageId, action: "url" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishMediaAudit(auditId, {
+      status: "failed",
+      fromStatus: image.status,
+      toStatus: "ready",
+      error: preview(message),
+    });
+    revalidateMediaAdminPaths(image);
+    return { ok: false, imageId, action: "url", error: "upstream", response: preview(message) };
+  }
+}
+
+export async function retryAdminMediaItem(
+  imageId: number,
+  options: { confirmRetry?: boolean } = {},
+): Promise<AdminMediaManagementResult> {
+  if (!validMediaId(imageId)) return { ok: false, imageId, action: "retry", error: "invalid" };
+  const admin = await requireAdmin();
+  const loaded = await loadAdminMedia(imageId);
+  if ("error" in loaded) return { ok: false, imageId, action: "retry", ...loaded };
+  const image = loaded.image;
+  if (!image.prompt) return { ok: false, imageId, action: "retry", error: "missingPrompt" };
+  if (!options.confirmRetry) return { ok: false, imageId, action: "retry", error: "confirmRetry" };
+
+  let auditId = 0;
+  try {
+    auditId = await startMediaAudit(admin.user.id, "media.retry", image, {
+      fromStatus: image.status,
+      toStatus: "pending",
+      clearedUrl: !!image.url,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, imageId, action: "retry", error: "audit" };
+  }
+
+  try {
+    const updated = await retryRuntimeAdminMediaItem(imageId);
+    if (!updated) {
+      const message = "Image prompt missing before retry update";
+      await finishMediaAudit(auditId, {
+        status: "failed",
+        toStatus: "pending",
+        error: message,
+      });
+      revalidateMediaAdminPaths(image);
+      return { ok: false, imageId, action: "retry", error: "upstream", response: message };
+    }
+    await finishMediaAudit(auditId, {
+      status: "succeeded",
+      fromStatus: image.status,
+      toStatus: "pending",
+      clearedUrl: !!image.url,
+    });
+    revalidateMediaAdminPaths(image);
+    return { ok: true, imageId, action: "retry" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishMediaAudit(auditId, {
+      status: "failed",
+      toStatus: "pending",
+      error: preview(message),
+    });
+    revalidateMediaAdminPaths(image);
+    return { ok: false, imageId, action: "retry", error: "upstream", response: preview(message) };
+  }
+}
+
+export async function deleteAdminMediaItem(
+  imageId: number,
+  options: { confirmDelete?: boolean } = {},
+): Promise<AdminMediaManagementResult> {
+  if (!validMediaId(imageId)) return { ok: false, imageId, action: "delete", error: "invalid" };
+  const admin = await requireAdmin();
+  const loaded = await loadAdminMedia(imageId);
+  if ("error" in loaded) return { ok: false, imageId, action: "delete", ...loaded };
+  const image = loaded.image;
+  if (!options.confirmDelete) {
+    return { ok: false, imageId, action: "delete", error: "confirmDelete" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startMediaAudit(admin.user.id, "media.delete", image, {});
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, imageId, action: "delete", error: "audit" };
+  }
+
+  try {
+    await deleteRuntimeAdminMediaItem(imageId);
+    await finishMediaAudit(auditId, { status: "succeeded" });
+    revalidateMediaAdminPaths(image);
+    return { ok: true, imageId, action: "delete" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishMediaAudit(auditId, {
+      status: "failed",
+      error: preview(message),
+    });
+    revalidateMediaAdminPaths(image);
+    return { ok: false, imageId, action: "delete", error: "upstream", response: preview(message) };
   }
 }
 

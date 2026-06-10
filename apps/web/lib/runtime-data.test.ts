@@ -22,11 +22,17 @@ vi.mock("@skorly/predict-model", () => ({
 }));
 
 const {
+  deleteRuntimeAdminMediaItem,
   deleteRuntimeAdminArticle,
   getRuntimeAdminMatches,
+  getRuntimeAdminMedia,
+  getRuntimeAdminMediaItem,
+  getRuntimeAdminMediaKinds,
   getRuntimeAdminSubscribers,
   reportRuntimeComment,
+  retryRuntimeAdminMediaItem,
   setRuntimeAdminMatchStatus,
+  setRuntimeAdminMediaUrl,
   setRuntimeAdminSubscriberConfirmToken,
   setRuntimeAdminSubscriberUnsubscribed,
 } = await import("./runtime-data");
@@ -297,5 +303,205 @@ describe("admin match runtime helpers", () => {
       { status: "finished", updated_at: expect.any(String) },
       { returning: false },
     );
+  });
+});
+
+describe("admin media runtime helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rest.selectRowsWithCount.mockResolvedValue({ rows: [], total: 0 });
+    rest.selectRows.mockResolvedValue([]);
+    rest.updateRows.mockResolvedValue([{ id: 55 }]);
+    rest.deleteRows.mockResolvedValue(undefined);
+  });
+
+  it("queries media rows with filters, pagination, and fixture context", async () => {
+    rest.selectRowsWithCount.mockResolvedValue({
+      rows: [
+        {
+          id: 55,
+          team: "Argentina",
+          category: "prematch_poster",
+          url: "https://cdn.example.com/poster.jpg",
+          fixture_id: 10,
+          kind: "prematch_poster",
+          variant: "star",
+          prompt: "Poster prompt",
+          status: "ready",
+          created_at: "2026-06-01T00:00:00.000Z",
+        },
+      ],
+      total: 1,
+    });
+    rest.selectRows.mockImplementation((table: string) => {
+      if (table === "fixtures") {
+        return Promise.resolve([
+          {
+            id: 10,
+            api_id: 10010,
+            slug: "argentina-vs-brazil",
+            round: "Group stage",
+            group_name: "Group A",
+            stage: "Group",
+            kickoff_at: "2026-06-10T20:00:00.000Z",
+            venue: "Test Stadium",
+            city: "Test City",
+            status: "scheduled",
+            home_goals: null,
+            away_goals: null,
+            elapsed: null,
+            home_team_id: 1,
+            away_team_id: 2,
+          },
+        ]);
+      }
+      if (table === "teams") {
+        return Promise.resolve([
+          { id: 1, name: "Argentina", slug: "argentina", logo: null, code: "ARG" },
+          { id: 2, name: "Brazil", slug: "brazil", logo: null, code: "BRA" },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await getRuntimeAdminMedia({
+      query: "poster",
+      status: "ready",
+      kind: "prematch_poster",
+      fixtureId: 10,
+      page: 2,
+      pageSize: 10,
+    });
+
+    expect(rest.selectRowsWithCount).toHaveBeenCalledWith("image_library", expect.objectContaining({
+      fixture_id: "eq.10",
+      kind: "eq.prematch_poster",
+      limit: 10,
+      offset: 10,
+      order: "created_at.desc",
+      or: "(team.ilike.*poster*,category.ilike.*poster*,kind.ilike.*poster*,variant.ilike.*poster*,url.ilike.*poster*)",
+      status: "eq.ready",
+    }));
+    expect(rest.selectRows).toHaveBeenCalledWith("fixtures", expect.objectContaining({
+      id: "in.(10)",
+    }));
+    expect(result.images[0]).toEqual(expect.objectContaining({
+      id: 55,
+      status: "ready",
+      fixture: expect.objectContaining({
+        id: 10,
+        slug: "argentina-vs-brazil",
+        home: expect.objectContaining({ name: "Argentina" }),
+      }),
+    }));
+  });
+
+  it("sanitizes media search before building the PostgREST or filter", async () => {
+    await getRuntimeAdminMedia({ query: "arg*(a),_%", pageSize: 5 });
+
+    expect(rest.selectRowsWithCount).toHaveBeenCalledWith("image_library", expect.objectContaining({
+      limit: 5,
+      or: "(team.ilike.*arg a*,category.ilike.*arg a*,kind.ilike.*arg a*,variant.ilike.*arg a*,url.ilike.*arg a*)",
+    }));
+  });
+
+  it("deduplicates media kinds for admin filters", async () => {
+    rest.selectRows.mockResolvedValue([
+      { kind: "result_card" },
+      { kind: "prematch_poster" },
+      { kind: "result_card" },
+      { kind: null },
+    ]);
+
+    await expect(getRuntimeAdminMediaKinds()).resolves.toEqual(["prematch_poster", "result_card"]);
+    expect(rest.selectRows).toHaveBeenCalledWith("image_library", {
+      select: "kind",
+      order: "kind.asc",
+      limit: 5_000,
+    });
+  });
+
+  it("loads a single media item with fixture context", async () => {
+    rest.selectRows.mockImplementation((table: string) => {
+      if (table === "image_library") {
+        return Promise.resolve([
+          {
+            id: 55,
+            team: null,
+            category: "result_card",
+            url: null,
+            fixture_id: 10,
+            kind: "result_card",
+            variant: "star",
+            prompt: "Prompt",
+            status: "pending",
+            created_at: "2026-06-01T00:00:00.000Z",
+          },
+        ]);
+      }
+      if (table === "fixtures") {
+        return Promise.resolve([
+          {
+            id: 10,
+            api_id: 10010,
+            slug: "argentina-vs-brazil",
+            round: "Group stage",
+            group_name: "Group A",
+            stage: "Group",
+            kickoff_at: "2026-06-10T20:00:00.000Z",
+            venue: "Test Stadium",
+            city: "Test City",
+            status: "finished",
+            home_goals: 2,
+            away_goals: 1,
+            elapsed: 90,
+            home_team_id: 1,
+            away_team_id: 2,
+          },
+        ]);
+      }
+      if (table === "teams") {
+        return Promise.resolve([
+          { id: 1, name: "Argentina", slug: "argentina", logo: null, code: "ARG" },
+          { id: 2, name: "Brazil", slug: "brazil", logo: null, code: "BRA" },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await getRuntimeAdminMediaItem(55);
+
+    expect(result).toEqual(expect.objectContaining({
+      id: 55,
+      kind: "result_card",
+      fixture: expect.objectContaining({ status: "finished" }),
+    }));
+  });
+
+  it("updates media URL and marks the row ready", async () => {
+    await setRuntimeAdminMediaUrl(55, "https://cdn.example.com/poster.jpg");
+
+    expect(rest.updateRows).toHaveBeenCalledWith(
+      "image_library",
+      { id: "eq.55" },
+      { url: "https://cdn.example.com/poster.jpg", status: "ready" },
+      { returning: false },
+    );
+  });
+
+  it("retries only media rows that still have a prompt", async () => {
+    await expect(retryRuntimeAdminMediaItem(55)).resolves.toBe(true);
+
+    expect(rest.updateRows).toHaveBeenCalledWith(
+      "image_library",
+      { id: "eq.55", prompt: "not.is.null", select: "id" },
+      { status: "pending", url: null },
+    );
+  });
+
+  it("deletes media rows by id", async () => {
+    await deleteRuntimeAdminMediaItem(55);
+
+    expect(rest.deleteRows).toHaveBeenCalledWith("image_library", { id: "eq.55" });
   });
 });

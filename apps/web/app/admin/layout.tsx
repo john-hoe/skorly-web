@@ -23,7 +23,7 @@ const NAV = [
   { href: "/admin/content", label: "Content", enabled: true },
   { href: "/admin/subscribers", label: "Subscribers", enabled: true },
   { href: "/admin/matches", label: "Matches", enabled: true },
-  { href: "/admin/media", label: "Media", enabled: false },
+  { href: "/admin/media", label: "Media", enabled: true },
 ];
 
 export const dynamic = "force-dynamic";

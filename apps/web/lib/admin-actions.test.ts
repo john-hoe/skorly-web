@@ -7,14 +7,18 @@ const admin = vi.hoisted(() => ({
 const runtime = vi.hoisted(() => ({
   countRuntimeActiveAdmins: vi.fn(),
   deleteRuntimeAdminArticle: vi.fn(),
+  deleteRuntimeAdminMediaItem: vi.fn(),
   getRuntimeAdminArticle: vi.fn(),
   getRuntimeAdminMatch: vi.fn(),
+  getRuntimeAdminMediaItem: vi.fn(),
   getRuntimeAdminSubscriberBasic: vi.fn(),
   getRuntimeAdminUserBasic: vi.fn(),
   insertRuntimeAdminAuditLog: vi.fn(),
   markRuntimeAdminCommentReportsReviewed: vi.fn(),
+  retryRuntimeAdminMediaItem: vi.fn(),
   setRuntimeAdminArticleStatus: vi.fn(),
   setRuntimeAdminMatchStatus: vi.fn(),
+  setRuntimeAdminMediaUrl: vi.fn(),
   setRuntimeAdminSubscriberConfirmToken: vi.fn(),
   setRuntimeAdminSubscriberUnsubscribed: vi.fn(),
   setRuntimeAdminCommentHidden: vi.fn(),
@@ -41,9 +45,12 @@ vi.mock("./seo", () => ({ SITE_URL: "https://skorly.test" }));
 
 const {
   deleteAdminArticle,
+  deleteAdminMediaItem,
   resendAdminSubscriberConfirmation,
+  retryAdminMediaItem,
   setAdminArticleStatus,
   setAdminMatchStatus,
+  setAdminMediaUrl,
   setAdminSubscriberUnsubscribed,
   setAdminUserDeleted,
   setAdminUserRole,
@@ -168,6 +175,54 @@ function match(status = "scheduled") {
     notifiedKickoffAt: null,
     premiumEmailedAt: null,
     eventCount: 0,
+  };
+}
+
+type TestMedia = {
+  id: number;
+  team: string | null;
+  category: string;
+  url: string | null;
+  fixtureId: number | null;
+  fixture: {
+    id: number;
+    slug: string;
+    kickoffAt: Date | null;
+    status: string;
+    home: { id: number | null; name: string; slug: string; logo: string | null; code: string | null };
+    away: { id: number | null; name: string; slug: string; logo: string | null; code: string | null };
+  } | null;
+  kind: string;
+  variant: string | null;
+  prompt: string | null;
+  status: string;
+  createdAt: Date | null;
+};
+
+function media(overrides: Partial<TestMedia> = {}): TestMedia {
+  return { ...mediaBase(), ...overrides };
+}
+
+function mediaBase(): TestMedia {
+  return {
+    id: 55,
+    team: "Argentina",
+    category: "prematch_poster",
+    url: "https://cdn.example.com/old.jpg",
+    fixtureId: 88,
+    fixture: {
+      id: 88,
+      slug: "argentina-vs-brazil",
+      kickoffAt: new Date("2026-06-10T20:00:00.000Z"),
+      status: "scheduled",
+      home: { id: 1, name: "Argentina", slug: "argentina", logo: null, code: "ARG" },
+      away: { id: 2, name: "Brazil", slug: "brazil", logo: null, code: "BRA" },
+    },
+    kind: "prematch_poster",
+    variant: "star",
+    prompt: "A long poster prompt that should not be copied into audit metadata",
+    status: "ready",
+    createdAt: new Date("2026-06-01T00:00:00.000Z"),
   };
 }
 
@@ -503,6 +558,182 @@ describe("admin match management actions", () => {
       error: "invalid",
     });
     expect(admin.requireAdmin).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin media management actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    admin.requireAdmin.mockResolvedValue(actor);
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(media());
+    runtime.insertRuntimeAdminAuditLog.mockResolvedValue(777);
+    runtime.setRuntimeAdminMediaUrl.mockResolvedValue(undefined);
+    runtime.retryRuntimeAdminMediaItem.mockResolvedValue(true);
+    runtime.deleteRuntimeAdminMediaItem.mockResolvedValue(undefined);
+    runtime.updateRuntimeAdminAuditLogMeta.mockResolvedValue(undefined);
+  });
+
+  it("rejects invalid media URLs before loading admin context", async () => {
+    const result = await setAdminMediaUrl(55, "javascript:alert(1)");
+
+    expect(result).toEqual({
+      ok: false,
+      imageId: 55,
+      action: "url",
+      error: "invalidUrl",
+    });
+    expect(admin.requireAdmin).not.toHaveBeenCalled();
+    expect(runtime.setRuntimeAdminMediaUrl).not.toHaveBeenCalled();
+  });
+
+  it("writes audited media URL updates without storing the full prompt", async () => {
+    const target = media();
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await setAdminMediaUrl(target.id, "https://cdn.example.com/new.jpg");
+
+    expect(result).toEqual({ ok: true, imageId: target.id, action: "url" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "media.url.set",
+      target: `image:${target.id}`,
+      meta: expect.objectContaining({
+        imageId: target.id,
+        fixtureId: target.fixtureId,
+        fixtureSlug: target.fixture?.slug,
+        kind: target.kind,
+        fromStatus: "ready",
+        toStatus: "ready",
+        fromUrlHost: "cdn.example.com",
+        toUrlHost: "cdn.example.com",
+        promptLength: target.prompt?.length,
+      }),
+    });
+    const auditInput = runtime.insertRuntimeAdminAuditLog.mock.calls[0]?.[0];
+    expect(JSON.stringify(auditInput.meta)).not.toContain(target.prompt);
+    expect(runtime.setRuntimeAdminMediaUrl).toHaveBeenCalledWith(
+      target.id,
+      "https://cdn.example.com/new.jpg",
+    );
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/media");
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/id/pertandingan/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/pertandingan/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/pertandingan/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/pertandingan/${target.fixture?.slug}`);
+  });
+
+  it("requires explicit confirmation before retrying media generation", async () => {
+    const target = media({ status: "failed", url: null });
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await retryAdminMediaItem(target.id);
+
+    expect(result).toEqual({
+      ok: false,
+      imageId: target.id,
+      action: "retry",
+      error: "confirmRetry",
+    });
+    expect(runtime.insertRuntimeAdminAuditLog).not.toHaveBeenCalled();
+    expect(runtime.retryRuntimeAdminMediaItem).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a media row without a prompt", async () => {
+    const target = media({ prompt: null, status: "failed", url: null });
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await retryAdminMediaItem(target.id, { confirmRetry: true });
+
+    expect(result).toEqual({
+      ok: false,
+      imageId: target.id,
+      action: "retry",
+      error: "missingPrompt",
+    });
+    expect(runtime.retryRuntimeAdminMediaItem).not.toHaveBeenCalled();
+  });
+
+  it("writes audited retry updates", async () => {
+    const target = media({ status: "failed", url: null });
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await retryAdminMediaItem(target.id, { confirmRetry: true });
+
+    expect(result).toEqual({ ok: true, imageId: target.id, action: "retry" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "media.retry",
+      target: `image:${target.id}`,
+      meta: expect.objectContaining({
+        imageId: target.id,
+        fromStatus: "failed",
+        toStatus: "pending",
+      }),
+    });
+    expect(runtime.retryRuntimeAdminMediaItem).toHaveBeenCalledWith(target.id);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      777,
+      expect.objectContaining({ status: "succeeded", fromStatus: "failed", toStatus: "pending" }),
+    );
+  });
+
+  it("keeps an audit trail when retrying an already pending media row", async () => {
+    const target = media({ status: "pending", url: null });
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await retryAdminMediaItem(target.id, { confirmRetry: true });
+
+    expect(result).toEqual({ ok: true, imageId: target.id, action: "retry" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "media.retry",
+      target: `image:${target.id}`,
+      meta: expect.objectContaining({
+        imageId: target.id,
+        fromStatus: "pending",
+        toStatus: "pending",
+      }),
+    });
+    expect(runtime.retryRuntimeAdminMediaItem).toHaveBeenCalledWith(target.id);
+  });
+
+  it("requires explicit confirmation before deleting media rows", async () => {
+    const target = media();
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await deleteAdminMediaItem(target.id);
+
+    expect(result).toEqual({
+      ok: false,
+      imageId: target.id,
+      action: "delete",
+      error: "confirmDelete",
+    });
+    expect(runtime.deleteRuntimeAdminMediaItem).not.toHaveBeenCalled();
+  });
+
+  it("writes audited media deletes", async () => {
+    const target = media();
+    runtime.getRuntimeAdminMediaItem.mockResolvedValue(target);
+
+    const result = await deleteAdminMediaItem(target.id, { confirmDelete: true });
+
+    expect(result).toEqual({ ok: true, imageId: target.id, action: "delete" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "media.delete",
+      target: `image:${target.id}`,
+      meta: expect.objectContaining({
+        imageId: target.id,
+        fixtureId: target.fixtureId,
+        kind: target.kind,
+      }),
+    });
+    expect(runtime.deleteRuntimeAdminMediaItem).toHaveBeenCalledWith(target.id);
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      777,
+      expect.objectContaining({ status: "succeeded" }),
+    );
   });
 });
 

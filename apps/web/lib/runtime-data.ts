@@ -395,6 +395,53 @@ export interface RuntimeAdminStandingRow {
   updatedAt: Date | null;
 }
 
+export type RuntimeAdminMediaStatus = "pending" | "ready" | "failed";
+export type RuntimeAdminMediaStatusFilter = RuntimeAdminMediaStatus | "all";
+
+export interface RuntimeAdminMediaListParams {
+  query?: string;
+  status?: RuntimeAdminMediaStatusFilter;
+  kind?: string;
+  fixtureId?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RuntimeAdminMediaFixture {
+  id: number;
+  slug: string;
+  kickoffAt: Date | null;
+  status: string;
+  home: RuntimeFixtureView["home"];
+  away: RuntimeFixtureView["away"];
+}
+
+export interface RuntimeAdminMediaItem {
+  id: number;
+  team: string | null;
+  category: string;
+  url: string | null;
+  fixtureId: number | null;
+  fixture: RuntimeAdminMediaFixture | null;
+  kind: string;
+  variant: string | null;
+  prompt: string | null;
+  status: string;
+  createdAt: Date | null;
+}
+
+export interface RuntimeAdminMediaList {
+  images: RuntimeAdminMediaItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  query: string;
+  status: RuntimeAdminMediaStatusFilter;
+  kind: string;
+  fixtureId: number | null;
+}
+
 export type RuntimeAdminArticleStatus = "draft" | "published";
 export type RuntimeAdminArticlePublishedFilter = "all" | "set" | "missing";
 export type RuntimeAdminArticleType =
@@ -774,11 +821,26 @@ interface AdminFixtureEventRow {
   created_at: string | null;
 }
 
+interface AdminImageLibraryRow {
+  id: number;
+  team: string | null;
+  category: string | null;
+  url: string | null;
+  fixture_id: number | null;
+  kind: string | null;
+  variant: string | null;
+  prompt: string | null;
+  status: string | null;
+  created_at: string | null;
+}
+
 const FIXTURE_SELECT =
   "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
 const ADMIN_FIXTURE_SELECT =
   `${FIXTURE_SELECT},updated_at,notified_kickoff_at,premium_emailed_at`;
 const TEAM_SELECT = "id,name,slug,logo,code";
+const ADMIN_MEDIA_SELECT =
+  "id,team,category,url,fixture_id,kind,variant,prompt,status,created_at";
 const ADMIN_ARTICLE_LIST_SELECT =
   "id,slug,locale,type,title,summary,fixture_id,team_id,group_name,topic_id,image_url,status,quality_score,model,published_at,created_at,updated_at";
 const ADMIN_ARTICLE_DETAIL_SELECT = `${ADMIN_ARTICLE_LIST_SELECT},body`;
@@ -790,10 +852,12 @@ const ADMIN_SUBSCRIBER_PAGE_SIZE = 25;
 const ADMIN_SUBSCRIBER_EXPORT_LIMIT = 5_000;
 const ADMIN_MATCH_PAGE_SIZE = 25;
 const ADMIN_ARTICLE_PAGE_SIZE = 20;
+const ADMIN_MEDIA_PAGE_SIZE = 25;
 const ADMIN_SUBSCRIBER_LIST_SELECT =
   "id,email,whatsapp_number,locale,source,consent_marketing,consent_at,ip,country,user_agent,confirmed_at,gift_sent,gift_sent_at,unsubscribed_at,created_at";
 const ADMIN_SUBSCRIBER_BASIC_SELECT = `${ADMIN_SUBSCRIBER_LIST_SELECT},confirm_token`;
 const ADMIN_MATCH_STATUSES = ["scheduled", "live", "finished", "postponed", "cancelled"] as const;
+const ADMIN_MEDIA_STATUSES = ["pending", "ready", "failed"] as const;
 const ADMIN_ARTICLE_TYPES = [
   "preview",
   "watchpoints",
@@ -1762,6 +1826,194 @@ export async function setRuntimeAdminMatchStatus(
     { status, updated_at: new Date().toISOString() },
     { returning: false },
   );
+}
+
+function adminMediaStatusFilter(
+  value: string | null | undefined,
+): RuntimeAdminMediaStatusFilter {
+  return ADMIN_MEDIA_STATUSES.some((status) => status === value)
+    ? (value as RuntimeAdminMediaStatus)
+    : "all";
+}
+
+function normalizeAdminMediaSearch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizeAdminMediaKind(value: string | null | undefined): string {
+  const next = (value ?? "")
+    .trim()
+    .replace(/[%*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return next || "all";
+}
+
+function normalizeAdminMediaPage(value: number | null | undefined): number {
+  return Number.isInteger(value) && value && value > 0 ? value : 1;
+}
+
+function normalizeAdminMediaFixtureId(value: number | null | undefined): number | null {
+  return Number.isInteger(value) && value && value > 0 ? value : null;
+}
+
+function adminMediaSearchOrFilter(search: string): string | null {
+  if (!search) return null;
+  return `(team.ilike.*${search}*,category.ilike.*${search}*,kind.ilike.*${search}*,variant.ilike.*${search}*,url.ilike.*${search}*)`;
+}
+
+function adminMediaFilters(input: RuntimeAdminMediaListParams) {
+  const status = adminMediaStatusFilter(input.status);
+  const kind = normalizeAdminMediaKind(input.kind);
+  const fixtureId = normalizeAdminMediaFixtureId(input.fixtureId);
+  const query = normalizeAdminMediaSearch(input.query);
+  const searchFilter = adminMediaSearchOrFilter(query);
+  const params: Record<string, string | number | boolean | null | undefined> = {};
+  if (status !== "all") params.status = `eq.${status}`;
+  if (kind !== "all") params.kind = `eq.${kind}`;
+  if (fixtureId != null) params.fixture_id = `eq.${fixtureId}`;
+  if (searchFilter) params.or = searchFilter;
+  return { params, query, status, kind, fixtureId };
+}
+
+async function adminMediaFixturesById(
+  fixtureIds: Array<number | null | undefined>,
+): Promise<Map<number, RuntimeAdminMediaFixture>> {
+  const ids = Array.from(
+    new Set(
+      fixtureIds.filter((id): id is number =>
+        typeof id === "number" && Number.isInteger(id) && id > 0,
+      ),
+    ),
+  );
+  if (ids.length === 0) return new Map();
+
+  const rows = await selectRows<FixtureRow>("fixtures", {
+    select: FIXTURE_SELECT,
+    id: inFilter(ids),
+    limit: Math.min(ids.length, 500),
+  });
+  const teams = await teamsById(rows.flatMap((row) => [row.home_team_id, row.away_team_id]));
+  return new Map(
+    rows.map((row) => {
+      const fixture = toFixture(row, teams);
+      return [
+        row.id,
+        {
+          id: fixture.id,
+          slug: fixture.slug,
+          kickoffAt: fixture.kickoffAt,
+          status: fixture.status,
+          home: fixture.home,
+          away: fixture.away,
+        },
+      ];
+    }),
+  );
+}
+
+function imageToAdminMediaItem(
+  row: AdminImageLibraryRow,
+  fixtures: Map<number, RuntimeAdminMediaFixture>,
+): RuntimeAdminMediaItem {
+  return {
+    id: row.id,
+    team: row.team,
+    category: row.category ?? "generic",
+    url: row.url,
+    fixtureId: row.fixture_id,
+    fixture: row.fixture_id == null ? null : fixtures.get(row.fixture_id) ?? null,
+    kind: row.kind ?? "generic",
+    variant: row.variant,
+    prompt: row.prompt,
+    status: row.status ?? "ready",
+    createdAt: safeDate(row.created_at),
+  };
+}
+
+export async function getRuntimeAdminMedia(
+  input: RuntimeAdminMediaListParams = {},
+): Promise<RuntimeAdminMediaList> {
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize && input.pageSize > 0
+      ? Math.min(input.pageSize, 100)
+      : ADMIN_MEDIA_PAGE_SIZE;
+  const page = normalizeAdminMediaPage(input.page);
+  const { params, query, status, kind, fixtureId } = adminMediaFilters(input);
+  const { rows, total } = await selectRowsWithCount<AdminImageLibraryRow>("image_library", {
+    select: ADMIN_MEDIA_SELECT,
+    order: "created_at.desc",
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+    ...params,
+  });
+  const fixtures = await adminMediaFixturesById(rows.map((row) => row.fixture_id));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return {
+    images: rows.map((row) => imageToAdminMediaItem(row, fixtures)),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    query,
+    status,
+    kind,
+    fixtureId,
+  };
+}
+
+export async function getRuntimeAdminMediaKinds(): Promise<string[]> {
+  const rows = await selectRows<Pick<AdminImageLibraryRow, "kind">>("image_library", {
+    select: "kind",
+    order: "kind.asc",
+    limit: 5_000,
+  });
+  return Array.from(new Set(rows.map((row) => row.kind).filter((kind): kind is string => !!kind))).sort();
+}
+
+export async function getRuntimeAdminMediaItem(
+  imageId: number,
+): Promise<RuntimeAdminMediaItem | null> {
+  const rows = await selectRows<AdminImageLibraryRow>("image_library", {
+    select: ADMIN_MEDIA_SELECT,
+    id: `eq.${imageId}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  const fixtures = await adminMediaFixturesById([row.fixture_id]);
+  return imageToAdminMediaItem(row, fixtures);
+}
+
+export async function setRuntimeAdminMediaUrl(
+  imageId: number,
+  url: string,
+): Promise<void> {
+  await updateRows(
+    "image_library",
+    { id: `eq.${imageId}` },
+    { url, status: "ready" },
+    { returning: false },
+  );
+}
+
+export async function retryRuntimeAdminMediaItem(imageId: number): Promise<boolean> {
+  const rows = await updateRows<{ id: number }>(
+    "image_library",
+    { id: `eq.${imageId}`, prompt: "not.is.null", select: "id" },
+    { status: "pending", url: null },
+  );
+  return rows.length > 0;
+}
+
+export async function deleteRuntimeAdminMediaItem(imageId: number): Promise<void> {
+  await deleteRows("image_library", { id: `eq.${imageId}` });
 }
 
 function adminArticleStatus(value: string | null | undefined): RuntimeAdminArticleStatus {
