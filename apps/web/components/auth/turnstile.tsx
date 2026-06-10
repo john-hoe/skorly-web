@@ -14,17 +14,18 @@ declare global {
 const SCRIPT_ID = "cf-turnstile-script";
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-const BUILD_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null;
 
 /**
  * Cloudflare Turnstile widget. Explicitly rendered so it works after client
- * navigation. Injects a hidden `cf-turnstile-response` input into its parent
- * <form>, which the server action verifies. Renders nothing if no site key is
- * configured; production server verification still fails closed without a
- * valid token.
+ * navigation. The site key is fetched after mount so Cloudflare runtime env on
+ * the server cannot make SSR markup diverge from the browser bundle's first
+ * render. Injects a hidden `cf-turnstile-response` input into its parent <form>,
+ * which the server action verifies. Renders nothing if no site key is
+ * configured; production server verification still fails closed without a valid
+ * token.
  */
 export function Turnstile() {
-  const [siteKey, setSiteKey] = useState<string | null>(BUILD_SITE_KEY);
+  const [siteKey, setSiteKey] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
 
