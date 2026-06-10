@@ -62,6 +62,9 @@ export async function generateMetadata({
       ],
     },
     twitter: { card: "summary_large_image", images: ["/og.png"] },
+    // AdSense site-ownership verification (meta tag method); server-rendered
+    // so Google's verifier sees it without executing JS.
+    other: adsenseClient ? { "google-adsense-account": adsenseClient } : undefined,
   };
 }
 
