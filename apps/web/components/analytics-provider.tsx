@@ -13,6 +13,7 @@ import {
 } from "@/lib/analytics";
 
 const GA_SCRIPT_ID = "google-analytics-loader";
+const ADSENSE_SCRIPT_ID = "google-adsense-loader";
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 
 declare global {
@@ -26,9 +27,26 @@ type AnalyticsProviderProps = {
   gaId?: string | null;
   posthogKey?: string | null;
   posthogHost?: string | null;
+  adsenseClient?: string | null;
 };
 
-export function AnalyticsProvider({ gaId, posthogKey, posthogHost }: AnalyticsProviderProps) {
+function ensureGtagStub() {
+  window.dataLayer = window.dataLayer || [];
+  window.gtag =
+    window.gtag ??
+    function gtag() {
+      // Google tag processes the Arguments object that the official snippet queues.
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer?.push(arguments);
+    };
+}
+
+export function AnalyticsProvider({
+  gaId,
+  posthogKey,
+  posthogHost,
+  adsenseClient,
+}: AnalyticsProviderProps) {
   const t = useTranslations("analyticsConsent");
   const consent = useSyncExternalStore(
     subscribeToAnalyticsConsent,
@@ -36,7 +54,7 @@ export function AnalyticsProvider({ gaId, posthogKey, posthogHost }: AnalyticsPr
     () => "loading" as ConsentState,
   );
 
-  if (!gaId && !posthogKey) return null;
+  if (!gaId && !posthogKey && !adsenseClient) return null;
 
   const saveConsent = (nextConsent: Exclude<ConsentState, "loading" | "unset">) => {
     writeAnalyticsConsent(nextConsent);
@@ -44,6 +62,8 @@ export function AnalyticsProvider({ gaId, posthogKey, posthogHost }: AnalyticsPr
 
   return (
     <>
+      <ConsentModeBridge consent={consent} />
+      {adsenseClient ? <AdSenseScript client={adsenseClient} /> : null}
       {consent === "granted" ? <GoogleAnalyticsScripts gaId={gaId} /> : null}
       {consent === "granted" && posthogKey ? (
         <PostHogScripts posthogKey={posthogKey} posthogHost={posthogHost} />
@@ -63,26 +83,67 @@ export function AnalyticsProvider({ gaId, posthogKey, posthogHost }: AnalyticsPr
   );
 }
 
-function GoogleAnalyticsScripts({ gaId }: { gaId?: string | null }) {
+/**
+ * Consent Mode v2 bridge. Defaults everything to "denied" before any Google
+ * script processes the queue, then mirrors the visitor's banner choice. With
+ * consent denied Google serves only limited, non-personalized ads.
+ */
+function ConsentModeBridge({ consent }: { consent: ConsentState }) {
+  const defaultsSet = useRef(false);
+
   useEffect(() => {
-    if (!gaId) return;
-
-    window.dataLayer = window.dataLayer || [];
-    window.gtag =
-      window.gtag ??
-      function gtag() {
-        // Google tag processes the Arguments object that the official snippet queues.
-        // eslint-disable-next-line prefer-rest-params
-        window.dataLayer?.push(arguments);
-      };
-
-    const configureAnalytics = () => {
-      window.gtag?.("consent", "update", {
-        analytics_storage: "granted",
+    ensureGtagStub();
+    if (!defaultsSet.current) {
+      defaultsSet.current = true;
+      window.gtag?.("consent", "default", {
+        analytics_storage: "denied",
         ad_storage: "denied",
         ad_user_data: "denied",
         ad_personalization: "denied",
       });
+    }
+    if (consent === "granted" || consent === "denied") {
+      const value = consent === "granted" ? "granted" : "denied";
+      window.gtag?.("consent", "update", {
+        analytics_storage: value,
+        ad_storage: value,
+        ad_user_data: value,
+        ad_personalization: value,
+      });
+    }
+  }, [consent]);
+
+  return null;
+}
+
+/**
+ * Loads the AdSense tag regardless of the banner choice: the tag doubles as
+ * AdSense site verification, and ConsentModeBridge keeps ads limited and
+ * non-personalized until the visitor accepts.
+ */
+function AdSenseScript({ client }: { client: string }) {
+  useEffect(() => {
+    ensureGtagStub();
+    if (document.getElementById(ADSENSE_SCRIPT_ID)) return;
+
+    const script = document.createElement("script");
+    script.id = ADSENSE_SCRIPT_ID;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(client)}`;
+    document.head.appendChild(script);
+  }, [client]);
+
+  return null;
+}
+
+function GoogleAnalyticsScripts({ gaId }: { gaId?: string | null }) {
+  useEffect(() => {
+    if (!gaId) return;
+
+    ensureGtagStub();
+
+    const configureAnalytics = () => {
       window.gtag?.("js", new Date());
       window.gtag?.("config", gaId, {
         anonymize_ip: true,

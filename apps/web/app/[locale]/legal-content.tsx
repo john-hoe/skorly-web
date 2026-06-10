@@ -23,7 +23,7 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
       title: "Privacy Policy",
       description:
         "How Skorly collects, uses, and protects account, prediction, subscription, and analytics data.",
-      updated: "Last updated: June 4, 2026",
+      updated: "Last updated: June 10, 2026",
       intro:
         "This policy explains how Skorly handles personal data when you read our public football content, create an account, save predictions, join mini leagues, subscribe to updates, or contact us.",
       sections: [
@@ -43,6 +43,13 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
           ],
         },
         {
+          heading: "Advertising and cookies",
+          body: [
+            "Skorly shows advertising from Google AdSense to keep our content free. Google and its partners may use cookies or device identifiers to serve and measure ads.",
+            "Unless you accept our consent banner, ads remain limited and non-personalized. You can review or change ad personalization at adssettings.google.com, and learn how Google uses data at policies.google.com/technologies/partner-sites.",
+          ],
+        },
+        {
           heading: "Your choices",
           body: [
             "You can unsubscribe from marketing emails through the email link or contact us to request access, correction, or deletion where applicable.",
@@ -55,7 +62,7 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
       title: "Kebijakan Privasi",
       description:
         "Cara Skorly mengumpulkan, memakai, dan melindungi data akun, prediksi, langganan, dan analitik.",
-      updated: "Terakhir diperbarui: 4 Juni 2026",
+      updated: "Terakhir diperbarui: 10 Juni 2026",
       intro:
         "Kebijakan ini menjelaskan cara Skorly menangani data pribadi saat kamu membaca konten sepak bola, membuat akun, menyimpan prediksi, bergabung ke liga mini, berlangganan pembaruan, atau menghubungi kami.",
       sections: [
@@ -75,6 +82,13 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
           ],
         },
         {
+          heading: "Iklan dan cookie",
+          body: [
+            "Skorly menampilkan iklan dari Google AdSense agar konten tetap gratis. Google dan mitranya dapat menggunakan cookie atau pengenal perangkat untuk menayangkan dan mengukur iklan.",
+            "Selama kamu belum menyetujui banner persetujuan, iklan tetap terbatas dan non-personal. Kamu bisa meninjau atau mengubah personalisasi iklan di adssettings.google.com, dan mempelajari cara Google memakai data di policies.google.com/technologies/partner-sites.",
+          ],
+        },
+        {
           heading: "Pilihan kamu",
           body: [
             "Kamu dapat berhenti berlangganan email marketing melalui tautan di email atau menghubungi kami untuk meminta akses, koreksi, atau penghapusan jika berlaku.",
@@ -87,7 +101,7 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
       title: "Chính sách bảo mật",
       description:
         "Cách Skorly thu thập, sử dụng và bảo vệ dữ liệu tài khoản, dự đoán, đăng ký nhận tin và phân tích.",
-      updated: "Cập nhật lần cuối: 4 tháng 6, 2026",
+      updated: "Cập nhật lần cuối: 10 tháng 6, 2026",
       intro:
         "Chính sách này giải thích cách Skorly xử lý dữ liệu cá nhân khi bạn đọc nội dung bóng đá, tạo tài khoản, lưu dự đoán, tham gia mini league, đăng ký nhận tin hoặc liên hệ với chúng tôi.",
       sections: [
@@ -107,6 +121,13 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
           ],
         },
         {
+          heading: "Quảng cáo và cookie",
+          body: [
+            "Skorly hiển thị quảng cáo từ Google AdSense để giữ nội dung miễn phí. Google và các đối tác có thể dùng cookie hoặc mã định danh thiết bị để hiển thị và đo lường quảng cáo.",
+            "Khi bạn chưa chấp nhận banner đồng ý, quảng cáo vẫn ở chế độ giới hạn và không cá nhân hóa. Bạn có thể xem hoặc thay đổi cá nhân hóa quảng cáo tại adssettings.google.com và tìm hiểu cách Google dùng dữ liệu tại policies.google.com/technologies/partner-sites.",
+          ],
+        },
+        {
           heading: "Lựa chọn của bạn",
           body: [
             "Bạn có thể hủy nhận email marketing qua liên kết trong email hoặc liên hệ chúng tôi để yêu cầu truy cập, chỉnh sửa hoặc xóa dữ liệu khi áp dụng.",
@@ -119,7 +140,7 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
       title: "隐私政策",
       description:
         "Skorly 如何收集、使用和保护账号、预测、订阅和分析数据。",
-      updated: "最后更新：2026 年 6 月 4 日",
+      updated: "最后更新：2026 年 6 月 10 日",
       intro:
         "本政策说明你在阅读足球内容、创建账号、保存预测、加入迷你联赛、订阅更新或联系我们时，Skorly 如何处理个人数据。",
       sections: [
@@ -136,6 +157,13 @@ const COPY: Record<LegalKind, Record<Locale, LegalCopy>> = {
           body: [
             "我们使用数据来运行 Skorly、保护账号、保存预测、发送你请求的邮件或通知、衡量网站性能，并改进足球内容。",
             "我们不出售个人数据。仅在托管、认证、分析、邮件、安全和数据库运营所需时使用服务提供商。",
+          ],
+        },
+        {
+          heading: "广告与 Cookie",
+          body: [
+            "Skorly 展示来自 Google AdSense 的广告，以保持内容免费。Google 及其合作伙伴可能使用 Cookie 或设备标识符来投放和衡量广告。",
+            "在你接受同意横幅之前，广告将保持受限且非个性化。你可以在 adssettings.google.com 查看或更改广告个性化设置，并在 policies.google.com/technologies/partner-sites 了解 Google 如何使用数据。",
           ],
         },
         {

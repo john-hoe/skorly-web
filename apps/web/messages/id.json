@@ -87,7 +87,7 @@
   "analyticsConsent": {
     "ariaLabel": "Pilihan analitik",
     "title": "Bantu kami mengukur Skorly",
-    "description": "Kami hanya memuat analitik setelah kamu setuju. Konten, prediksi, dan akun tetap bisa dipakai tanpa analitik.",
+    "description": "Kami hanya memuat analitik setelah kamu setuju. Iklan yang menjaga Skorly tetap gratis bersifat terbatas dan non-personal kecuali kamu menerimanya.",
     "accept": "Izinkan analitik",
     "decline": "Tolak"
   },

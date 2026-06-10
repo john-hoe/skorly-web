@@ -123,6 +123,8 @@ const env = {
     existing("NEXT_PUBLIC_POSTHOG_KEY") ||
     POSTHOG_PROJECT_API_KEY,
   NEXT_PUBLIC_POSTHOG_HOST: get("posthog host") || "https://us.i.posthog.com",
+  NEXT_PUBLIC_ADSENSE_CLIENT:
+    get("adsense client") || existing("NEXT_PUBLIC_ADSENSE_CLIENT"),
   NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
 };
