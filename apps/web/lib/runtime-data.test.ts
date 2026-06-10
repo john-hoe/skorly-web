@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rest = vi.hoisted(() => ({
   callRpc: vi.fn(),
@@ -23,8 +23,10 @@ vi.mock("@skorly/predict-model", () => ({
 
 const {
   deleteRuntimeAdminArticle,
+  getRuntimeAdminMatches,
   getRuntimeAdminSubscribers,
   reportRuntimeComment,
+  setRuntimeAdminMatchStatus,
   setRuntimeAdminSubscriberConfirmToken,
   setRuntimeAdminSubscriberUnsubscribed,
 } = await import("./runtime-data");
@@ -169,6 +171,130 @@ describe("admin subscriber runtime helpers", () => {
       "subscribers",
       { id: "eq.42" },
       { confirm_token: "token-1" },
+      { returning: false },
+    );
+  });
+});
+
+describe("admin match runtime helpers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rest.selectRowsWithCount.mockResolvedValue({ rows: [], total: 0 });
+    rest.selectRows.mockResolvedValue([]);
+    rest.updateRows.mockResolvedValue([]);
+  });
+
+  it("queries matches with admin filters, teams, and event counts", async () => {
+    rest.selectRowsWithCount.mockResolvedValue({
+      rows: [
+        {
+          id: 10,
+          api_id: 10010,
+          slug: "argentina-vs-brazil",
+          round: "Group stage",
+          group_name: "Group A",
+          stage: "Group",
+          kickoff_at: "2026-06-10T20:00:00.000Z",
+          venue: "Test Stadium",
+          city: "Test City",
+          status: "live",
+          home_goals: 1,
+          away_goals: 0,
+          elapsed: 55,
+          home_team_id: 1,
+          away_team_id: 2,
+          updated_at: "2026-06-10T21:00:00.000Z",
+          notified_kickoff_at: null,
+          premium_emailed_at: null,
+        },
+      ],
+      total: 1,
+    });
+    rest.selectRows.mockImplementation((table: string) => {
+      if (table === "teams") {
+        return Promise.resolve([
+          { id: 1, name: "Argentina", slug: "argentina", logo: null, code: "ARG" },
+          { id: 2, name: "Brazil", slug: "brazil", logo: null, code: "BRA" },
+        ]);
+      }
+      if (table === "fixture_events") {
+        return Promise.resolve([
+          { id: 1, fixture_id: 10 },
+          { id: 2, fixture_id: 10 },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await getRuntimeAdminMatches({
+      query: "argentina",
+      status: "live",
+      window: "all",
+      group: "Group A",
+      page: 2,
+      pageSize: 10,
+    });
+
+    expect(rest.selectRowsWithCount).toHaveBeenCalledWith("fixtures", expect.objectContaining({
+      group_name: "eq.Group A",
+      limit: 10,
+      offset: 10,
+      order: "kickoff_at.asc",
+      or: "(slug.ilike.*argentina*,round.ilike.*argentina*,stage.ilike.*argentina*,group_name.ilike.*argentina*,venue.ilike.*argentina*,city.ilike.*argentina*)",
+      status: "eq.live",
+    }));
+    expect(rest.selectRows).toHaveBeenCalledWith("fixture_events", expect.objectContaining({
+      fixture_id: "in.(10)",
+    }));
+    expect(result.matches[0]).toEqual(expect.objectContaining({
+      id: 10,
+      status: "live",
+      eventCount: 2,
+      home: expect.objectContaining({ name: "Argentina" }),
+      away: expect.objectContaining({ name: "Brazil" }),
+    }));
+  });
+
+  it("adds admin match date window filters", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-10T12:00:00.000Z"));
+
+    await getRuntimeAdminMatches({ window: "upcoming", pageSize: 5 });
+
+    expect(rest.selectRowsWithCount).toHaveBeenLastCalledWith("fixtures", expect.objectContaining({
+      kickoff_at: "gte.2026-06-10T09:00:00.000Z",
+      limit: 5,
+      order: "kickoff_at.asc",
+    }));
+
+    await getRuntimeAdminMatches({ window: "past", pageSize: 5 });
+
+    expect(rest.selectRowsWithCount).toHaveBeenLastCalledWith("fixtures", expect.objectContaining({
+      kickoff_at: "lt.2026-06-10T12:00:00.000Z",
+      limit: 5,
+      order: "kickoff_at.desc",
+    }));
+  });
+
+  it("sanitizes admin match search before building the PostgREST or filter", async () => {
+    await getRuntimeAdminMatches({ query: "arg*(a),_%", window: "all" });
+
+    expect(rest.selectRowsWithCount).toHaveBeenCalledWith("fixtures", expect.objectContaining({
+      or: "(slug.ilike.*arg a*,round.ilike.*arg a*,stage.ilike.*arg a*,group_name.ilike.*arg a*,venue.ilike.*arg a*,city.ilike.*arg a*)",
+    }));
+  });
+
+  it("updates only match status and updated_at", async () => {
+    await setRuntimeAdminMatchStatus(42, "finished");
+
+    expect(rest.updateRows).toHaveBeenCalledWith(
+      "fixtures",
+      { id: "eq.42" },
+      { status: "finished", updated_at: expect.any(String) },
       { returning: false },
     );
   });

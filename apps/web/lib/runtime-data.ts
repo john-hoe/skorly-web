@@ -317,6 +317,84 @@ export interface RuntimeAdminSubscriberList {
   locale: string;
 }
 
+export type RuntimeAdminMatchStatus = "scheduled" | "live" | "finished" | "postponed" | "cancelled";
+export type RuntimeAdminMatchStatusFilter = RuntimeAdminMatchStatus | "all";
+export type RuntimeAdminMatchWindow = "upcoming" | "past" | "all";
+
+export interface RuntimeAdminMatchListParams {
+  query?: string;
+  status?: RuntimeAdminMatchStatusFilter;
+  window?: RuntimeAdminMatchWindow;
+  group?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RuntimeAdminMatchListItem {
+  id: number;
+  apiId: number;
+  slug: string;
+  round: string | null;
+  groupName: string | null;
+  stage: string | null;
+  kickoffAt: Date | null;
+  venue: string | null;
+  city: string | null;
+  status: RuntimeAdminMatchStatus;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  elapsed: number | null;
+  homeTeamId: number | null;
+  awayTeamId: number | null;
+  home: RuntimeFixtureView["home"];
+  away: RuntimeFixtureView["away"];
+  updatedAt: Date | null;
+  notifiedKickoffAt: Date | null;
+  premiumEmailedAt: Date | null;
+  eventCount: number;
+}
+
+export type RuntimeAdminMatchBasic = RuntimeAdminMatchListItem;
+
+export interface RuntimeAdminMatchList {
+  matches: RuntimeAdminMatchListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  query: string;
+  status: RuntimeAdminMatchStatusFilter;
+  window: RuntimeAdminMatchWindow;
+  group: string;
+}
+
+export interface RuntimeAdminMatchEvent {
+  id: number;
+  minute: number | null;
+  type: string | null;
+  detail: string | null;
+  teamId: number | null;
+  teamName: string | null;
+  playerName: string | null;
+  notifiedAt: Date | null;
+  createdAt: Date | null;
+}
+
+export interface RuntimeAdminStandingRow {
+  groupName: string;
+  teamId: number;
+  team: RuntimeFixtureView["home"];
+  rank: number | null;
+  played: number;
+  win: number;
+  draw: number;
+  lose: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+  updatedAt: Date | null;
+}
+
 export type RuntimeAdminArticleStatus = "draft" | "published";
 export type RuntimeAdminArticlePublishedFilter = "all" | "set" | "missing";
 export type RuntimeAdminArticleType =
@@ -492,6 +570,12 @@ interface FixtureRow {
   away_team_id: number | null;
 }
 
+interface AdminFixtureRow extends FixtureRow {
+  updated_at: string | null;
+  notified_kickoff_at: string | null;
+  premium_emailed_at: string | null;
+}
+
 interface TeamRow {
   id: number;
   name: string;
@@ -505,6 +589,20 @@ interface StandingRow {
   played: number;
   goals_for: number;
   goals_against: number;
+}
+
+interface AdminStandingDataRow {
+  group_name: string | null;
+  team_id: number;
+  rank: number | null;
+  played: number | null;
+  win: number | null;
+  draw: number | null;
+  lose: number | null;
+  goals_for: number | null;
+  goals_against: number | null;
+  points: number | null;
+  updated_at: string | null;
 }
 
 interface GroupedStandingRow {
@@ -660,8 +758,26 @@ interface SubscriberMatchRow {
   whatsapp_number?: string | null;
 }
 
+interface AdminFixtureEventCountRow {
+  id: number;
+  fixture_id: number;
+}
+
+interface AdminFixtureEventRow {
+  id: number;
+  minute: number | null;
+  type: string | null;
+  detail: string | null;
+  team_id: number | null;
+  player_name: string | null;
+  notified_at: string | null;
+  created_at: string | null;
+}
+
 const FIXTURE_SELECT =
   "id,api_id,slug,round,group_name,stage,kickoff_at,venue,city,status,home_goals,away_goals,elapsed,home_team_id,away_team_id";
+const ADMIN_FIXTURE_SELECT =
+  `${FIXTURE_SELECT},updated_at,notified_kickoff_at,premium_emailed_at`;
 const TEAM_SELECT = "id,name,slug,logo,code";
 const ADMIN_ARTICLE_LIST_SELECT =
   "id,slug,locale,type,title,summary,fixture_id,team_id,group_name,topic_id,image_url,status,quality_score,model,published_at,created_at,updated_at";
@@ -672,10 +788,12 @@ const ADMIN_ROLES = ["member", "premium", "admin"] as const;
 const ADMIN_USER_PAGE_SIZE = 25;
 const ADMIN_SUBSCRIBER_PAGE_SIZE = 25;
 const ADMIN_SUBSCRIBER_EXPORT_LIMIT = 5_000;
+const ADMIN_MATCH_PAGE_SIZE = 25;
 const ADMIN_ARTICLE_PAGE_SIZE = 20;
 const ADMIN_SUBSCRIBER_LIST_SELECT =
   "id,email,whatsapp_number,locale,source,consent_marketing,consent_at,ip,country,user_agent,confirmed_at,gift_sent,gift_sent_at,unsubscribed_at,created_at";
 const ADMIN_SUBSCRIBER_BASIC_SELECT = `${ADMIN_SUBSCRIBER_LIST_SELECT},confirm_token`;
+const ADMIN_MATCH_STATUSES = ["scheduled", "live", "finished", "postponed", "cancelled"] as const;
 const ADMIN_ARTICLE_TYPES = [
   "preview",
   "watchpoints",
@@ -837,6 +955,7 @@ export async function getRuntimeGroupNames(): Promise<string[]> {
   const rows = await selectRows<{ group_name: string | null }>("fixtures", {
     select: "group_name",
     group_name: "not.is.null",
+    limit: 500,
   });
   return Array.from(
     new Set(
@@ -1419,6 +1538,228 @@ export async function setRuntimeAdminSubscriberConfirmToken(
     "subscribers",
     { id: `eq.${subscriberId}` },
     { confirm_token: confirmToken },
+    { returning: false },
+  );
+}
+
+function adminMatchStatus(value: string | null | undefined): RuntimeAdminMatchStatus {
+  return ADMIN_MATCH_STATUSES.some((status) => status === value)
+    ? (value as RuntimeAdminMatchStatus)
+    : "scheduled";
+}
+
+function adminMatchStatusFilter(
+  value: string | null | undefined,
+): RuntimeAdminMatchStatusFilter {
+  return ADMIN_MATCH_STATUSES.some((status) => status === value)
+    ? (value as RuntimeAdminMatchStatus)
+    : "all";
+}
+
+function adminMatchWindow(
+  value: string | null | undefined,
+  status: RuntimeAdminMatchStatusFilter,
+): RuntimeAdminMatchWindow {
+  if (value === "past" || value === "all") return value;
+  if (value === "upcoming") return value;
+  return status === "all" ? "upcoming" : "all";
+}
+
+function normalizeAdminMatchSearch(value: string | null | undefined): string {
+  return (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizeAdminMatchGroup(value: string | null | undefined): string {
+  const next = (value ?? "")
+    .trim()
+    .replace(/[%_*(),]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return next || "all";
+}
+
+function adminMatchSearchOrFilter(search: string): string | null {
+  if (!search) return null;
+  return `(slug.ilike.*${search}*,round.ilike.*${search}*,stage.ilike.*${search}*,group_name.ilike.*${search}*,venue.ilike.*${search}*,city.ilike.*${search}*)`;
+}
+
+function normalizeAdminMatchPage(value: number | null | undefined): number {
+  return Number.isInteger(value) && value && value > 0 ? value : 1;
+}
+
+function adminMatchFilters(input: RuntimeAdminMatchListParams) {
+  const status = adminMatchStatusFilter(input.status);
+  const window = adminMatchWindow(input.window, status);
+  const group = normalizeAdminMatchGroup(input.group);
+  const query = normalizeAdminMatchSearch(input.query);
+  const searchFilter = adminMatchSearchOrFilter(query);
+  const params: Record<string, string | number | boolean | null | undefined> = {};
+  if (status !== "all") params.status = `eq.${status}`;
+  if (group !== "all") params.group_name = `eq.${group}`;
+  if (window === "upcoming") {
+    params.kickoff_at = `gte.${new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()}`;
+  } else if (window === "past") {
+    params.kickoff_at = `lt.${new Date().toISOString()}`;
+  }
+  if (searchFilter) params.or = searchFilter;
+  return { params, query, status, window, group };
+}
+
+async function adminFixtureEventCounts(fixtureIds: number[]): Promise<Map<number, number>> {
+  if (fixtureIds.length === 0) return new Map();
+  const rows = await selectRows<AdminFixtureEventCountRow>("fixture_events", {
+    select: "id,fixture_id",
+    fixture_id: inFilter(fixtureIds),
+    limit: 10_000,
+  });
+  const counts = new Map<number, number>();
+  for (const row of rows) {
+    counts.set(row.fixture_id, (counts.get(row.fixture_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function adminFixtureToItem(
+  row: AdminFixtureRow,
+  teams: Map<number, TeamRow>,
+  eventCounts: Map<number, number>,
+): RuntimeAdminMatchListItem {
+  const fixture = toFixture(row, teams);
+  return {
+    ...fixture,
+    status: adminMatchStatus(row.status),
+    updatedAt: safeDate(row.updated_at),
+    notifiedKickoffAt: safeDate(row.notified_kickoff_at),
+    premiumEmailedAt: safeDate(row.premium_emailed_at),
+    eventCount: eventCounts.get(row.id) ?? 0,
+  };
+}
+
+export async function getRuntimeAdminMatches(
+  input: RuntimeAdminMatchListParams = {},
+): Promise<RuntimeAdminMatchList> {
+  const pageSize =
+    Number.isInteger(input.pageSize) && input.pageSize && input.pageSize > 0
+      ? Math.min(input.pageSize, 100)
+      : ADMIN_MATCH_PAGE_SIZE;
+  const page = normalizeAdminMatchPage(input.page);
+  const { params, query, status, window, group } = adminMatchFilters(input);
+  const { rows, total } = await selectRowsWithCount<AdminFixtureRow>("fixtures", {
+    select: ADMIN_FIXTURE_SELECT,
+    order: window === "past" ? "kickoff_at.desc" : "kickoff_at.asc",
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+    ...params,
+  });
+  const [teams, eventCounts] = await Promise.all([
+    teamsById(rows.flatMap((row) => [row.home_team_id, row.away_team_id])),
+    adminFixtureEventCounts(rows.map((row) => row.id)),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    matches: rows.map((row) => adminFixtureToItem(row, teams, eventCounts)),
+    total,
+    page,
+    pageSize,
+    totalPages,
+    query,
+    status,
+    window,
+    group,
+  };
+}
+
+export async function getRuntimeAdminMatch(
+  matchId: number,
+): Promise<RuntimeAdminMatchBasic | null> {
+  const rows = await selectRows<AdminFixtureRow>("fixtures", {
+    select: ADMIN_FIXTURE_SELECT,
+    id: `eq.${matchId}`,
+    limit: 1,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  const [teams, eventCounts] = await Promise.all([
+    teamsById([row.home_team_id, row.away_team_id]),
+    adminFixtureEventCounts([row.id]),
+  ]);
+  return adminFixtureToItem(row, teams, eventCounts);
+}
+
+export async function getRuntimeAdminMatchEvents(
+  matchId: number,
+): Promise<RuntimeAdminMatchEvent[]> {
+  const rows = await selectRows<AdminFixtureEventRow>("fixture_events", {
+    select: "id,minute,type,detail,team_id,player_name,notified_at,created_at",
+    fixture_id: `eq.${matchId}`,
+    order: "minute.asc,id.asc",
+    limit: 200,
+  });
+  const teams = await teamsById(rows.map((row) => row.team_id));
+  return rows.map((row) => ({
+    id: row.id,
+    minute: row.minute,
+    type: row.type,
+    detail: row.detail,
+    teamId: row.team_id,
+    teamName: row.team_id == null ? null : teams.get(row.team_id)?.name ?? null,
+    playerName: row.player_name,
+    notifiedAt: safeDate(row.notified_at),
+    createdAt: safeDate(row.created_at),
+  }));
+}
+
+export async function getRuntimeAdminMatchStandings(
+  groupName: string | null | undefined,
+): Promise<RuntimeAdminStandingRow[]> {
+  const group = normalizeAdminMatchGroup(groupName);
+  if (group === "all") return [];
+  const rows = await selectRows<AdminStandingDataRow>("standings", {
+    select: "group_name,team_id,rank,played,win,draw,lose,goals_for,goals_against,points,updated_at",
+    group_name: `eq.${group}`,
+    order: "rank.asc,team_id.asc",
+  });
+  const teams = await teamsById(rows.map((row) => row.team_id));
+  return rows.map((row) => {
+    const team = teams.get(row.team_id);
+    return {
+      groupName: row.group_name ?? group,
+      teamId: row.team_id,
+      team: {
+        id: team?.id ?? row.team_id,
+        name: team?.name ?? "TBD",
+        slug: team?.slug ?? "",
+        logo: team?.logo ?? null,
+        code: team?.code ?? null,
+      },
+      rank: row.rank,
+      played: row.played ?? 0,
+      win: row.win ?? 0,
+      draw: row.draw ?? 0,
+      lose: row.lose ?? 0,
+      goalsFor: row.goals_for ?? 0,
+      goalsAgainst: row.goals_against ?? 0,
+      points: row.points ?? 0,
+      updatedAt: safeDate(row.updated_at),
+    };
+  });
+}
+
+export async function setRuntimeAdminMatchStatus(
+  matchId: number,
+  status: RuntimeAdminMatchStatus,
+): Promise<void> {
+  await updateRows(
+    "fixtures",
+    { id: `eq.${matchId}` },
+    { status, updated_at: new Date().toISOString() },
     { returning: false },
   );
 }

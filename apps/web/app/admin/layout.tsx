@@ -22,7 +22,7 @@ const NAV = [
   { href: "/admin/users", label: "Users", enabled: true },
   { href: "/admin/content", label: "Content", enabled: true },
   { href: "/admin/subscribers", label: "Subscribers", enabled: true },
-  { href: "/admin/matches", label: "Matches", enabled: false },
+  { href: "/admin/matches", label: "Matches", enabled: true },
   { href: "/admin/media", label: "Media", enabled: false },
 ];
 
