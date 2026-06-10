@@ -1,0 +1,109 @@
+name: Match Day Rebuild
+
+# World Cup window (Jun 11 - Jul 19, 2026): the site is fully static, so new
+# recaps/news sitting in the DB only go live on a rebuild. The Daily News
+# workflow rebuilds once a day, which can delay a post-match recap by up to
+# ~24h. This workflow closes that gap: every 30 minutes it does a cheap
+# freshness probe (Supabase REST, no install) and only when new published
+# articles or fixture updates exist does it run the full build + deploy.
+#
+# Costs when nothing changed: ~30s (checkout + curl). Self-disables after the
+# final (2026-07-21); repurpose the date guard for the new season in S2.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Deploy even if no content changed"
+        type: boolean
+        required: false
+        default: false
+
+# Share the deploy lock with Daily News so two builds never overlap.
+concurrency:
+  group: daily-news
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Materialize env
+        env:
+          DOTENV: ${{ secrets.DOTENV }}
+        run: |
+          printf '%s\n' "$DOTENV" > .env
+          # Session pooler (5432): stable connection for the long SSG build.
+          sed -i 's/\.pooler\.supabase\.com:6543/.pooler.supabase.com:5432/g' .env
+          cp .env apps/web/.env.local
+
+      - name: Freshness check
+        id: fresh
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          # Hard stop after the World Cup final + 2 days.
+          if [ "$(date -u +%Y%m%d)" -gt 20260721 ]; then
+            echo "Past World Cup window; skipping."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$FORCE" = "true" ]; then
+            echo "Forced deploy."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set -a; . ./.env; set +a
+          # 70-minute lookback (2 cycles) so a failed/queued run can't lose a
+          # window; the occasional duplicate deploy is harmless.
+          SINCE=$(date -u -d '70 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+          AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          articles=$(curl -sf "${AUTH[@]}" \
+            "$SUPABASE_URL/rest/v1/articles?select=id&status=eq.published&published_at=gte.$SINCE&limit=1")
+          fixtures=$(curl -sf "${AUTH[@]}" \
+            "$SUPABASE_URL/rest/v1/fixtures?select=id&updated_at=gte.$SINCE&limit=1")
+          echo "articles=$articles fixtures=$fixtures since=$SINCE"
+          if [ "$articles" != "[]" ] || [ "$fixtures" != "[]" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No new content; skipping build."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup pnpm
+        if: steps.fresh.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - name: Setup Node
+        if: steps.fresh.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.fresh.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build & deploy to Cloudflare
+        if: steps.fresh.outputs.changed == 'true'
+        run: |
+          set -a
+          . ./.env
+          set +a
+          n=0
+          until pnpm --filter @skorly/web cf:deploy; do
+            n=$((n+1)); [ "$n" -ge 2 ] && { echo "deploy failed after $n attempts"; exit 1; }
+            echo "deploy attempt $n failed; retry in 30s"; sleep 30
+          done
