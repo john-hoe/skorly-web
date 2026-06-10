@@ -28,7 +28,7 @@ const contentSecurityPolicy = [
   "frame-ancestors 'self'",
   "form-action 'self'",
   "manifest-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://us-assets.i.posthog.com https://challenges.cloudflare.com https://cdn.ampproject.org https://platform.twitter.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

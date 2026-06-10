@@ -20,6 +20,7 @@ const POOLER_HOST = `aws-1-${SUPABASE_REGION}.pooler.supabase.com`;
 const SUPABASE_URL = `https://${SUPABASE_REF}.supabase.co`;
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hanJsYXhrdGVuZ2FjaHdyc2trIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMTYxNzMsImV4cCI6MjA5NTU5MjE3M30.rpdEHzJ0bLfYcdZekWeIVE20vRRpKQ1JjB0dHaKyjhE";
+const POSTHOG_PROJECT_API_KEY = "phc_ySD9QpWKXVWPY9m5EmbarQwomxZhxJxFzjDSUpkWo834";
 
 function parseVault() {
   const text = readFileSync(VAULT, "utf8");
@@ -117,7 +118,10 @@ const env = {
   NEXT_PUBLIC_GA_ID: "G-98VPG3BHXS",
   GA4_API_SECRET: getSkorlyGa4ApiSecret() || existing("GA4_API_SECRET"),
   NEXT_PUBLIC_POSTHOG_KEY:
-    get("posthog key") || get("posthog_project_api_key") || existing("NEXT_PUBLIC_POSTHOG_KEY"),
+    get("posthog key") ||
+    get("posthog_project_api_key") ||
+    existing("NEXT_PUBLIC_POSTHOG_KEY") ||
+    POSTHOG_PROJECT_API_KEY,
   NEXT_PUBLIC_POSTHOG_HOST: get("posthog host") || "https://us.i.posthog.com",
   NEXT_PUBLIC_SUPABASE_URL: SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,

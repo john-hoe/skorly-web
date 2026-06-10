@@ -29,7 +29,14 @@ function value(key) {
 const mode = process.argv[2];
 const required =
   mode === "web"
-    ? ["JOBS_ADMIN_URL", "JOBS_ADMIN_SECRET"]
+    ? [
+        "JOBS_ADMIN_URL",
+        "JOBS_ADMIN_SECRET",
+        "NEXT_PUBLIC_GA_ID",
+        "GA4_API_SECRET",
+        "NEXT_PUBLIC_POSTHOG_KEY",
+        "NEXT_PUBLIC_POSTHOG_HOST",
+      ]
     : mode === "jobs"
       ? ["JOBS_ADMIN_SECRET"]
       : [];
