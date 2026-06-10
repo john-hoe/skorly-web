@@ -7,6 +7,13 @@ export const ADMIN_OPERATIONS = [
     danger: false,
   },
   {
+    id: "live",
+    label: "Live ingest",
+    description: "Refresh live-window scores and fixture events",
+    path: "/__run/live",
+    danger: false,
+  },
+  {
     id: "notify",
     label: "Score and notify",
     description: "Score predictions and dispatch push notifications",

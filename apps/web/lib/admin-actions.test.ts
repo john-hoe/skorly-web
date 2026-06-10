@@ -8,11 +8,13 @@ const runtime = vi.hoisted(() => ({
   countRuntimeActiveAdmins: vi.fn(),
   deleteRuntimeAdminArticle: vi.fn(),
   getRuntimeAdminArticle: vi.fn(),
+  getRuntimeAdminMatch: vi.fn(),
   getRuntimeAdminSubscriberBasic: vi.fn(),
   getRuntimeAdminUserBasic: vi.fn(),
   insertRuntimeAdminAuditLog: vi.fn(),
   markRuntimeAdminCommentReportsReviewed: vi.fn(),
   setRuntimeAdminArticleStatus: vi.fn(),
+  setRuntimeAdminMatchStatus: vi.fn(),
   setRuntimeAdminSubscriberConfirmToken: vi.fn(),
   setRuntimeAdminSubscriberUnsubscribed: vi.fn(),
   setRuntimeAdminCommentHidden: vi.fn(),
@@ -41,6 +43,7 @@ const {
   deleteAdminArticle,
   resendAdminSubscriberConfirmation,
   setAdminArticleStatus,
+  setAdminMatchStatus,
   setAdminSubscriberUnsubscribed,
   setAdminUserDeleted,
   setAdminUserRole,
@@ -139,6 +142,32 @@ function subscriberBase(): TestSubscriber {
     giftSentAt: null,
     unsubscribedAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+}
+
+function match(status = "scheduled") {
+  return {
+    id: 88,
+    apiId: 10088,
+    slug: "argentina-vs-brazil",
+    round: "Group stage",
+    groupName: "Group A",
+    stage: "Group",
+    kickoffAt: new Date("2026-06-10T20:00:00.000Z"),
+    venue: "Test Stadium",
+    city: "Test City",
+    status,
+    homeGoals: null,
+    awayGoals: null,
+    elapsed: null,
+    homeTeamId: 1,
+    awayTeamId: 2,
+    home: { id: 1, name: "Argentina", slug: "argentina", logo: null, code: "ARG" },
+    away: { id: 2, name: "Brazil", slug: "brazil", logo: null, code: "BRA" },
+    updatedAt: new Date("2026-06-10T19:00:00.000Z"),
+    notifiedKickoffAt: null,
+    premiumEmailedAt: null,
+    eventCount: 0,
   };
 }
 
@@ -390,6 +419,90 @@ describe("admin subscriber management actions", () => {
       error: "unsubscribed",
     });
     expect(email.sendEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin match management actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    admin.requireAdmin.mockResolvedValue(actor);
+    runtime.getRuntimeAdminMatch.mockResolvedValue(match());
+    runtime.insertRuntimeAdminAuditLog.mockResolvedValue(654);
+    runtime.setRuntimeAdminMatchStatus.mockResolvedValue(undefined);
+    runtime.updateRuntimeAdminAuditLogMeta.mockResolvedValue(undefined);
+  });
+
+  it("requires explicit confirmation before changing fixture status", async () => {
+    const target = match("scheduled");
+    runtime.getRuntimeAdminMatch.mockResolvedValue(target);
+
+    const result = await setAdminMatchStatus(target.id, "finished");
+
+    expect(result).toEqual({
+      ok: false,
+      matchId: target.id,
+      action: "status",
+      error: "confirmStatus",
+    });
+    expect(runtime.insertRuntimeAdminAuditLog).not.toHaveBeenCalled();
+    expect(runtime.setRuntimeAdminMatchStatus).not.toHaveBeenCalled();
+  });
+
+  it("writes audited fixture status updates", async () => {
+    const target = match("scheduled");
+    runtime.getRuntimeAdminMatch.mockResolvedValue(target);
+
+    const result = await setAdminMatchStatus(target.id, "finished", { confirmStatus: true });
+
+    expect(result).toEqual({ ok: true, matchId: target.id, action: "status" });
+    expect(runtime.insertRuntimeAdminAuditLog).toHaveBeenCalledWith({
+      actorId: actor.user.id,
+      action: "matches.status.set",
+      target: `fixture:${target.id}`,
+      meta: expect.objectContaining({
+        matchId: target.id,
+        apiId: target.apiId,
+        slug: target.slug,
+        homeTeam: "Argentina",
+        awayTeam: "Brazil",
+        fromStatus: "scheduled",
+        toStatus: "finished",
+      }),
+    });
+    expect(runtime.setRuntimeAdminMatchStatus).toHaveBeenCalledWith(target.id, "finished");
+    expect(runtime.updateRuntimeAdminAuditLogMeta).toHaveBeenCalledWith(
+      654,
+      expect.objectContaining({ status: "succeeded", fromStatus: "scheduled", toStatus: "finished" }),
+    );
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/matches");
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/admin/matches/${target.id}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/id/pertandingan/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/pertandingan/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/pertandingan/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/pertandingan/${target.slug}`);
+  });
+
+  it("does not audit no-op fixture status updates", async () => {
+    const target = match("live");
+    runtime.getRuntimeAdminMatch.mockResolvedValue(target);
+
+    const result = await setAdminMatchStatus(target.id, "live", { confirmStatus: true });
+
+    expect(result).toEqual({ ok: true, matchId: target.id, action: "status" });
+    expect(runtime.insertRuntimeAdminAuditLog).not.toHaveBeenCalled();
+    expect(runtime.setRuntimeAdminMatchStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid fixture status changes before loading admin context", async () => {
+    const result = await setAdminMatchStatus(88, "bad-status", { confirmStatus: true });
+
+    expect(result).toEqual({
+      ok: false,
+      matchId: 88,
+      action: "status",
+      error: "invalid",
+    });
+    expect(admin.requireAdmin).not.toHaveBeenCalled();
   });
 });
 

@@ -5,11 +5,13 @@ import {
   countRuntimeActiveAdmins,
   deleteRuntimeAdminArticle,
   getRuntimeAdminArticle,
+  getRuntimeAdminMatch,
   getRuntimeAdminSubscriberBasic,
   getRuntimeAdminUserBasic,
   insertRuntimeAdminAuditLog,
   markRuntimeAdminCommentReportsReviewed,
   setRuntimeAdminArticleStatus,
+  setRuntimeAdminMatchStatus,
   setRuntimeAdminSubscriberConfirmToken,
   setRuntimeAdminSubscriberUnsubscribed,
   setRuntimeAdminUserDeleted,
@@ -20,6 +22,8 @@ import {
   type RuntimeAdminArticleDetail,
   type RuntimeAdminArticleStatus,
   type RuntimeAdminArticleUpdateInput,
+  type RuntimeAdminMatchBasic,
+  type RuntimeAdminMatchStatus,
   type RuntimeAdminSubscriberBasic,
   type RuntimeAdminUserRole,
   type RuntimeAdminAuditMeta,
@@ -35,6 +39,7 @@ const ARTICLE_TITLE_MAX = 240;
 const ARTICLE_SUMMARY_MAX = 600;
 const ARTICLE_BODY_MAX = 120_000;
 const ARTICLE_IMAGE_URL_MAX = 2_000;
+const PUBLIC_LOCALES = ["id", "vi", "en", "zh"] as const;
 
 export type RunAdminOperationResult =
   | {
@@ -121,6 +126,20 @@ export type AdminSubscriberManagementResult =
         | "alreadyConfirmed"
         | "unsubscribed"
         | "email";
+      response?: string;
+    };
+
+export type AdminMatchManagementResult =
+  | {
+      ok: true;
+      matchId: number;
+      action: "status";
+    }
+  | {
+      ok: false;
+      matchId?: number;
+      action?: "status";
+      error: "invalid" | "audit" | "upstream" | "notFound" | "confirmStatus";
       response?: string;
     };
 
@@ -265,6 +284,10 @@ function validSubscriberId(subscriberId: number): boolean {
   return Number.isInteger(subscriberId) && subscriberId > 0;
 }
 
+function validMatchId(matchId: number): boolean {
+  return Number.isInteger(matchId) && matchId > 0;
+}
+
 function validUserId(userId: string): boolean {
   return UUID_RE.test(userId);
 }
@@ -275,6 +298,16 @@ function validAdminUserRole(role: string): role is RuntimeAdminUserRole {
 
 function validAdminArticleStatus(status: string | null | undefined): status is RuntimeAdminArticleStatus {
   return status === "draft" || status === "published";
+}
+
+function validAdminMatchStatus(status: string | null | undefined): status is RuntimeAdminMatchStatus {
+  return (
+    status === "scheduled" ||
+    status === "live" ||
+    status === "finished" ||
+    status === "postponed" ||
+    status === "cancelled"
+  );
 }
 
 function normalizeText(value: string | null | undefined, maxLength: number): string | null {
@@ -370,6 +403,19 @@ function revalidateArticleAdminPaths(article: Pick<RuntimeAdminArticleDetail, "i
   revalidatePath(`/${article.locale}/berita`);
   revalidatePath("/sitemap.xml");
   revalidatePath("/news-sitemap.xml");
+}
+
+function revalidateMatchAdminPaths(match: Pick<RuntimeAdminMatchBasic, "id" | "slug">): void {
+  revalidatePath("/admin");
+  revalidatePath("/admin/matches");
+  revalidatePath(`/admin/matches/${match.id}`);
+  revalidatePath("/api/live");
+  revalidatePath("/api/score/live");
+  for (const locale of PUBLIC_LOCALES) {
+    revalidatePath(`/${locale}/jadwal`);
+    revalidatePath(`/${locale}/skor`);
+    revalidatePath(`/${locale}/pertandingan/${match.slug}`);
+  }
 }
 
 async function startCommentAudit(
@@ -816,6 +862,121 @@ export async function resendAdminSubscriberConfirmation(
     });
     revalidatePath("/admin/subscribers");
     return { ok: false, subscriberId, action: "resendConfirm", error: "upstream", response: preview(message) };
+  }
+}
+
+async function loadAdminMatch(
+  matchId: number,
+): Promise<
+  | { match: RuntimeAdminMatchBasic }
+  | { error: "notFound" | "upstream"; response?: string }
+> {
+  try {
+    const match = await getRuntimeAdminMatch(matchId);
+    return match ? { match } : { error: "notFound" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.warn("[admin] match lookup failed", error);
+    return { error: "upstream", response: preview(message) };
+  }
+}
+
+function matchAuditMeta(match: RuntimeAdminMatchBasic): RuntimeAdminAuditMeta {
+  return {
+    matchId: match.id,
+    apiId: match.apiId,
+    slug: match.slug,
+    kickoffAt: match.kickoffAt?.toISOString() ?? null,
+    groupName: match.groupName,
+    stage: match.stage,
+    homeTeam: match.home.name,
+    awayTeam: match.away.name,
+    score: {
+      home: match.homeGoals,
+      away: match.awayGoals,
+      elapsed: match.elapsed,
+    },
+  };
+}
+
+async function startMatchAudit(
+  actorId: string,
+  action: "matches.status.set",
+  match: RuntimeAdminMatchBasic,
+  meta: RuntimeAdminAuditMeta,
+): Promise<number> {
+  return insertRuntimeAdminAuditLog({
+    actorId,
+    action,
+    target: `fixture:${match.id}`,
+    meta: {
+      ...matchAuditMeta(match),
+      ...meta,
+      status: "started",
+      startedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function finishMatchAudit(
+  auditId: number,
+  meta: RuntimeAdminAuditMeta,
+): Promise<void> {
+  await updateRuntimeAdminAuditLogMeta(auditId, {
+    ...meta,
+    finishedAt: new Date().toISOString(),
+  }).catch((error) => console.warn("[admin] audit update failed", error));
+}
+
+export async function setAdminMatchStatus(
+  matchId: number,
+  status: string,
+  options: { confirmStatus?: boolean } = {},
+): Promise<AdminMatchManagementResult> {
+  if (!validMatchId(matchId) || !validAdminMatchStatus(status)) {
+    return { ok: false, matchId, action: "status", error: "invalid" };
+  }
+  const admin = await requireAdmin();
+  const loaded = await loadAdminMatch(matchId);
+  if ("error" in loaded) {
+    return { ok: false, matchId, action: "status", ...loaded };
+  }
+  const match = loaded.match;
+  if (match.status === status) return { ok: true, matchId, action: "status" };
+  if (!options.confirmStatus) {
+    return { ok: false, matchId, action: "status", error: "confirmStatus" };
+  }
+
+  let auditId = 0;
+  try {
+    auditId = await startMatchAudit(admin.user.id, "matches.status.set", match, {
+      fromStatus: match.status,
+      toStatus: status,
+    });
+  } catch (error) {
+    console.warn("[admin] audit insert failed", error);
+    return { ok: false, matchId, action: "status", error: "audit" };
+  }
+
+  try {
+    await setRuntimeAdminMatchStatus(matchId, status);
+    await finishMatchAudit(auditId, {
+      status: "succeeded",
+      fromStatus: match.status,
+      toStatus: status,
+    });
+    revalidateMatchAdminPaths(match);
+    return { ok: true, matchId, action: "status" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    await finishMatchAudit(auditId, {
+      status: "failed",
+      fromStatus: match.status,
+      toStatus: status,
+      error: preview(message),
+    });
+    revalidateMatchAdminPaths(match);
+    return { ok: false, matchId, action: "status", error: "upstream", response: preview(message) };
   }
 }
 
