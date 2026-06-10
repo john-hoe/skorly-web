@@ -199,7 +199,11 @@
     "signOut": "Log out",
     "memberSince": "Member since",
     "role": "Membership",
-    "roles": { "member": "Member", "premium": "Premium", "admin": "Admin" },
+    "roles": {
+      "member": "Member",
+      "premium": "Premium",
+      "admin": "Admin"
+    },
     "myPredictions": "My predictions",
     "noPredictions": "You haven't made any predictions yet.",
     "stats": {
@@ -361,7 +365,8 @@
     "contact": "Partnership & inquiries",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "copyright": "Skorly. All rights reserved."
+    "copyright": "Skorly. All rights reserved.",
+    "advertise": "Advertise"
   },
   "common": {
     "readMore": "Read more",

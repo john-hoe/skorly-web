@@ -71,6 +71,12 @@ export const routing = defineRouting({
       en: "/where-to-watch",
       zh: "/zhibo",
     },
+    "/iklan": {
+      id: "/iklan",
+      vi: "/quang-cao",
+      en: "/advertise",
+      zh: "/guanggao",
+    },
     "/privacy": "/privacy",
     "/terms": "/terms",
     "/artikel/[slug]": {
