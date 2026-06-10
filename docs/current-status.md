@@ -1,7 +1,7 @@
 # Current Status
 
-**Phase**: 二期已上线生产环境（Phase 2 deployed to production）
-**Updated**: 2026-06-03
+**Phase**: 二期已上线；Spec A/C 全量 + Spec B 主体已 merge 上线（PR #3–#42）；三期规划 v2 已定稿 → [phase-3-growth-revenue-plan.md](phase-3-growth-revenue-plan.md)
+**Updated**: 2026-06-10 (v2，实地核查 GitHub + 生产站后修订)
 
 ## Phase 2 — DEPLOYED (2026-06-03)
 Phase 2 is live at https://skorly.cc, shipped via the `Daily News` GitHub Actions workflow (build + deploy to Cloudflare Workers).

@@ -1,13 +1,21 @@
 # Next Step
 
-## 二期下一步（当前）
-进入 **Skorly 二期**（会员·预测·增长），完整方案见 [phase-2-plan.md](phase-2-plan.md)。
+## 三期下一步（当前，2026-06-10 v2）
+进入 **Skorly 三期**（流量增长 × 商业化），完整规划见 [phase-3-growth-revenue-plan.md](phase-3-growth-revenue-plan.md)（v2）。
 
-**从 M0（地基：Auth 迁移）起步**，可与 M2（SEO 引擎）并行：
-1. 接入 `@supabase/ssr` + 更新 `apps/web/middleware.ts`（session 刷新 + next-intl 组合）。
-2. schema 迁移 `users → profiles(uuid)`，更新各表外键，Drizzle migration + Supabase 应用。
-3. Auth UI：注册/登录/Google·Facebook/邮箱验证/找回密码（i18n + Turnstile + 限流）。
-4. 补环境变量：`SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY`、Turnstile keys。
+> v2 核查结论：Spec A（埋点）✅、Spec C（后台）✅ 已全部 merge 上线；Spec B（实时）主体上线（生产 `/api/live` 可用）；`/jadwal`、`/nonton` 已上线。v1 的多数 P0 已被并行开发消化。
+
+**世界杯 6/11 开赛，S1 第一周剩余 P0**（细节见规划 §5）：
+1. AdSense 申请提交（ads.txt 当前 404 + Consent Mode v2 + 屏蔽博彩类目）— 唯一没动的主线，最先做。
+2. 比赛日部署提频：出稿→上线 ≤30min（当前每日仅 1 班构建，recap 最长延迟 ~24h）。
+3. 6/11 首个比赛日实战验证 live 链路（配额/降级/后台补抓演练）。
+4. 每日 Push/Email 运营节奏自动化（功能已有，接排期）。
+5. PostHog 漏斗/WAP 看板建好，定每周复盘。
+
+---
+
+## 二期下一步（已完成，归档）
+二期（会员·预测·增长）已全部上线生产，见 [phase-2-plan.md](phase-2-plan.md)。
 
 ---
 

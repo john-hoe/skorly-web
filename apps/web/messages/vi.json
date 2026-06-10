@@ -87,7 +87,7 @@
   "analyticsConsent": {
     "ariaLabel": "Tùy chọn phân tích",
     "title": "Giúp chúng tôi đo lường Skorly",
-    "description": "Chúng tôi chỉ tải phân tích sau khi bạn đồng ý. Bạn vẫn có thể đọc, dự đoán và dùng tài khoản mà không cần phân tích.",
+    "description": "Chúng tôi chỉ tải phân tích sau khi bạn đồng ý. Quảng cáo giúp Skorly miễn phí sẽ ở chế độ giới hạn, không cá nhân hóa trừ khi bạn chấp nhận.",
     "accept": "Cho phép phân tích",
     "decline": "Từ chối"
   },

@@ -88,7 +88,7 @@
   "analyticsConsent": {
     "ariaLabel": "分析设置",
     "title": "帮助我们衡量 Skorly",
-    "description": "只有在你同意后，我们才会加载分析工具。不同意也可以继续阅读、竞猜和使用账户。",
+    "description": "只有在你同意后，我们才会加载分析工具。支持 Skorly 免费运营的广告在你同意前保持受限且非个性化。",
     "accept": "允许分析",
     "decline": "拒绝"
   },

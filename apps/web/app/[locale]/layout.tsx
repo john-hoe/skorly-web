@@ -25,6 +25,7 @@ const notoSc = Noto_Sans_SC({
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
 const HTML_LANG: Record<Locale, string> = {
   id: "id",
@@ -110,6 +111,7 @@ export default async function LocaleLayout({
             gaId={gaId}
             posthogKey={posthogKey}
             posthogHost={posthogHost}
+            adsenseClient={adsenseClient}
           />
           <SiteHeader />
           <main className="flex-1">{children}</main>

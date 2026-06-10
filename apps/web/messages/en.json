@@ -87,7 +87,7 @@
   "analyticsConsent": {
     "ariaLabel": "Analytics choices",
     "title": "Help us measure Skorly",
-    "description": "We only load analytics after you agree. You can still read, predict, and use your account without analytics.",
+    "description": "We only load analytics after you agree. Ads that keep Skorly free stay limited and non-personalized unless you accept.",
     "accept": "Allow analytics",
     "decline": "Decline"
   },
