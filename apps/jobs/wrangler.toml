@@ -13,7 +13,8 @@ crons = [
   "*/15 * * * *",   # refresh news-sitemap + light tasks
   "0 */6 * * *",    # ingest fixtures / standings every 6h
   "*/2 * * * *",    # preview / recap nudges
-  "* * * * *"       # live poller (no-op when no live/upcoming matches)
+  "* * * * *",      # live poller (no-op when no live/upcoming matches)
+  "0 1 * * *"       # daily 08:00 WIB/ICT match-day digest (push + email)
 ]
 
 [[kv_namespaces]]

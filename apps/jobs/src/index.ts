@@ -13,6 +13,7 @@ import {
 } from "@skorly/db";
 import { sendNotifications } from "./send-notifications";
 import { sendPremiumEmails } from "./send-premium-email";
+import { sendDailyDigest } from "./send-daily-digest";
 import { generatePosters } from "./generate-posters";
 
 setDbClientCacheEnabled(false);
@@ -25,6 +26,7 @@ const LOCK_PREMIUM_EMAIL = "jobs:premium-email";
 const LOCK_POSTERS = "jobs:posters";
 const LOCK_SEED_IDENTITIES = "jobs:seed-identities";
 const LOCK_LIVE_INGEST = "jobs:live-ingest";
+const LOCK_DAILY_DIGEST = "jobs:daily-digest";
 
 type ExclusiveResult<T> =
   | { acquired: true; value: T }
@@ -162,6 +164,12 @@ async function runScoreAndNotifyExclusive(env: Env): Promise<ExclusiveResult<{ o
   });
 }
 
+async function runDailyDigestExclusive(
+  env: Env,
+): Promise<ExclusiveResult<{ fixtures: number; pushes: number; emails: number }>> {
+  return tryRunExclusive(env, LOCK_DAILY_DIGEST, 30 * 60, sendDailyDigest);
+}
+
 async function runPremiumEmailExclusive(
   env: Env,
 ): Promise<
@@ -262,6 +270,12 @@ export default {
         // Light article nudges keep their previous cadence.
         ctx.waitUntil(Promise.all([generatePreviews(env), generateRecaps(env)]));
         break;
+      case "0 1 * * *":
+        // 08:00 WIB/ICT — daily match-day digest (push + email).
+        ctx.waitUntil(
+          runDailyDigestExclusive(env).catch((e) => console.error("[daily-digest]", e)),
+        );
+        break;
       case "*/15 * * * *":
         // Pre-match premium email and poster prompts.
         ctx.waitUntil(
@@ -294,6 +308,10 @@ export default {
       }
       if (url.pathname === "/__run/live") {
         const result = await runLiveIngestExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/daily-digest") {
+        const result = await runDailyDigestExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/notify") {
