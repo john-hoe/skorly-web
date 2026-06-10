@@ -199,7 +199,11 @@
     "signOut": "Keluar",
     "memberSince": "Anggota sejak",
     "role": "Keanggotaan",
-    "roles": { "member": "Anggota", "premium": "Premium", "admin": "Admin" },
+    "roles": {
+      "member": "Anggota",
+      "premium": "Premium",
+      "admin": "Admin"
+    },
     "myPredictions": "Tebakan saya",
     "noPredictions": "Kamu belum membuat tebakan.",
     "stats": {
@@ -361,7 +365,8 @@
     "contact": "Kerja sama & pertanyaan",
     "privacy": "Kebijakan Privasi",
     "terms": "Syarat & Ketentuan",
-    "copyright": "Skorly. Semua hak dilindungi."
+    "copyright": "Skorly. Semua hak dilindungi.",
+    "advertise": "Beriklan"
   },
   "common": {
     "readMore": "Baca selengkapnya",

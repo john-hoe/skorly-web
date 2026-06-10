@@ -93,6 +93,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...withAlternates("/nonton", generatedAt, { changeFrequency: "weekly", priority: 0.6 })
   );
   entries.push(
+    ...withAlternates("/iklan", generatedAt, { changeFrequency: "monthly", priority: 0.3 })
+  );
+  entries.push(
     ...withAlternates(
       { pathname: "/author/[slug]", params: { slug: ARTICLE_AUTHOR_SLUG } },
       generatedAt,

@@ -199,7 +199,11 @@
     "signOut": "Đăng xuất",
     "memberSince": "Thành viên từ",
     "role": "Hạng thành viên",
-    "roles": { "member": "Thành viên", "premium": "Premium", "admin": "Quản trị" },
+    "roles": {
+      "member": "Thành viên",
+      "premium": "Premium",
+      "admin": "Quản trị"
+    },
     "myPredictions": "Dự đoán của tôi",
     "noPredictions": "Bạn chưa có dự đoán nào.",
     "stats": {
@@ -361,7 +365,8 @@
     "contact": "Hợp tác & liên hệ",
     "privacy": "Chính sách bảo mật",
     "terms": "Điều khoản dịch vụ",
-    "copyright": "Skorly. Bảo lưu mọi quyền."
+    "copyright": "Skorly. Bảo lưu mọi quyền.",
+    "advertise": "Quảng cáo"
   },
   "common": {
     "readMore": "Đọc thêm",

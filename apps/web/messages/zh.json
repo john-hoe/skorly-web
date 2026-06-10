@@ -200,7 +200,11 @@
     "signOut": "退出登录",
     "memberSince": "注册于",
     "role": "会员等级",
-    "roles": { "member": "普通会员", "premium": "高级会员", "admin": "管理员" },
+    "roles": {
+      "member": "普通会员",
+      "premium": "高级会员",
+      "admin": "管理员"
+    },
     "myPredictions": "我的竞猜",
     "noPredictions": "你还没有任何竞猜。",
     "stats": {
@@ -362,7 +366,8 @@
     "contact": "合作请联系",
     "privacy": "隐私政策",
     "terms": "服务条款",
-    "copyright": "Skorly. 保留所有权利。"
+    "copyright": "Skorly. 保留所有权利。",
+    "advertise": "广告合作"
   },
   "common": {
     "readMore": "阅读全文",

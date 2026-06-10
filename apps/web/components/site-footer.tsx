@@ -36,6 +36,9 @@ export function SiteFooter() {
           <Link href="/terms" className="hover:text-[var(--brand)]">
             {t("terms")}
           </Link>
+          <Link href="/iklan" className="hover:text-[var(--brand)]">
+            {t("advertise")}
+          </Link>
         </nav>
         <p>
           {t("contact")}:{" "}
