@@ -1,16 +1,16 @@
 # Next Step
 
-## 三期下一步（当前，2026-06-10 v2）
-进入 **Skorly 三期**（流量增长 × 商业化），完整规划见 [phase-3-growth-revenue-plan.md](phase-3-growth-revenue-plan.md)（v2）。
+## 三期下一步（当前，2026-06-10 v2.1）
+进入 **Skorly 三期**（流量增长 × 商业化），完整规划与执行台账见 [phase-3-growth-revenue-plan.md](phase-3-growth-revenue-plan.md)（v2.1，§0b 是当日台账）。
 
-> v2 核查结论：Spec A（埋点）✅、Spec C（后台）✅ 已全部 merge 上线；Spec B（实时）主体上线（生产 `/api/live` 可用）；`/jadwal`、`/nonton` 已上线。v1 的多数 P0 已被并行开发消化。
+> 6/10 执行结果：S1 第一周 P0 全部完成（AdSense 提审 ✅、部署提频 PR #45 ✅、每日摘要 PR #46 ✅、PostHog 看板 ✅），P1 提前完成 3 项（Media Kit PR #47 ✅、Involve Asia 入驻 ✅、仓库清理 ✅）。
 
-**世界杯 6/11 开赛，S1 第一周剩余 P0**（细节见规划 §5）：
-1. AdSense 申请提交（ads.txt 当前 404 + Consent Mode v2 + 屏蔽博彩类目）— 唯一没动的主线，最先做。
-2. 比赛日部署提频：出稿→上线 ≤30min（当前每日仅 1 班构建，recap 最长延迟 ~24h）。
-3. 6/11 首个比赛日实战验证 live 链路（配额/降级/后台补抓演练）。
-4. 每日 Push/Email 运营节奏自动化（功能已有，接排期）。
-5. PostHog 漏斗/WAP 看板建好，定每周复盘。
+**下一步（按时间顺序）**：
+1. **6/11（明天）**：比赛日实战盯守——验证实时比分链路、API 配额（apiq <2000/日）、recap ≤30min 上线、首封每日摘要送达。这是最后一个未完成的 P0。
+2. **≤48h**：Involve Asia 网站审核通过后 → 申请 Shopee ID/Lazada/流媒体计划 → 追踪链接接入 `/nonton` + 球衣导购页。
+3. **1–14 天**：AdSense 审核结果 → 过审配广告位；拒审按理由整改二投。
+4. **用户侧**：Involve Asia 收款信息；注册 TikTok/IG/WhatsApp Channel `@skorly`。
+5. **7 月上旬（淘汰赛阶段）**：新闻雷达扩源到转会窗/俱乐部足球（S2 防断崖，提前做）。
 
 ---
 
