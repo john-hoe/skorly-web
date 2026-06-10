@@ -62,6 +62,15 @@ export async function generateMetadata({
       ],
     },
     twitter: { card: "summary_large_image", images: ["/og.png"] },
+    // max-image-preview:large is required for Google Discover's large-image
+    // cards; without it Discover effectively skips the site.
+    robots: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
     // AdSense site-ownership verification (meta tag method); server-rendered
     // so Google's verifier sees it without executing JS.
     other: adsenseClient ? { "google-adsense-account": adsenseClient } : undefined,
