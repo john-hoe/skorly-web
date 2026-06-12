@@ -157,7 +157,9 @@ export async function ingestFixtures(opts: IngestOptions): Promise<{
         target: fixtures.apiId,
         set: {
           status: mapStatus(f.fixture.status.short),
-          groupName,
+          // The standings endpoint can return empty mid-tournament; never wipe
+          // an already-known group with null (it blanked every group page once).
+          ...(groupName ? { groupName } : {}),
           homeGoals: f.goals.home,
           awayGoals: f.goals.away,
           elapsed: f.fixture.status.elapsed,
