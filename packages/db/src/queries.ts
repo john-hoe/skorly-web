@@ -3205,6 +3205,7 @@ export interface FixtureMediaRow {
   title: string | null;
   channelTitle: string | null;
   publishedAt: Date | null;
+  embeddable: boolean;
 }
 
 export async function insertFixtureMediaDeduped(
@@ -3217,6 +3218,7 @@ export async function insertFixtureMediaDeduped(
     channelId: string | null;
     channelTitle: string | null;
     publishedAt: Date | null;
+    embeddable?: boolean;
   }>,
 ): Promise<number> {
   if (!media.length) return 0;
@@ -3233,6 +3235,7 @@ export async function insertFixtureMediaDeduped(
         channelId: m.channelId,
         channelTitle: m.channelTitle,
         publishedAt: m.publishedAt,
+        embeddable: m.embeddable ?? true,
       })),
     )
     .onConflictDoNothing()
@@ -3252,6 +3255,7 @@ export async function getFixtureMedia(
       title: fixtureMedia.title,
       channelTitle: fixtureMedia.channelTitle,
       publishedAt: fixtureMedia.publishedAt,
+      embeddable: fixtureMedia.embeddable,
     })
     .from(fixtureMedia)
     .where(and(eq(fixtureMedia.fixtureId, fixtureId), eq(fixtureMedia.kind, kind)))

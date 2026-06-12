@@ -363,11 +363,19 @@ export default async function MatchPage({
           fixtureId={fixture.id}
           initialStatus={fixture.status}
           kickoffAt={kickoffIso}
-          embeds={[
+          videos={[
             // Official highlight embeds discovered by the D3 whitelist job.
-            ...highlightMedia.map((m) => `https://www.youtube.com/watch?v=${m.videoId}`),
+            ...highlightMedia.map((m) => ({
+              url: `https://www.youtube.com/watch?v=${m.videoId}`,
+              embeddable: m.embeddable,
+              title: m.title,
+            })),
+            // Recap-article embeds were curated by the news pipeline.
             ...(Array.isArray(byType.get("recap")?.embeds)
-              ? (byType.get("recap")!.embeds as string[])
+              ? (byType.get("recap")!.embeds as string[]).map((url) => ({
+                  url,
+                  embeddable: true,
+                }))
               : []),
           ]}
         />
