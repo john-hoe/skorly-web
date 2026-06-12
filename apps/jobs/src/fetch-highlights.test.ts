@@ -85,6 +85,15 @@ describe("title matching", () => {
   it("accepts FIFA naming aliases", () => {
     expect(titleMentionsTeam("Korea Republic v Czech Republic | Highlights", "South Korea")).toBe(true);
     expect(titleMentionsTeam("United States v Paraguay | Highlights", "USA")).toBe(true);
+    // FIFA uses "Czechia": Korea Republic 2-1 Czechia | FIFA World Cup 2026
+    expect(titleMentionsTeam("Korea Republic 2-1 Czechia | FIFA World Cup 2026", "Czech Republic")).toBe(true);
+    expect(
+      isHighlightMatch(
+        "Oh Hyeon-gyu Goal | Korea Republic 2-1 Czechia | FIFA World Cup 2026™",
+        "South Korea",
+        "Czech Republic",
+      ),
+    ).toBe(true);
   });
 
   it("does not substring-match across country names", () => {

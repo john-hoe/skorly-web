@@ -58,6 +58,7 @@ function readEnv(): { YOUTUBE_API_KEY?: string } {
  */
 const TEAM_ALIASES: Record<string, string[]> = {
   "South Korea": ["Korea Republic"],
+  "Czech Republic": ["Czechia"],
   USA: ["United States", "United States of America"],
   Iran: ["IR Iran"],
   China: ["China PR"],
