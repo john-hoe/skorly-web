@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
 import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, fixtureMedia, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
@@ -1279,7 +1279,7 @@ export async function getScoredTotalsBetween(start: Date, end: Date): Promise<Sc
       and(
         sql`${predictions.pointsAwarded} is not null`,
         gte(fixtures.kickoffAt, start),
-        sql`${fixtures.kickoffAt} < ${end}`,
+        lt(fixtures.kickoffAt, end),
       ),
     )
     .groupBy(predictions.userId);
