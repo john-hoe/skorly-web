@@ -3,7 +3,16 @@ import { Link } from "@/i18n/navigation";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { TeamBadge } from "./team-badge";
 
-export function MatchCard({ fixture, locale }: { fixture: FixtureView; locale: string }) {
+export function MatchCard({
+  fixture,
+  locale,
+  highlightLabel,
+}: {
+  fixture: FixtureView;
+  locale: string;
+  /** When set, shows a "highlights available" badge (finished matches). */
+  highlightLabel?: string | null;
+}) {
   const finished = fixture.status === "finished";
   const live = fixture.status === "live";
 
@@ -19,6 +28,8 @@ export function MatchCard({ fixture, locale }: { fixture: FixtureView; locale: s
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand)] animate-pulse" />
             {fixture.elapsed ? `${fixture.elapsed}'` : "LIVE"}
           </span>
+        ) : finished && highlightLabel ? (
+          <span className="font-semibold text-[var(--brand)]">{highlightLabel}</span>
         ) : (
           <span>{formatKickoffTime(fixture.kickoffAt, locale, "compact")}</span>
         )}

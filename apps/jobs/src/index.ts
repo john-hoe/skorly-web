@@ -15,6 +15,7 @@ import { sendNotifications } from "./send-notifications";
 import { sendPremiumEmails } from "./send-premium-email";
 import { sendDailyDigest } from "./send-daily-digest";
 import { makeAiPredictions } from "./ai-predictions";
+import { fetchHighlights } from "./fetch-highlights";
 import { generatePosters } from "./generate-posters";
 
 setDbClientCacheEnabled(false);
@@ -29,6 +30,7 @@ const LOCK_SEED_IDENTITIES = "jobs:seed-identities";
 const LOCK_LIVE_INGEST = "jobs:live-ingest";
 const LOCK_DAILY_DIGEST = "jobs:daily-digest";
 const LOCK_AI_PREDICTIONS = "jobs:ai-predictions";
+const LOCK_HIGHLIGHTS = "jobs:highlights";
 
 type ExclusiveResult<T> =
   | { acquired: true; value: T }
@@ -178,6 +180,24 @@ async function runAiPredictionsExclusive(
   return tryRunExclusive(env, LOCK_AI_PREDICTIONS, 10 * 60, makeAiPredictions);
 }
 
+async function runHighlightsExclusive(
+  env: Env,
+): Promise<ExclusiveResult<Awaited<ReturnType<typeof fetchHighlights>>>> {
+  return tryRunExclusive(env, LOCK_HIGHLIGHTS, 10 * 60, () => {
+    if (!env.LIVE_KV) {
+      return Promise.resolve({
+        ok: false,
+        skipped: true,
+        reason: "no_key" as const,
+        fixtures: 0,
+        searches: 0,
+        found: 0,
+      });
+    }
+    return fetchHighlights({ kv: env.LIVE_KV });
+  });
+}
+
 async function runPremiumEmailExclusive(
   env: Env,
 ): Promise<
@@ -291,6 +311,7 @@ export default {
             runPremiumEmailExclusive(env).catch((e) => console.error("[premium-email]", e)),
             runPostersExclusive(env).catch((e) => console.error("[posters]", e)),
             runAiPredictionsExclusive(env).catch((e) => console.error("[ai-predictions]", e)),
+            runHighlightsExclusive(env).catch((e) => console.error("[highlights]", e)),
           ]),
         );
         break;
@@ -317,6 +338,10 @@ export default {
       }
       if (url.pathname === "/__run/live") {
         const result = await runLiveIngestExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/highlights") {
+        const result = await runHighlightsExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/ai-predictions") {

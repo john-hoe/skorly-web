@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
-import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
+import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, fixtureMedia, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 
 const homeTeam = () => alias(teams, "home_team");
@@ -3132,4 +3132,78 @@ export async function getLiveCommentary(
     .orderBy(asc(liveCommentary.sortKey), asc(liveCommentary.id))
     .limit(limit);
   return rows.map((r) => ({ ...r, texts: r.texts as Record<string, string> }));
+}
+
+/* ------------------------------------------------------------------ */
+/* 三期 D3 — official highlight embeds                                 */
+/* ------------------------------------------------------------------ */
+
+export interface FixtureMediaRow {
+  videoId: string;
+  title: string | null;
+  channelTitle: string | null;
+  publishedAt: Date | null;
+}
+
+export async function insertFixtureMediaDeduped(
+  fixtureId: number,
+  media: Array<{
+    kind?: string;
+    provider?: string;
+    videoId: string;
+    title: string | null;
+    channelId: string | null;
+    channelTitle: string | null;
+    publishedAt: Date | null;
+  }>,
+): Promise<number> {
+  if (!media.length) return 0;
+  const db = getDb();
+  const rows = await db
+    .insert(fixtureMedia)
+    .values(
+      media.map((m) => ({
+        fixtureId,
+        kind: m.kind ?? "highlight",
+        provider: m.provider ?? "youtube",
+        videoId: m.videoId,
+        title: m.title,
+        channelId: m.channelId,
+        channelTitle: m.channelTitle,
+        publishedAt: m.publishedAt,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ id: fixtureMedia.id });
+  return rows.length;
+}
+
+/** Highlight embeds for one fixture (newest first). */
+export async function getFixtureMedia(
+  fixtureId: number,
+  kind = "highlight",
+): Promise<FixtureMediaRow[]> {
+  const db = getDb();
+  return db
+    .select({
+      videoId: fixtureMedia.videoId,
+      title: fixtureMedia.title,
+      channelTitle: fixtureMedia.channelTitle,
+      publishedAt: fixtureMedia.publishedAt,
+    })
+    .from(fixtureMedia)
+    .where(and(eq(fixtureMedia.fixtureId, fixtureId), eq(fixtureMedia.kind, kind)))
+    .orderBy(desc(fixtureMedia.publishedAt))
+    .limit(3);
+}
+
+/** Fixture ids (from the given set) that already have a highlight. */
+export async function getFixtureIdsWithHighlights(fixtureIds: number[]): Promise<number[]> {
+  if (!fixtureIds.length) return [];
+  const db = getDb();
+  const rows = await db
+    .selectDistinct({ fixtureId: fixtureMedia.fixtureId })
+    .from(fixtureMedia)
+    .where(and(inArray(fixtureMedia.fixtureId, fixtureIds), eq(fixtureMedia.kind, "highlight")));
+  return rows.map((r) => r.fixtureId);
 }

@@ -577,3 +577,29 @@ export const liveCommentary = pgTable(
     index("live_commentary_fixture_sort_idx").on(t.fixtureId, t.sortKey),
   ]
 );
+
+/* ------------------------------------------------------------------ */
+/* 三期 D3 — official highlight embeds (YouTube whitelist only)        */
+/* ------------------------------------------------------------------ */
+
+export const fixtureMedia = pgTable(
+  "fixture_media",
+  {
+    id: serial("id").primaryKey(),
+    fixtureId: integer("fixture_id")
+      .references(() => fixtures.id)
+      .notNull(),
+    kind: text("kind").notNull().default("highlight"),
+    provider: text("provider").notNull().default("youtube"),
+    videoId: text("video_id").notNull(),
+    title: text("title"),
+    channelId: text("channel_id"),
+    channelTitle: text("channel_title"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("fixture_media_unique_idx").on(t.fixtureId, t.provider, t.videoId),
+    index("fixture_media_fixture_idx").on(t.fixtureId, t.kind),
+  ]
+);

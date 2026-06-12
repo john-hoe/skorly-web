@@ -12,6 +12,7 @@ import { formatKickoffTime } from "@/lib/kickoff-time";
 import { FocusMatchHero, type FocusMatchData } from "@/components/focus-match-hero";
 import { HomeLiveSection, type HomeLiveMatch } from "@/components/home-live-section";
 import {
+  getRuntimeFixtureIdsWithHighlights,
   getRuntimeFixturePredictionCount,
   getRuntimeLatestArticles,
   getRuntimeLeaderboard,
@@ -55,6 +56,9 @@ export default async function HomePage({
     getRuntimeLeaderboard(50).catch(() => []),
   ]);
   const leaders = leaderboard.slice(0, 5);
+  const highlightIds = await getRuntimeFixtureIdsWithHighlights(results.map((f) => f.id)).catch(
+    () => new Set<number>(),
+  );
   const aiLeaders = leaderboard.filter((l) => (l.displayName ?? "").startsWith("Skorly AI"));
   // The 3h lookback window keeps live/finished games in "upcoming"; only show
   // genuinely future matches here (live ones surface in the top banner).
@@ -314,7 +318,12 @@ export default async function HomePage({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {results.map((f) => (
-                  <MatchCard key={f.id} fixture={f} locale={locale} />
+                  <MatchCard
+                    key={f.id}
+                    fixture={f}
+                    locale={locale}
+                    highlightLabel={highlightIds.has(f.id) ? tCommon("highlightsBadge") : null}
+                  />
                 ))}
               </div>
             </section>
