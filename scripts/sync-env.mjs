@@ -111,7 +111,7 @@ const env = {
   MIMO_API_KEY: get("xiaomimimo") || existing("MIMO_API_KEY"),
   TAVILY_API_KEY: get("tavily") || existing("TAVILY_API_KEY"),
   // Official highlights (YouTube Data API)
-  YOUTUBE_API_KEY: get("youtube api") || existing("YOUTUBE_API_KEY"),
+  YOUTUBE_API_KEY: get("youtube") || existing("YOUTUBE_API_KEY"),
   // Anti-abuse
   NEXT_PUBLIC_TURNSTILE_SITE_KEY:
     get("turnstile site") || existing("NEXT_PUBLIC_TURNSTILE_SITE_KEY"),
