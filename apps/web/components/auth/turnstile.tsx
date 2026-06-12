@@ -24,10 +24,32 @@ const SCRIPT_SRC =
  * configured; production server verification still fails closed without a valid
  * token.
  */
+/** Turnstile's flexible size still enforces a 300px minimum widget width. */
+const MIN_WIDGET_WIDTH = 300;
+const WIDGET_HEIGHT = 65;
+
 export function Turnstile() {
   const [siteKey, setSiteKey] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
+  const outerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+
+  // Narrow containers (e.g. the sidebar subscribe card) are thinner than the
+  // 300px minimum, which made the widget overflow the card border; shrink the
+  // whole widget proportionally instead.
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      setScale(w > 0 && w < MIN_WIDGET_WIDTH ? w / MIN_WIDGET_WIDTH : 1);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [siteKey]);
 
   useEffect(() => {
     if (siteKey) return;
@@ -94,5 +116,25 @@ export function Turnstile() {
   }, [siteKey]);
 
   if (!siteKey) return null;
-  return <div ref={ref} className="cf-turnstile" />;
+  return (
+    <div
+      ref={outerRef}
+      className="w-full overflow-hidden"
+      style={scale < 1 ? { height: Math.ceil(WIDGET_HEIGHT * scale) } : undefined}
+    >
+      <div
+        style={
+          scale < 1
+            ? {
+                width: MIN_WIDGET_WIDTH,
+                transform: `scale(${scale})`,
+                transformOrigin: "top left",
+              }
+            : undefined
+        }
+      >
+        <div ref={ref} className="cf-turnstile" />
+      </div>
+    </div>
+  );
 }
