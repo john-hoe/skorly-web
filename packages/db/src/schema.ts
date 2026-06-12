@@ -272,6 +272,7 @@ export const profiles = pgTable(
     role: text("role").notNull().default("member"), // member | premium | admin
     consentMarketing: boolean("consent_marketing").default(false).notNull(),
     consentAt: timestamp("consent_at", { withTimezone: true }),
+    badges: jsonb("badges").notNull().default([]), // ProfileBadge[] (D4 awards)
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },

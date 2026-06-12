@@ -226,6 +226,18 @@
     },
     "myPredictions": "My predictions",
     "noPredictions": "You haven't made any predictions yet.",
+    "vsAi": {
+      "title": "You vs Skorly AI",
+      "weeklySummary": "This week ({week}) you have {mine} pts, best AI has {ai} pts.",
+      "beatingAll": "You're beating every AI!",
+      "keepGoing": "Keep predicting — out-score all four AIs to earn the AI Slayer badge.",
+      "badgeName": "AI Slayer",
+      "cardTitle": "I beat every Skorly AI",
+      "shareText": "I out-predicted every Skorly AI in this week's World Cup game 🤖🏆",
+      "saveCard": "Save share card",
+      "empty": "No scored predictions yet. Predict a few matches and come back to see how you stack up against the AI!",
+      "you": "You"
+    },
     "stats": {
       "points": "Points",
       "rank": "Rank",
@@ -273,7 +285,17 @@
     "anonymous": "Player",
     "empty": "No scored predictions yet — be the first to play!",
     "scoring": "Scoring: exact score 5 pts · correct result + goal difference 3 pts · correct result 2 pts.",
-    "shareText": "Check the World Cup 2026 prediction leaderboard on Skorly ⚽"
+    "shareText": "Check the World Cup 2026 prediction leaderboard on Skorly ⚽",
+    "tabs": {
+      "overall": "All-time",
+      "vsAi": "This week vs AI"
+    },
+    "vsAi": {
+      "subtitle": "Best AI score this week ({week}): {points} pts — beat all four AIs to earn the AI Slayer badge.",
+      "beating": "Beating AI",
+      "badgeName": "AI Slayer",
+      "empty": "No scored predictions this week yet — check back after the matches."
+    }
   },
   "comments": {
     "title": "Comments",

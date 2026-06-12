@@ -43,7 +43,9 @@ export function LiveCommentaryFeed({
   const t = useTranslations("matchCenter");
   const [entries, setEntries] = useState<LiveCommentaryEntry[]>(initialEntries);
   const [status, setStatus] = useState(initialStatus);
-  const freshKeys = useRef<Set<string>>(new Set());
+  // Keys we've already seen (effect bookkeeping) vs keys rendered highlighted.
+  const knownKeys = useRef<Set<string>>(new Set(initialEntries.map((e) => e.key)));
+  const [freshKeys, setFreshKeys] = useState<ReadonlySet<string>>(() => new Set());
 
   // Computed after mount only: the page is built ahead of time, so evaluating
   // the time-based polling window during render would make the server and
@@ -66,12 +68,16 @@ export function LiveCommentaryFeed({
           setStatus(snapshot.fixture.status);
           const incoming = snapshot.commentary ?? [];
           if (!incoming.length) return;
+          const arrived = incoming
+            .map((entry) => entry.key)
+            .filter((key) => !knownKeys.current.has(key));
+          if (arrived.length) {
+            for (const key of arrived) knownKeys.current.add(key);
+            setFreshKeys((prev) => new Set([...prev, ...arrived]));
+          }
           setEntries((current) => {
             const byKey = new Map(current.map((entry) => [entry.key, entry]));
-            for (const entry of incoming) {
-              if (!byKey.has(entry.key)) freshKeys.current.add(entry.key);
-              byKey.set(entry.key, entry);
-            }
+            for (const entry of incoming) byKey.set(entry.key, entry);
             return [...byKey.values()].sort((a, b) => a.sortKey - b.sortKey);
           });
         })
@@ -103,7 +109,7 @@ export function LiveCommentaryFeed({
       {entries.length ? (
         <ol className="space-y-2">
           {newestFirst.map((entry) => {
-            const isFresh = freshKeys.current.has(entry.key);
+            const isFresh = freshKeys.has(entry.key);
             return (
               <li
                 key={entry.key}

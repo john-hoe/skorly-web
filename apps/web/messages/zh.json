@@ -227,6 +227,18 @@
     },
     "myPredictions": "我的竞猜",
     "noPredictions": "你还没有任何竞猜。",
+    "vsAi": {
+      "title": "与 Skorly AI 对战",
+      "weeklySummary": "本周（{week}）你 {mine} 分，AI 最佳 {ai} 分。",
+      "beatingAll": "你正领先全部 AI！",
+      "keepGoing": "继续竞猜，超过全部 AI 就能赢得「AI 终结者」徽章。",
+      "badgeName": "AI 终结者",
+      "cardTitle": "我击败了全部 Skorly AI",
+      "shareText": "我本周在 Skorly 的世界杯竞猜中击败了全部 AI 🤖🏆",
+      "saveCard": "保存战绩卡",
+      "empty": "还没有已结算的竞猜。去竞猜几场比赛，回来看看你和 AI 谁更准！",
+      "you": "你"
+    },
     "stats": {
       "points": "积分",
       "rank": "排名",
@@ -274,7 +286,17 @@
     "anonymous": "玩家",
     "empty": "还没有已结算的竞猜——快来抢头名！",
     "scoring": "计分：精准比分 5 分 · 胜负 + 净胜球 3 分 · 仅胜负 2 分。",
-    "shareText": "来 Skorly 查看 2026 世界杯预测排行榜 ⚽"
+    "shareText": "来 Skorly 查看 2026 世界杯预测排行榜 ⚽",
+    "tabs": {
+      "overall": "总榜",
+      "vsAi": "本周 vs AI"
+    },
+    "vsAi": {
+      "subtitle": "本周（{week}）AI 最佳成绩 {points} 分——超过全部 4 个 AI 即可赢得「AI 终结者」徽章。",
+      "beating": "领先 AI",
+      "badgeName": "AI 终结者",
+      "empty": "本周还没有已结算的竞猜，开赛后再来看看吧。"
+    }
   },
   "comments": {
     "title": "评论",

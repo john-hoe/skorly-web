@@ -16,6 +16,7 @@ import { sendPremiumEmails } from "./send-premium-email";
 import { sendDailyDigest } from "./send-daily-digest";
 import { makeAiPredictions } from "./ai-predictions";
 import { fetchHighlights } from "./fetch-highlights";
+import { awardAiSlayerBadges } from "./award-badges";
 import { generatePosters } from "./generate-posters";
 
 setDbClientCacheEnabled(false);
@@ -31,6 +32,7 @@ const LOCK_LIVE_INGEST = "jobs:live-ingest";
 const LOCK_DAILY_DIGEST = "jobs:daily-digest";
 const LOCK_AI_PREDICTIONS = "jobs:ai-predictions";
 const LOCK_HIGHLIGHTS = "jobs:highlights";
+const LOCK_AWARD_BADGES = "jobs:award-badges";
 
 type ExclusiveResult<T> =
   | { acquired: true; value: T }
@@ -198,6 +200,14 @@ async function runHighlightsExclusive(
   });
 }
 
+async function runAwardBadgesExclusive(
+  env: Env,
+): Promise<ExclusiveResult<Awaited<ReturnType<typeof awardAiSlayerBadges>>>> {
+  return tryRunExclusive(env, LOCK_AWARD_BADGES, 10 * 60, () =>
+    awardAiSlayerBadges({ kv: env.LIVE_KV ?? null }),
+  );
+}
+
 async function runPremiumEmailExclusive(
   env: Env,
 ): Promise<
@@ -299,9 +309,13 @@ export default {
         ctx.waitUntil(Promise.all([generatePreviews(env), generateRecaps(env)]));
         break;
       case "0 1 * * *":
-        // 08:00 WIB/ICT — daily match-day digest (push + email).
+        // 08:00 WIB/ICT — daily match-day digest (push + email) and, once the
+        // previous ISO week has closed, the weekly "AI slayer" badge award.
         ctx.waitUntil(
-          runDailyDigestExclusive(env).catch((e) => console.error("[daily-digest]", e)),
+          Promise.all([
+            runDailyDigestExclusive(env).catch((e) => console.error("[daily-digest]", e)),
+            runAwardBadgesExclusive(env).catch((e) => console.error("[award-badges]", e)),
+          ]),
         );
         break;
       case "*/15 * * * *":
@@ -346,6 +360,10 @@ export default {
       }
       if (url.pathname === "/__run/ai-predictions") {
         const result = await runAiPredictionsExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/award-badges") {
+        const result = await runAwardBadgesExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/daily-digest") {

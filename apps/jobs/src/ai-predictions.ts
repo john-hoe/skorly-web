@@ -13,6 +13,7 @@ import {
   getUpcomingFixtures,
   upsertPrediction,
 } from "@skorly/db";
+import { AI_PREDICTOR_EMAILS } from "@skorly/types";
 
 export interface AiPersona {
   email: string;
@@ -20,11 +21,12 @@ export interface AiPersona {
   strategy: "model" | "sampled" | "upset" | "cautious";
 }
 
+// Emails come from the shared constant so web-side AI detection can't drift.
 export const AI_PERSONAS: AiPersona[] = [
-  { email: "ai-elo@skorly.cc", displayName: "Skorly AI · Elo", strategy: "model" },
-  { email: "ai-poisson@skorly.cc", displayName: "Skorly AI · Poisson", strategy: "sampled" },
-  { email: "ai-brave@skorly.cc", displayName: "Skorly AI · Brave", strategy: "upset" },
-  { email: "ai-cautious@skorly.cc", displayName: "Skorly AI · Cautious", strategy: "cautious" },
+  { email: AI_PREDICTOR_EMAILS[0], displayName: "Skorly AI · Elo", strategy: "model" },
+  { email: AI_PREDICTOR_EMAILS[1], displayName: "Skorly AI · Poisson", strategy: "sampled" },
+  { email: AI_PREDICTOR_EMAILS[2], displayName: "Skorly AI · Brave", strategy: "upset" },
+  { email: AI_PREDICTOR_EMAILS[3], displayName: "Skorly AI · Cautious", strategy: "cautious" },
 ];
 
 const HORIZON_MS = 48 * 60 * 60 * 1000;

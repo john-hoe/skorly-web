@@ -1,5 +1,10 @@
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 import {
+  AI_PREDICTOR_EMAILS,
+  isoWeekContaining,
+  type ProfileBadge,
+} from "@skorly/types";
+import {
   callRpc,
   deleteRows,
   inFilter,
@@ -549,6 +554,38 @@ export interface RuntimeLeaderRow {
   points: number;
   played: number;
   exact: number;
+  /** Row belongs to one of the four Skorly AI predictor accounts. */
+  isAi: boolean;
+  /** Number of persisted weekly "AI slayer" badges. */
+  aiSlayerBadges: number;
+}
+
+export interface RuntimeWeeklyVsAi {
+  weekLabel: string;
+  /** All rows (humans + AI) for the current ISO week, sorted by points desc. */
+  rows: RuntimeLeaderRow[];
+  /** Best weekly score among the AI accounts (0 when none scored yet). */
+  aiBest: number;
+}
+
+export interface RuntimeVsAiDuelAiPick {
+  /** Short persona label, e.g. "Elo". */
+  name: string;
+  homeGoalsPred: number;
+  awayGoalsPred: number;
+  pointsAwarded: number | null;
+}
+
+export interface RuntimeVsAiDuelRow {
+  fixtureId: number;
+  slug: string;
+  kickoffAt: string | null;
+  homeName: string;
+  awayName: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  mine: { homeGoalsPred: number; awayGoalsPred: number; pointsAwarded: number | null };
+  ai: RuntimeVsAiDuelAiPick[];
 }
 
 export interface RuntimeArticleCardData {
@@ -663,6 +700,7 @@ interface ProfileRow {
   email?: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  badges?: unknown;
   whatsapp_number?: string | null;
   locale?: string;
   favorite_team_id?: number | null;
@@ -939,7 +977,7 @@ async function profilesById(ids: Array<string | null | undefined>) {
   const clean = Array.from(new Set(ids.filter((v): v is string => !!v)));
   if (clean.length === 0) return new Map<string, ProfileRow>();
   const rows = await selectRows<ProfileRow>("profiles", {
-    select: "id,email,display_name,avatar_url",
+    select: "id,email,display_name,avatar_url,badges",
     id: inFilter(clean),
   });
   return new Map(rows.map((r) => [r.id, r]));
@@ -3091,12 +3129,35 @@ export async function getRuntimeUserPredictionStats(userId: string): Promise<Run
   };
 }
 
-export async function getRuntimeLeaderboard(limit = 50): Promise<RuntimeLeaderRow[]> {
-  const rows = await selectRows<Pick<PredictionRow, "user_id" | "points_awarded">>("predictions", {
-    select: "user_id,points_awarded",
-    points_awarded: "not.is.null",
-    limit: 5000,
-  });
+function isAiEmail(email: string | null | undefined): boolean {
+  return !!email && (AI_PREDICTOR_EMAILS as readonly string[]).includes(email);
+}
+
+function aiSlayerBadgeCount(badges: unknown): number {
+  if (!Array.isArray(badges)) return 0;
+  return badges.filter((b) => (b as ProfileBadge | null)?.kind === "ai_slayer").length;
+}
+
+function toLeaderRow(
+  userId: string,
+  profile: ProfileRow | undefined,
+  s: { points: number; played: number; exact: number },
+): RuntimeLeaderRow {
+  return {
+    userId,
+    displayName: profile?.display_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
+    points: s.points,
+    played: s.played,
+    exact: s.exact,
+    isAi: isAiEmail(profile?.email),
+    aiSlayerBadges: aiSlayerBadgeCount(profile?.badges),
+  };
+}
+
+function aggregatePredictionStats(
+  rows: Array<Pick<PredictionRow, "user_id" | "points_awarded">>,
+): Map<string, { points: number; played: number; exact: number }> {
   const stats = new Map<string, { points: number; played: number; exact: number }>();
   for (const row of rows) {
     const current = stats.get(row.user_id) ?? { points: 0, played: 0, exact: 0 };
@@ -3105,22 +3166,161 @@ export async function getRuntimeLeaderboard(limit = 50): Promise<RuntimeLeaderRo
     if (row.points_awarded === 5) current.exact += 1;
     stats.set(row.user_id, current);
   }
+  return stats;
+}
+
+export async function getRuntimeLeaderboard(limit = 50): Promise<RuntimeLeaderRow[]> {
+  const rows = await selectRows<Pick<PredictionRow, "user_id" | "points_awarded">>("predictions", {
+    select: "user_id,points_awarded",
+    points_awarded: "not.is.null",
+    limit: 5000,
+  });
+  const stats = aggregatePredictionStats(rows);
   const userIds = Array.from(stats.keys());
   const profiles = await profilesById(userIds);
   return userIds
-    .map((userId) => {
-      const profile = profiles.get(userId);
-      const s = stats.get(userId)!;
+    .map((userId) => toLeaderRow(userId, profiles.get(userId), stats.get(userId)!))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, limit);
+}
+
+async function aiProfileRows(): Promise<ProfileRow[]> {
+  return selectRows<ProfileRow>("profiles", {
+    select: "id,email,display_name,avatar_url,badges",
+    email: inFilter([...AI_PREDICTOR_EMAILS]),
+  });
+}
+
+/**
+ * Current ISO week "you vs AI" board: weekly totals for every player whose
+ * scored predictions belong to fixtures kicking off this week, with the four
+ * AI accounts always present (zeroed when they have no scored picks yet).
+ * When `includeUserId` is given, that user's row survives the limit cutoff.
+ */
+export async function getRuntimeWeeklyVsAi(
+  limit = 50,
+  includeUserId?: string,
+): Promise<RuntimeWeeklyVsAi> {
+  const week = isoWeekContaining();
+  const fixtureRows = await selectRows<{ id: number }>("fixtures", {
+    select: "id",
+    and: `(kickoff_at.gte.${week.start.toISOString()},kickoff_at.lt.${week.end.toISOString()})`,
+    limit: 200,
+  });
+
+  const stats =
+    fixtureRows.length === 0
+      ? new Map<string, { points: number; played: number; exact: number }>()
+      : aggregatePredictionStats(
+          await selectRows<Pick<PredictionRow, "user_id" | "points_awarded">>("predictions", {
+            select: "user_id,points_awarded",
+            points_awarded: "not.is.null",
+            fixture_id: inFilter(fixtureRows.map((f) => f.id)),
+            limit: 5000,
+          }),
+        );
+
+  const aiProfiles = await aiProfileRows();
+  const aiIds = new Set(aiProfiles.map((p) => p.id));
+  const humanIds = Array.from(stats.keys()).filter((id) => !aiIds.has(id));
+  const profiles = await profilesById(humanIds);
+  for (const p of aiProfiles) profiles.set(p.id, p);
+
+  const zero = { points: 0, played: 0, exact: 0 };
+  const rows = [
+    ...humanIds.map((id) => toLeaderRow(id, profiles.get(id), stats.get(id)!)),
+    ...aiProfiles.map((p) => toLeaderRow(p.id, p, stats.get(p.id) ?? zero)),
+  ].sort((a, b) => b.points - a.points || b.exact - a.exact);
+
+  const aiBest = Math.max(0, ...rows.filter((r) => r.isAi).map((r) => r.points));
+  const allHumans = rows.filter((r) => !r.isAi);
+  const humans = allHumans.slice(0, limit);
+  if (includeUserId && !humans.some((r) => r.userId === includeUserId)) {
+    const mine = allHumans.find((r) => r.userId === includeUserId);
+    if (mine) humans.push(mine);
+  }
+  const ai = rows.filter((r) => r.isAi);
+  return {
+    weekLabel: week.label,
+    rows: [...humans, ...ai].sort((a, b) => b.points - a.points || b.exact - a.exact),
+    aiBest,
+  };
+}
+
+/**
+ * Per-match "you vs AI" duel rows for the account page: the user's most
+ * recently scored predictions alongside the four AI picks for the same match.
+ */
+export async function getRuntimeUserVsAi(
+  userId: string,
+  limit = 8,
+): Promise<RuntimeVsAiDuelRow[]> {
+  const mine = await selectRows<PredictionRow>("predictions", {
+    select: "user_id,fixture_id,home_goals_pred,away_goals_pred,points_awarded,submitted_at",
+    user_id: `eq.${userId}`,
+    points_awarded: "not.is.null",
+    order: "submitted_at.desc",
+    limit: 40,
+  });
+  if (mine.length === 0) return [];
+
+  const fixtureIds = Array.from(new Set(mine.map((p) => p.fixture_id)));
+  const [fixtureRows, aiProfiles] = await Promise.all([
+    selectRows<FixtureRow>("fixtures", { select: FIXTURE_SELECT, id: inFilter(fixtureIds) }),
+    aiProfileRows(),
+  ]);
+  const fixtures = new Map((await fixtureRowsToViews(fixtureRows)).map((f) => [f.id, f]));
+  const aiIds = aiProfiles.map((p) => p.id);
+  const aiPredictions =
+    aiIds.length === 0
+      ? []
+      : await selectRows<PredictionRow>("predictions", {
+          select: "user_id,fixture_id,home_goals_pred,away_goals_pred,points_awarded",
+          user_id: inFilter(aiIds),
+          fixture_id: inFilter(fixtureIds),
+          limit: 1000,
+        });
+
+  const aiName = new Map(
+    aiProfiles.map((p) => [
+      p.id,
+      (p.display_name ?? "AI").replace(/^Skorly AI\s*·\s*/, "") || "AI",
+    ]),
+  );
+  const aiByFixture = new Map<number, RuntimeVsAiDuelAiPick[]>();
+  for (const p of aiPredictions) {
+    const list = aiByFixture.get(p.fixture_id) ?? [];
+    list.push({
+      name: aiName.get(p.user_id) ?? "AI",
+      homeGoalsPred: p.home_goals_pred,
+      awayGoalsPred: p.away_goals_pred,
+      pointsAwarded: p.points_awarded,
+    });
+    aiByFixture.set(p.fixture_id, list);
+  }
+
+  return mine
+    .map((p) => {
+      const f = fixtures.get(p.fixture_id);
+      if (!f) return null;
       return {
-        userId,
-        displayName: profile?.display_name ?? null,
-        avatarUrl: profile?.avatar_url ?? null,
-        points: s.points,
-        played: s.played,
-        exact: s.exact,
+        fixtureId: p.fixture_id,
+        slug: f.slug,
+        kickoffAt: f.kickoffAt ? f.kickoffAt.toISOString() : null,
+        homeName: f.home.name,
+        awayName: f.away.name,
+        homeGoals: f.homeGoals,
+        awayGoals: f.awayGoals,
+        mine: {
+          homeGoalsPred: p.home_goals_pred,
+          awayGoalsPred: p.away_goals_pred,
+          pointsAwarded: p.points_awarded,
+        },
+        ai: (aiByFixture.get(p.fixture_id) ?? []).sort((a, b) => a.name.localeCompare(b.name)),
       };
     })
-    .sort((a, b) => b.points - a.points)
+    .filter((r): r is RuntimeVsAiDuelRow => r != null)
+    .sort((a, b) => (b.kickoffAt ?? "").localeCompare(a.kickoffAt ?? ""))
     .slice(0, limit);
 }
 

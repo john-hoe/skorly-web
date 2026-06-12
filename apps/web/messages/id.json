@@ -226,6 +226,18 @@
     },
     "myPredictions": "Tebakan saya",
     "noPredictions": "Kamu belum membuat tebakan.",
+    "vsAi": {
+      "title": "Kamu vs Skorly AI",
+      "weeklySummary": "Minggu ini ({week}) kamu {mine} poin, AI terbaik {ai} poin.",
+      "beatingAll": "Kamu mengungguli semua AI!",
+      "keepGoing": "Terus menebak — kalahkan keempat AI untuk meraih lencana Penakluk AI.",
+      "badgeName": "Penakluk AI",
+      "cardTitle": "Aku mengalahkan semua Skorly AI",
+      "shareText": "Aku mengalahkan semua Skorly AI di tebak skor Piala Dunia minggu ini 🤖🏆",
+      "saveCard": "Simpan kartu prestasi",
+      "empty": "Belum ada tebakan yang dinilai. Tebak beberapa pertandingan dan lihat siapa yang lebih jago, kamu atau AI!",
+      "you": "Kamu"
+    },
     "stats": {
       "points": "Poin",
       "rank": "Peringkat",
@@ -273,7 +285,17 @@
     "anonymous": "Pemain",
     "empty": "Belum ada tebakan yang dinilai — jadilah yang pertama!",
     "scoring": "Penilaian: skor tepat 5 poin · hasil + selisih gol benar 3 poin · hasil benar 2 poin.",
-    "shareText": "Lihat klasemen tebak skor Piala Dunia 2026 di Skorly ⚽"
+    "shareText": "Lihat klasemen tebak skor Piala Dunia 2026 di Skorly ⚽",
+    "tabs": {
+      "overall": "Sepanjang waktu",
+      "vsAi": "Minggu ini vs AI"
+    },
+    "vsAi": {
+      "subtitle": "Skor AI terbaik minggu ini ({week}): {points} poin — kalahkan keempat AI untuk meraih lencana Penakluk AI.",
+      "beating": "Mengungguli AI",
+      "badgeName": "Penakluk AI",
+      "empty": "Belum ada tebakan yang dinilai minggu ini — kembali lagi setelah pertandingan."
+    }
   },
   "comments": {
     "title": "Komentar",

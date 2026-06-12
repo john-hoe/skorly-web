@@ -25,7 +25,9 @@ export function GET(req: Request): ImageResponse {
       ? "LEADERBOARD"
       : kind === "prediction"
         ? "MY PREDICTION"
-        : "WORLD CUP 2026";
+        : kind === "ai-duel"
+          ? "YOU vs SKORLY AI"
+          : "WORLD CUP 2026";
 
   return new ImageResponse(
     (
