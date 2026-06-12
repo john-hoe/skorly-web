@@ -3042,7 +3042,12 @@ export async function getProfileIdsByEmails(
     .where(inArray(profiles.email, emails));
 }
 
-/** Idempotent profile insert keyed on the auth user id. */
+/**
+ * Idempotent profile upsert keyed on the auth user id. Must be an update on
+ * conflict: Supabase's auth trigger auto-creates a bare profiles row when the
+ * auth user is created, so a do-nothing insert would silently drop the
+ * display name.
+ */
 export async function ensureProfile(input: {
   id: string;
   email: string;
@@ -3058,5 +3063,8 @@ export async function ensureProfile(input: {
       displayName: input.displayName,
       locale: input.locale ?? "en",
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: profiles.id,
+      set: { email: input.email, displayName: input.displayName },
+    });
 }
