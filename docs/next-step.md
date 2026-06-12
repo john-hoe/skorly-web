@@ -8,7 +8,7 @@
 
 > 6/10 执行结果：S1 第一周 P0 全部完成（AdSense 提审 ✅、部署提频 PR #45 ✅、每日摘要 PR #46 ✅、PostHog 看板 ✅），P1 提前完成 3 项（Media Kit PR #47 ✅、Involve Asia 入驻 ✅、仓库清理 ✅）。
 
-> 2026-06-12 新增：比赛中心与互动增强方案已与产品达成共识并定稿 → [specs/D-match-center-engagement.md](specs/D-match-center-engagement.md)（D1 文字直播+数据可视化 → D2 首页改版 → D3 官方集锦 → D4 你vsAI榜 → D5 预览部署），**待产品开工指令**。
+> 2026-06-12 新增：比赛中心与互动增强方案已定稿并落地 → [specs/D-match-center-engagement.md](specs/D-match-center-engagement.md)。**D1 文字直播+数据面板 ✅（PR #52-57）、D2 首页改版 ✅、D3 官方集锦 ✅（YouTube key 已接线，墨西哥场视频已上线）、D4 你 vs AI 对战榜 ✅（PR #59：周榜 tab、AI 终结者徽章+每日 cron、个人中心对战记录、ai-duel 分享卡，已部署生产验证）**。剩 D5 预览部署机制（低优先级，按需做）。
 
 **下一步（按时间顺序）**：
 1. **6/11（明天）**：比赛日实战盯守——验证实时比分链路、API 配额（apiq <2000/日）、recap ≤30min 上线、首封每日摘要送达。这是最后一个未完成的 P0。
