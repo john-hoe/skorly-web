@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { getLiveAllApi } from "@/lib/runtime-api-client";
@@ -31,16 +31,22 @@ export function HomeLiveSection({
   const t = useTranslations("home");
   const [matches, setMatches] = useState<HomeLiveMatch[]>(initialLive);
 
+  // Window check reads the latest polled list through a ref so polling stops
+  // once everything has finished and we're outside the next kickoff window.
+  const matchesRef = useRef(matches);
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
   const [shouldPoll, setShouldPoll] = useState(false);
   useEffect(() => {
     const update = () =>
       setShouldPoll(
-        initialLive.length > 0 || isLivePollingWindow("scheduled", nextKickoffAt),
+        matchesRef.current.length > 0 || isLivePollingWindow("scheduled", nextKickoffAt),
       );
     update();
     const id = setInterval(update, 60_000);
     return () => clearInterval(id);
-  }, [initialLive.length, nextKickoffAt]);
+  }, [nextKickoffAt]);
 
   useEffect(() => {
     if (!shouldPoll) return;

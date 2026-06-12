@@ -150,17 +150,25 @@ export function FocusMatchHero({ matches }: { matches: FocusMatchData[] }) {
     };
   }, []);
 
-  // Shared live poll once any match enters its window (post-mount only).
+  // Shared live poll once any match enters its window (post-mount only). The
+  // window check reads the latest polled statuses through a ref so polling
+  // actually stops once every match has finished — the build-time status prop
+  // would otherwise keep a long-lived tab polling forever.
+  const liveByIdRef = useRef(liveById);
+  useEffect(() => {
+    liveByIdRef.current = liveById;
+  }, [liveById]);
   const [shouldPoll, setShouldPoll] = useState(false);
   useEffect(() => {
     const update = () =>
       setShouldPoll(
-        matches.some((m) => isLivePollingWindow(liveById.get(m.id)?.status ?? m.status, m.kickoffAt)),
+        matches.some((m) =>
+          isLivePollingWindow(liveByIdRef.current.get(m.id)?.status ?? m.status, m.kickoffAt),
+        ),
       );
     update();
     const id = setInterval(update, 60_000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
   useEffect(() => {
