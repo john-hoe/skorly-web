@@ -3025,3 +3025,38 @@ export async function getPublicPicks(fixtureId: number, limit = 30): Promise<Pub
     .limit(limit);
   return rows as PublicPick[];
 }
+
+/* ------------------------------------------------------------------ */
+/* AI predictor accounts                                               */
+/* ------------------------------------------------------------------ */
+
+/** Profile ids for a set of emails (used by the AI predictor job). */
+export async function getProfileIdsByEmails(
+  emails: string[],
+): Promise<Array<{ id: string; email: string | null }>> {
+  if (!emails.length) return [];
+  const db = getDb();
+  return db
+    .select({ id: profiles.id, email: profiles.email })
+    .from(profiles)
+    .where(inArray(profiles.email, emails));
+}
+
+/** Idempotent profile insert keyed on the auth user id. */
+export async function ensureProfile(input: {
+  id: string;
+  email: string;
+  displayName: string;
+  locale?: string;
+}): Promise<void> {
+  const db = getDb();
+  await db
+    .insert(profiles)
+    .values({
+      id: input.id,
+      email: input.email,
+      displayName: input.displayName,
+      locale: input.locale ?? "en",
+    })
+    .onConflictDoNothing();
+}
