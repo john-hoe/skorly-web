@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { currentIsoWeek, previousIsoWeek, selectAiSlayers } from "./award-badges";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  awardAiSlayerBadges,
+  currentIsoWeek,
+  previousIsoWeek,
+  selectAiSlayers,
+} from "./award-badges";
+import { appendProfileBadge, getProfileIdsByEmails, getScoredTotalsBetween } from "@skorly/db";
+
+vi.mock("@skorly/db", () => ({
+  appendProfileBadge: vi.fn(),
+  getProfileIdsByEmails: vi.fn(),
+  getScoredTotalsBetween: vi.fn(),
+}));
+
+function memoryKv() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    get: async (k: string) => store.get(k) ?? null,
+    put: async (k: string, v: string) => {
+      store.set(k, v);
+    },
+  };
+}
 
 describe("ISO week windows", () => {
   it("computes the previous completed week from a mid-week date", () => {
@@ -61,5 +84,45 @@ describe("selectAiSlayers", () => {
     const totals = [row("ai-1", 4), row("u-lucky", 15, 2), row("u-grinder", 15, 3)];
     const result = selectAiSlayers(totals, ai);
     expect(result?.winners.map((w) => w.userId)).toEqual(["u-grinder"]);
+  });
+});
+
+describe("awardAiSlayerBadges", () => {
+  const totals = [
+    { userId: "ai-1", points: 4, played: 5, exact: 0 },
+    { userId: "u-1", points: 10, played: 5, exact: 1 },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(getScoredTotalsBetween).mockResolvedValue(totals);
+    vi.mocked(getProfileIdsByEmails).mockResolvedValue([
+      { id: "ai-1", email: "ai-elo@skorly.cc" },
+    ]);
+    vi.mocked(appendProfileBadge).mockReset().mockResolvedValue(true);
+  });
+
+  it("skips inside the settle grace period without writing a marker", async () => {
+    const kv = memoryKv();
+    // Monday 01:00 UTC — one hour after the previous week closed.
+    const result = await awardAiSlayerBadges({ kv, now: new Date("2026-06-15T01:00:00Z") });
+    expect(result.skipped).toBe(true);
+    expect(kv.store.size).toBe(0);
+    expect(appendProfileBadge).not.toHaveBeenCalled();
+  });
+
+  it("awards after the grace period and seals the week", async () => {
+    const kv = memoryKv();
+    const result = await awardAiSlayerBadges({ kv, now: new Date("2026-06-16T01:00:00Z") });
+    expect(result).toMatchObject({ ok: true, winners: 1, awarded: 1, aiBest: 4 });
+    expect(result.week).toBe("2026-W24");
+    expect(kv.store.get("badges:ai-slayer:2026-W24")).toBe("done");
+  });
+
+  it("leaves the week unsealed when an append fails so the next run retries", async () => {
+    vi.mocked(appendProfileBadge).mockRejectedValue(new Error("db down"));
+    const kv = memoryKv();
+    const result = await awardAiSlayerBadges({ kv, now: new Date("2026-06-16T01:00:00Z") });
+    expect(result.ok).toBe(false);
+    expect(kv.store.has("badges:ai-slayer:2026-W24")).toBe(false);
   });
 });

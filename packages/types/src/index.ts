@@ -137,6 +137,9 @@ export const AI_PREDICTOR_EMAILS = [
   "ai-cautious@skorly.cc",
 ] as const;
 
+/** Minimum scored predictions in a week to qualify for the AI Slayer badge. */
+export const AI_SLAYER_MIN_PLAYED = 3;
+
 /** One badge entry inside profiles.badges (jsonb array). */
 export interface ProfileBadge {
   /** Unique per award, e.g. "ai_slayer:2026-W25". */

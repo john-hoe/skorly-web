@@ -3195,8 +3195,12 @@ async function aiProfileRows(): Promise<ProfileRow[]> {
  * Current ISO week "you vs AI" board: weekly totals for every player whose
  * scored predictions belong to fixtures kicking off this week, with the four
  * AI accounts always present (zeroed when they have no scored picks yet).
+ * When `includeUserId` is given, that user's row survives the limit cutoff.
  */
-export async function getRuntimeWeeklyVsAi(limit = 50): Promise<RuntimeWeeklyVsAi> {
+export async function getRuntimeWeeklyVsAi(
+  limit = 50,
+  includeUserId?: string,
+): Promise<RuntimeWeeklyVsAi> {
   const week = isoWeekContaining();
   const fixtureRows = await selectRows<{ id: number }>("fixtures", {
     select: "id",
@@ -3229,7 +3233,12 @@ export async function getRuntimeWeeklyVsAi(limit = 50): Promise<RuntimeWeeklyVsA
   ].sort((a, b) => b.points - a.points || b.exact - a.exact);
 
   const aiBest = Math.max(0, ...rows.filter((r) => r.isAi).map((r) => r.points));
-  const humans = rows.filter((r) => !r.isAi).slice(0, limit);
+  const allHumans = rows.filter((r) => !r.isAi);
+  const humans = allHumans.slice(0, limit);
+  if (includeUserId && !humans.some((r) => r.userId === includeUserId)) {
+    const mine = allHumans.find((r) => r.userId === includeUserId);
+    if (mine) humans.push(mine);
+  }
   const ai = rows.filter((r) => r.isAi);
   return {
     weekLabel: week.label,

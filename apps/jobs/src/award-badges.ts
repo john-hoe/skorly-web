@@ -13,12 +13,22 @@ import {
   getScoredTotalsBetween,
   type ScoredTotalsRow,
 } from "@skorly/db";
-import { AI_PREDICTOR_EMAILS, isoWeekBefore, isoWeekContaining } from "@skorly/types";
+import {
+  AI_PREDICTOR_EMAILS,
+  AI_SLAYER_MIN_PLAYED,
+  isoWeekBefore,
+  isoWeekContaining,
+} from "@skorly/types";
 
-export const MIN_PLAYED = 3;
+export const MIN_PLAYED = AI_SLAYER_MIN_PLAYED;
 
 const KV_MARKER_PREFIX = "badges:ai-slayer:";
 const KV_MARKER_TTL_S = 30 * 24 * 60 * 60;
+/**
+ * Wait this long after the ISO week closes before finalizing awards, so late
+ * Sunday kickoffs are guaranteed to be finished and scored.
+ */
+export const SETTLE_GRACE_MS = 24 * 60 * 60 * 1000;
 
 interface KvLike {
   get(key: string): Promise<string | null>;
@@ -59,7 +69,8 @@ export async function awardAiSlayerBadges(opts: {
   kv?: KvLike | null;
   now?: Date;
 }): Promise<AwardBadgesResult> {
-  const week = previousIsoWeek(opts.now ?? new Date());
+  const now = opts.now ?? new Date();
+  const week = previousIsoWeek(now);
   const base: AwardBadgesResult = {
     ok: true,
     skipped: false,
@@ -68,6 +79,11 @@ export async function awardAiSlayerBadges(opts: {
     awarded: 0,
     aiBest: null,
   };
+
+  // Don't finalize until the week's last matches have had time to be scored.
+  if (now.getTime() < week.end.getTime() + SETTLE_GRACE_MS) {
+    return { ...base, skipped: true };
+  }
 
   const markerKey = `${KV_MARKER_PREFIX}${week.label}`;
   if (opts.kv && (await opts.kv.get(markerKey))) {
@@ -87,28 +103,36 @@ export async function awardAiSlayerBadges(opts: {
   }
 
   let awarded = 0;
+  let failures = 0;
   for (const winner of selection.winners) {
-    const added = await appendProfileBadge(winner.userId, {
-      id: `ai_slayer:${week.label}`,
-      kind: "ai_slayer",
-      week: week.label,
-      points: winner.points,
-      awardedAt: new Date().toISOString(),
-    }).catch((e) => {
+    try {
+      const added = await appendProfileBadge(winner.userId, {
+        id: `ai_slayer:${week.label}`,
+        kind: "ai_slayer",
+        week: week.label,
+        points: winner.points,
+        awardedAt: new Date().toISOString(),
+      });
+      if (added) awarded++;
+    } catch (e) {
+      failures++;
       console.error(`[award-badges] append failed for ${winner.userId}`, e);
-      return false;
-    });
-    if (added) awarded++;
+    }
   }
 
-  if (opts.kv) await opts.kv.put(markerKey, "done", { expirationTtl: KV_MARKER_TTL_S });
+  // Only seal the week when every winner was processed; otherwise the next
+  // daily run retries (appendProfileBadge is idempotent per badge id).
+  if (opts.kv && failures === 0) {
+    await opts.kv.put(markerKey, "done", { expirationTtl: KV_MARKER_TTL_S });
+  }
   if (selection.winners.length) {
     console.log(
-      `[award-badges] ${week.label}: aiBest=${selection.aiBest}, winners=${selection.winners.length}, newly awarded=${awarded}`,
+      `[award-badges] ${week.label}: aiBest=${selection.aiBest}, winners=${selection.winners.length}, newly awarded=${awarded}, failures=${failures}`,
     );
   }
   return {
     ...base,
+    ok: failures === 0,
     winners: selection.winners.length,
     awarded,
     aiBest: selection.aiBest,

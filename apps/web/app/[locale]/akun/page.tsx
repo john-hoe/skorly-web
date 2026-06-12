@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
+import { AI_SLAYER_MIN_PLAYED } from "@skorly/types";
 import { getSessionUser } from "@/lib/supabase/server";
 import { AccountForm } from "@/components/auth/account-form";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -78,7 +79,7 @@ export default async function AccountPage({
     withAccountTimeout("getUserPredictionStats", getRuntimeUserPredictionStats(user!.id), null),
     withAccountTimeout("getUserPredictions", getRuntimeUserPredictions(user!.id, 20), []),
     withAccountTimeout("getUserVsAi", getRuntimeUserVsAi(user!.id, 8), []),
-    withAccountTimeout("getWeeklyVsAi", getRuntimeWeeklyVsAi(50), null),
+    withAccountTimeout("getWeeklyVsAi", getRuntimeWeeklyVsAi(50, user!.id), null),
   ]);
 
   const meta = (user!.user_metadata ?? {}) as Record<string, string>;
@@ -183,7 +184,13 @@ function VsAiSection({
 }) {
   const myWeekly = weekly?.rows.find((r) => r.userId === userId);
   const aiBest = weekly?.aiBest ?? 0;
-  const beatingAll = myWeekly != null && myWeekly.points > 0 && myWeekly.points > aiBest;
+  // Mirrors the badge rule: at least AI_SLAYER_MIN_PLAYED scored picks and
+  // strictly more points than every AI.
+  const beatingAll =
+    myWeekly != null &&
+    myWeekly.played >= AI_SLAYER_MIN_PLAYED &&
+    myWeekly.points > 0 &&
+    myWeekly.points > aiBest;
   const ogCardUrl =
     beatingAll && weekly
       ? `/og?kind=ai-duel&t=${encodeURIComponent(t("vsAi.cardTitle"))}&s=${encodeURIComponent(
