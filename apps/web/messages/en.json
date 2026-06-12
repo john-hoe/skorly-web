@@ -51,7 +51,15 @@
     "liveNow": "Live now",
     "startingSoon": "Starting soon",
     "tournamentLive": "World Cup 2026 is underway — group stage",
-    "latestResults": "Latest Results"
+    "latestResults": "Latest Results",
+    "focusBadge": "Focus match",
+    "kickoffIn": "until kickoff",
+    "fullTime": "Full time",
+    "aiTeaser": "{name} predicts {score} — do you agree?",
+    "picksCount": "{count} predictions in",
+    "statsMatches24h": "{count} matches in the next 24h",
+    "statsPredictions": "{count} predictions made",
+    "statsLeader": "Leader: {name}"
   },
   "match": {
     "preview": "Preview",

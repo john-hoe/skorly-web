@@ -51,7 +51,15 @@
     "liveNow": "Đang diễn ra",
     "startingSoon": "Sắp bắt đầu",
     "tournamentLive": "World Cup 2026 đang diễn ra — vòng bảng",
-    "latestResults": "Kết quả mới nhất"
+    "latestResults": "Kết quả mới nhất",
+    "focusBadge": "Trận tâm điểm",
+    "kickoffIn": "đến giờ bóng lăn",
+    "fullTime": "Hết giờ",
+    "aiTeaser": "{name} dự đoán {score} — bạn đồng ý chứ?",
+    "picksCount": "{count} dự đoán đã gửi",
+    "statsMatches24h": "{count} trận trong 24h tới",
+    "statsPredictions": "{count} dự đoán đã có",
+    "statsLeader": "Dẫn đầu: {name}"
   },
   "match": {
     "preview": "Nhận định",

@@ -51,7 +51,15 @@
     "liveNow": "Sedang berlangsung",
     "startingSoon": "Segera mulai",
     "tournamentLive": "Piala Dunia 2026 sedang berlangsung — fase grup",
-    "latestResults": "Hasil Terbaru"
+    "latestResults": "Hasil Terbaru",
+    "focusBadge": "Laga sorotan",
+    "kickoffIn": "menuju kickoff",
+    "fullTime": "Selesai",
+    "aiTeaser": "{name} memprediksi {score} — setuju?",
+    "picksCount": "{count} tebakan masuk",
+    "statsMatches24h": "{count} laga dalam 24 jam ke depan",
+    "statsPredictions": "{count} tebakan terkumpul",
+    "statsLeader": "Pemuncak: {name}"
   },
   "match": {
     "preview": "Pratinjau",

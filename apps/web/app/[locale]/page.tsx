@@ -8,9 +8,13 @@ import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { HomePersonalized } from "@/components/home-personalized";
 import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
+import { FocusMatchHero, type FocusMatchData } from "@/components/focus-match-hero";
 import {
+  getRuntimeFixturePredictionCount,
   getRuntimeLatestArticles,
   getRuntimeLeaderboard,
+  getRuntimeMatchForecast,
+  getRuntimePredictionTotal,
   getRuntimeResultsFixtures,
   getRuntimeUpcomingFixtures,
 } from "@/lib/runtime-data";
@@ -51,8 +55,46 @@ export default async function HomePage({
   // The 3h lookback window keeps live/finished games in "upcoming"; only show
   // genuinely future matches here (live ones surface in the top banner).
   const fixtures = allFixtures.filter((f) => f.status === "scheduled").slice(0, 6);
+  // Focus match: a live game if one is on, otherwise the next scheduled one.
+  const focusFixture = allFixtures.find((f) => f.status === "live") ?? fixtures[0] ?? null;
   const nextMatch = fixtures[0] ?? null;
   const tournamentLive = Date.now() >= TOURNAMENT_KICKOFF;
+
+  let focus: FocusMatchData | null = null;
+  if (focusFixture) {
+    const [forecast, picksCount] = await Promise.all([
+      getRuntimeMatchForecast(focusFixture.id).catch(() => null),
+      getRuntimeFixturePredictionCount(focusFixture.id).catch(() => 0),
+    ]);
+    focus = {
+      id: focusFixture.id,
+      slug: focusFixture.slug,
+      kickoffAt: focusFixture.kickoffAt ? new Date(focusFixture.kickoffAt).toISOString() : null,
+      groupName: focusFixture.groupName ?? focusFixture.round,
+      home: {
+        name: focusFixture.home.name,
+        logo: focusFixture.home.logo,
+        code: focusFixture.home.code,
+      },
+      away: {
+        name: focusFixture.away.name,
+        logo: focusFixture.away.logo,
+        code: focusFixture.away.code,
+      },
+      aiName: "Skorly AI · Elo",
+      aiHome: forecast?.forecast.mostLikelyScore.home ?? 1,
+      aiAway: forecast?.forecast.mostLikelyScore.away ?? 1,
+      picksCount,
+    };
+  }
+
+  const next24hCount = allFixtures.filter((f) => {
+    if (!f.kickoffAt) return false;
+    const t = new Date(f.kickoffAt).getTime();
+    return t > Date.now() - 2 * 60 * 60 * 1000 && t < Date.now() + 24 * 60 * 60 * 1000;
+  }).length;
+  const predictionTotal = await getRuntimePredictionTotal().catch(() => 0);
+  const topLeader = leaders[0]?.displayName ?? null;
 
   return (
     <div>
@@ -74,28 +116,58 @@ export default async function HomePage({
         <div className="mx-auto max-w-5xl px-4 text-center text-white">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{t("heroTitle")}</h1>
           <p className="mt-1 text-sm text-white/85">{t("heroSubtitle")}</p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href={
-                nextMatch
-                  ? { pathname: "/pertandingan/[slug]", params: { slug: nextMatch.slug } }
-                  : "/piala-dunia-2026"
-              }
-              className="rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-[var(--brand-dark)] hover:bg-white/90"
-            >
-              {t("predictCta")}
-            </Link>
-            <Link
-              href="/prediksi"
-              className="rounded-lg border border-white/60 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
-            >
-              {t("bracketCta")}
-            </Link>
-          </div>
+          {focus ? (
+            <FocusMatchHero match={focus} />
+          ) : (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href={
+                  nextMatch
+                    ? { pathname: "/pertandingan/[slug]", params: { slug: nextMatch.slug } }
+                    : "/piala-dunia-2026"
+                }
+                className="rounded-lg bg-white px-5 py-2.5 text-sm font-bold text-[var(--brand-dark)] hover:bg-white/90"
+              >
+                {t("predictCta")}
+              </Link>
+              <Link
+                href="/prediksi"
+                className="rounded-lg border border-white/60 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                {t("bracketCta")}
+              </Link>
+            </div>
+          )}
+          {focus ? (
+            <div className="mt-3">
+              <Link
+                href="/prediksi"
+                className="text-sm font-semibold text-white/85 underline-offset-4 hover:underline"
+              >
+                {t("bracketCta")} →
+              </Link>
+            </div>
+          ) : null}
           {tournamentLive ? (
-            <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#bbf7d0]" />
-              {t("tournamentLive")}
+            <p className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-white/85">
+              <span className="inline-flex items-center gap-2 font-semibold">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#bbf7d0]" />
+                {t("tournamentLive")}
+              </span>
+              <span aria-hidden>·</span>
+              <span>{t("statsMatches24h", { count: next24hCount })}</span>
+              {predictionTotal > 0 ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{t("statsPredictions", { count: predictionTotal })}</span>
+                </>
+              ) : null}
+              {topLeader ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{t("statsLeader", { name: topLeader })}</span>
+                </>
+              ) : null}
             </p>
           ) : (
             <div className="mt-5">

@@ -52,7 +52,15 @@
     "liveNow": "正在进行",
     "startingSoon": "即将开始",
     "tournamentLive": "2026 世界杯激战正酣 · 小组赛阶段",
-    "latestResults": "最新赛果"
+    "latestResults": "最新赛果",
+    "focusBadge": "焦点战",
+    "kickoffIn": "距开球",
+    "fullTime": "完场",
+    "aiTeaser": "{name} 预测 {score} — 你怎么看？",
+    "picksCount": "已有 {count} 条竞猜",
+    "statsMatches24h": "未来 24 小时 {count} 场比赛",
+    "statsPredictions": "累计 {count} 条竞猜",
+    "statsLeader": "榜首：{name}"
   },
   "match": {
     "preview": "赛前分析",
