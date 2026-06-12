@@ -59,7 +59,9 @@ async function getNewsSitemapEntries(cutoff: Date): Promise<NewsSitemapEntry[]> 
   const url = new URL("/rest/v1/articles", supabaseUrl);
   url.searchParams.set("select", "slug,locale,title,body,published_at,updated_at");
   url.searchParams.set("status", "eq.published");
-  url.searchParams.set("type", "eq.news");
+  // Recaps are time-sensitive post-match reports — exactly what Google's news
+  // sitemap is for (48h freshness window applies to both types).
+  url.searchParams.set("type", "in.(news,recap)");
   url.searchParams.set("published_at", `gte.${cutoff.toISOString()}`);
   url.searchParams.set("order", "published_at.desc,created_at.desc");
   url.searchParams.set("limit", "1000");
