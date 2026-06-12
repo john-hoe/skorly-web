@@ -398,7 +398,8 @@
     "loadMore": "加载更多",
     "viewAll": "查看全部",
     "allTypes": "全部",
-    "groupAnalysis": "小组分析"
+    "groupAnalysis": "小组分析",
+    "highlightsBadge": "集锦 ▶"
   },
   "matchCenter": {
     "commentaryTitle": "文字直播",

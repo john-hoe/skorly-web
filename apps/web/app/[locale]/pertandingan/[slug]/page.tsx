@@ -7,6 +7,7 @@ import {
   getArticlesForFixture,
   getHeadToHead,
   getFixturePoster,
+  getFixtureMedia,
   getLiveCommentary,
 } from "@skorly/db";
 import { LiveCommentaryFeed } from "@/components/live-commentary-feed";
@@ -158,11 +159,14 @@ export default async function MatchPage({
     fixture.id,
     fixture.status === "finished" ? "result_card" : "prematch_poster"
   );
-  const [articles, h2h, poster, commentaryRows] = await Promise.all([
+  const [articles, h2h, poster, commentaryRows, highlightMedia] = await Promise.all([
     articlesPromise,
     h2hPromise,
     posterPromise,
     getCommentaryForPage(fixture.id),
+    fixture.status === "finished"
+      ? getFixtureMedia(fixture.id).catch(() => [])
+      : Promise.resolve([]),
   ]);
   const initialCommentary = commentaryRows.map((row) => ({
     key: row.dedupeKey,
@@ -359,11 +363,13 @@ export default async function MatchPage({
           fixtureId={fixture.id}
           initialStatus={fixture.status}
           kickoffAt={kickoffIso}
-          embeds={
-            Array.isArray(byType.get("recap")?.embeds)
+          embeds={[
+            // Official highlight embeds discovered by the D3 whitelist job.
+            ...highlightMedia.map((m) => `https://www.youtube.com/watch?v=${m.videoId}`),
+            ...(Array.isArray(byType.get("recap")?.embeds)
               ? (byType.get("recap")!.embeds as string[])
-              : []
-          }
+              : []),
+          ]}
         />
       )}
 

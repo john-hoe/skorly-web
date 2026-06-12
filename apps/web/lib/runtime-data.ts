@@ -1165,6 +1165,19 @@ export async function getRuntimeMatchForecast(
   return { forecast, summary: forecastSummary(forecast, homeName, awayName), homeName, awayName };
 }
 
+/** Which of the given fixtures already have an official highlight stored. */
+export async function getRuntimeFixtureIdsWithHighlights(
+  fixtureIds: number[],
+): Promise<Set<number>> {
+  if (!fixtureIds.length) return new Set();
+  const rows = await selectRows<{ fixture_id: number }>("fixture_media", {
+    select: "fixture_id",
+    kind: "eq.highlight",
+    fixture_id: `in.(${fixtureIds.join(",")})`,
+  });
+  return new Set(rows.map((r) => r.fixture_id));
+}
+
 /** Total predictions ever submitted (cheap exact count for social proof). */
 export async function getRuntimePredictionTotal(): Promise<number> {
   const { total } = await selectRowsWithCount<{ id: number }>("predictions", {

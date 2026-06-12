@@ -397,7 +397,8 @@
     "loadMore": "Load more",
     "viewAll": "View all",
     "allTypes": "All",
-    "groupAnalysis": "Group Analysis"
+    "groupAnalysis": "Group Analysis",
+    "highlightsBadge": "Highlights ▶"
   },
   "matchCenter": {
     "commentaryTitle": "Live commentary",
