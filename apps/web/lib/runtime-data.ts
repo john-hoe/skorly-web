@@ -1165,6 +1165,25 @@ export async function getRuntimeMatchForecast(
   return { forecast, summary: forecastSummary(forecast, homeName, awayName), homeName, awayName };
 }
 
+/** Total predictions ever submitted (cheap exact count for social proof). */
+export async function getRuntimePredictionTotal(): Promise<number> {
+  const { total } = await selectRowsWithCount<{ id: number }>("predictions", {
+    select: "id",
+    limit: 1,
+  });
+  return total;
+}
+
+/** Exact prediction count for one fixture (social proof on the focus match). */
+export async function getRuntimeFixturePredictionCount(fixtureId: number): Promise<number> {
+  const { total } = await selectRowsWithCount<{ id: number }>("predictions", {
+    select: "id",
+    fixture_id: `eq.${fixtureId}`,
+    limit: 1,
+  });
+  return total;
+}
+
 export async function getRuntimePublicPicks(
   fixtureId: number,
   limit = 30,
