@@ -390,5 +390,17 @@
     "viewAll": "Xem tất cả",
     "allTypes": "Tất cả",
     "groupAnalysis": "Phân tích bảng đấu"
+  },
+  "matchCenter": {
+    "commentaryTitle": "Tường thuật trực tiếp",
+    "commentaryWaiting": "Tường thuật bắt đầu khi bóng lăn.",
+    "statsTitle": "Thống kê trận đấu",
+    "possession": "Kiểm soát bóng",
+    "shots": "Dứt điểm",
+    "shotsOnTarget": "Trúng đích",
+    "corners": "Phạt góc",
+    "fouls": "Phạm lỗi",
+    "momentum": "Thế trận",
+    "momentumNote": "ước tính từ các pha dứt điểm gần đây"
   }
 }

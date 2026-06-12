@@ -547,3 +547,33 @@ export const pushSubscriptions = pgTable(
   },
   (t) => [index("push_subscriptions_user_idx").on(t.userId)]
 );
+
+/* ------------------------------------------------------------------ */
+/* 三期 D1 — live text commentary (match center)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One commentary entry per match moment; `texts` maps locale → rendered line
+ * so all four languages share a row. `dedupeKey` makes generation idempotent
+ * across cron reruns. `sortKey` orders entries chronologically even when the
+ * minute repeats (minute * 100 + sequence).
+ */
+export const liveCommentary = pgTable(
+  "live_commentary",
+  {
+    id: serial("id").primaryKey(),
+    fixtureId: integer("fixture_id")
+      .references(() => fixtures.id)
+      .notNull(),
+    dedupeKey: text("dedupe_key").notNull(),
+    sortKey: integer("sort_key").notNull(),
+    minute: integer("minute"),
+    type: text("type").notNull(), // kickoff|halftime|fulltime|goal|red_card|yellow_card|substitution|var|stats|color
+    texts: jsonb("texts").notNull(), // { id: string, vi: string, en: string, zh: string }
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("live_commentary_fixture_dedupe_idx").on(t.fixtureId, t.dedupeKey),
+    index("live_commentary_fixture_sort_idx").on(t.fixtureId, t.sortKey),
+  ]
+);

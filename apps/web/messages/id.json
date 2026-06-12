@@ -390,5 +390,17 @@
     "viewAll": "Lihat semua",
     "allTypes": "Semua",
     "groupAnalysis": "Analisis Grup"
+  },
+  "matchCenter": {
+    "commentaryTitle": "Komentar langsung",
+    "commentaryWaiting": "Komentar dimulai saat sepak mula.",
+    "statsTitle": "Statistik laga",
+    "possession": "Penguasaan bola",
+    "shots": "Tembakan",
+    "shotsOnTarget": "Tepat sasaran",
+    "corners": "Sepak pojok",
+    "fouls": "Pelanggaran",
+    "momentum": "Momentum",
+    "momentumNote": "estimasi dari tembakan terkini"
   }
 }

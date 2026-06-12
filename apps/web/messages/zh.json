@@ -391,5 +391,17 @@
     "viewAll": "查看全部",
     "allTypes": "全部",
     "groupAnalysis": "小组分析"
+  },
+  "matchCenter": {
+    "commentaryTitle": "文字直播",
+    "commentaryWaiting": "开球后开始播报。",
+    "statsTitle": "技术统计",
+    "possession": "控球率",
+    "shots": "射门",
+    "shotsOnTarget": "射正",
+    "corners": "角球",
+    "fouls": "犯规",
+    "momentum": "比赛势头",
+    "momentumNote": "基于近期射门的估算"
   }
 }

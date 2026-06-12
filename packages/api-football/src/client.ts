@@ -3,6 +3,7 @@ import type {
   AfTeam,
   AfFixtureEvent,
   AfFixture,
+  AfFixtureStatistics,
   AfPlayer,
   AfStandingsLeague,
 } from "./types";
@@ -101,6 +102,11 @@ export class ApiFootballClient {
   /** Minute-level events for one fixture. */
   fixtureEvents(fixtureId: number) {
     return this.get<AfFixtureEvent[]>("/fixtures/events", { fixture: fixtureId });
+  }
+
+  /** Live technical statistics (possession/shots/corners/fouls) for one fixture. */
+  fixtureStatistics(fixtureId: number) {
+    return this.get<AfFixtureStatistics[]>("/fixtures/statistics", { fixture: fixtureId });
   }
 
   /** Teams participating in a league + season. */
