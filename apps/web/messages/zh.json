@@ -48,7 +48,9 @@
     "myPoints": "积分",
     "myRank": "排名",
     "continuePredicting": "继续竞猜",
-    "viewLeaderboard": "查看排行榜"
+    "viewLeaderboard": "查看排行榜",
+    "liveNow": "正在进行",
+    "startingSoon": "即将开始"
   },
   "match": {
     "preview": "赛前分析",

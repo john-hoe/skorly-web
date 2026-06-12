@@ -47,7 +47,9 @@
     "myPoints": "Points",
     "myRank": "Rank",
     "continuePredicting": "Keep predicting",
-    "viewLeaderboard": "View leaderboard"
+    "viewLeaderboard": "View leaderboard",
+    "liveNow": "Live now",
+    "startingSoon": "Starting soon"
   },
   "match": {
     "preview": "Preview",

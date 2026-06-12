@@ -47,7 +47,9 @@
     "myPoints": "Poin",
     "myRank": "Peringkat",
     "continuePredicting": "Lanjut menebak",
-    "viewLeaderboard": "Lihat klasemen"
+    "viewLeaderboard": "Lihat klasemen",
+    "liveNow": "Sedang berlangsung",
+    "startingSoon": "Segera mulai"
   },
   "match": {
     "preview": "Pratinjau",
