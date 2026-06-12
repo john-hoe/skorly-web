@@ -3,9 +3,11 @@ name: Match Day Rebuild
 # World Cup window (Jun 11 - Jul 19, 2026): the site is fully static, so new
 # recaps/news sitting in the DB only go live on a rebuild. The Daily News
 # workflow rebuilds once a day, which can delay a post-match recap by up to
-# ~24h. This workflow closes that gap: every 30 minutes it does a cheap
-# freshness probe (Supabase REST, no install) and only when new published
-# articles or fixture updates exist does it run the full build + deploy.
+# ~24h. This workflow closes that gap: every 30 minutes it
+#   1. probes for finished fixtures that still lack a recap article and, if
+#      found, generates them (4 locales) through the QA pipeline, then
+#   2. probes for fresh content (new articles / fixture updates) and only
+#      then runs the full build + deploy.
 #
 # Costs when nothing changed: ~30s (checkout + curl). Self-disables after the
 # final (2026-07-21); repurpose the date guard for the new season in S2.
@@ -32,7 +34,9 @@ permissions:
 jobs:
   rebuild:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Recap generation for a multi-match day (4 locales each) plus the build
+    # can run long; concurrency lock prevents pile-ups.
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,6 +50,28 @@ jobs:
           sed -i 's/\.pooler\.supabase\.com:6543/.pooler.supabase.com:5432/g' .env
           cp .env apps/web/.env.local
 
+      - name: Recap probe
+        id: recaps
+        run: |
+          if [ "$(date -u +%Y%m%d)" -gt 20260721 ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          set -a; . ./.env; set +a
+          SINCE=$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          slugs=$(curl -sf "${AUTH[@]}" \
+            "$SUPABASE_URL/rest/v1/fixtures?select=slug&status=eq.finished&kickoff_at=gte.$SINCE" \
+            | grep -o '"slug":"[^"]*"' | cut -d'"' -f4)
+          needed=false
+          for s in $slugs; do
+            have=$(curl -sf "${AUTH[@]}" \
+              "$SUPABASE_URL/rest/v1/articles?select=id&slug=eq.${s}-recap&locale=eq.id&limit=1")
+            if [ "$have" = "[]" ]; then
+              echo "missing recap: $s"; needed=true
+            fi
+          done
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+
       - name: Freshness check
         id: fresh
         env:
@@ -57,8 +83,8 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ "$FORCE" = "true" ]; then
-            echo "Forced deploy."
+          if [ "$FORCE" = "true" ] || [ "${{ steps.recaps.outputs.needed }}" = "true" ]; then
+            echo "Deploy required (force or pending recaps)."
             echo "changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -95,6 +121,16 @@ jobs:
       - name: Install dependencies
         if: steps.fresh.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
+
+      - name: Generate recaps
+        if: steps.recaps.outputs.needed == 'true'
+        continue-on-error: true
+        run: |
+          n=0
+          until pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-recaps.ts; do
+            n=$((n+1)); [ "$n" -ge 2 ] && { echo "recap generation failed after $n attempts"; exit 1; }
+            echo "recap attempt $n failed; retry in 20s"; sleep 20
+          done
 
       - name: Build & deploy to Cloudflare
         if: steps.fresh.outputs.changed == 'true'
