@@ -10,9 +10,8 @@ vi.mock("@skorly/db", () => ({
   insertFixtureMediaDeduped,
 }));
 
-const { fetchHighlights, isHighlightMatch, titleMentionsTeam, HIGHLIGHT_CHANNELS } = await import(
-  "./fetch-highlights"
-);
+const { fetchHighlights, isHighlightMatch, isVideoEmbeddable, titleMentionsTeam, HIGHLIGHT_CHANNELS } =
+  await import("./fetch-highlights");
 
 const FIFA = HIGHLIGHT_CHANNELS[0]!.channelId;
 
@@ -53,6 +52,29 @@ function fixture(overrides: Record<string, unknown> = {}) {
 function searchResponse(items: unknown[]) {
   return Response.json({ items });
 }
+
+/** URL-aware fetch mock: search.list returns `items`, videos.list returns status. */
+function youtubeFetch(items: unknown[], embeddable: boolean | "error" = true) {
+  return vi.fn(async (url: string) => {
+    if (url.includes("/youtube/v3/videos")) {
+      if (embeddable === "error") return new Response("boom", { status: 500 });
+      return Response.json({ items: [{ status: { embeddable } }] });
+    }
+    return searchResponse(items);
+  });
+}
+
+const VALID_ITEMS = [
+  {
+    id: { videoId: "abc123def45" },
+    snippet: {
+      title: "South Korea v Czech Republic | 2026 FIFA World Cup | Match Highlights",
+      channelId: FIFA,
+      channelTitle: "FIFA",
+      publishedAt: "2026-06-12T05:00:00Z",
+    },
+  },
+];
 
 describe("title matching", () => {
   it("requires every significant team word in the title", () => {
@@ -102,23 +124,13 @@ describe("fetchHighlights", () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     const now = new Date("2026-06-12T08:00:00Z"); // 6h after kickoff
     getResultsFixtures.mockResolvedValue([fixture()]);
-    const fetchImpl = vi.fn(async () =>
-      searchResponse([
-        {
-          id: { videoId: "abc123def45" },
-          snippet: {
-            title: "South Korea v Czech Republic | 2026 FIFA World Cup | Match Highlights",
-            channelId: FIFA,
-            channelTitle: "FIFA",
-            publishedAt: "2026-06-12T05:00:00Z",
-          },
-        },
-        {
-          id: { videoId: "wrongchannel" },
-          snippet: { title: "South Korea v Czech Republic", channelId: "OTHER", channelTitle: "X" },
-        },
-      ]),
-    );
+    const fetchImpl = youtubeFetch([
+      ...VALID_ITEMS,
+      {
+        id: { videoId: "wrongchannel" },
+        snippet: { title: "South Korea v Czech Republic", channelId: "OTHER", channelTitle: "X" },
+      },
+    ]);
     const kv = mockKv();
 
     const result = await fetchHighlights({
@@ -129,7 +141,7 @@ describe("fetchHighlights", () => {
 
     expect(result).toMatchObject({ ok: true, skipped: false, fixtures: 1, searches: 1, found: 1 });
     expect(insertFixtureMediaDeduped).toHaveBeenCalledWith(2, [
-      expect.objectContaining({ videoId: "abc123def45", channelId: FIFA }),
+      expect.objectContaining({ videoId: "abc123def45", channelId: FIFA, embeddable: true }),
     ]);
 
     // Second run within the spacing window: attempt marker blocks a re-search.
@@ -158,6 +170,33 @@ describe("fetchHighlights", () => {
 
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(result.fixtures).toBe(0);
+  });
+
+  it("flags embed-blocked videos (e.g. FIFA) so the web renders a link-out", async () => {
+    vi.stubEnv("YOUTUBE_API_KEY", "test-key");
+    getResultsFixtures.mockResolvedValue([fixture()]);
+    const fetchImpl = youtubeFetch(VALID_ITEMS, false);
+
+    await fetchHighlights({
+      kv: mockKv() as unknown as KVNamespace,
+      now: new Date("2026-06-12T08:00:00Z"),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    expect(insertFixtureMediaDeduped).toHaveBeenCalledWith(2, [
+      expect.objectContaining({ videoId: "abc123def45", embeddable: false }),
+    ]);
+  });
+
+  it("treats an embeddable-lookup failure as not embeddable (safe link-out)", async () => {
+    expect(
+      await isVideoEmbeddable("k", "vid", (async () =>
+        new Response("err", { status: 500 })) as unknown as typeof fetch),
+    ).toBe(false);
+    expect(
+      await isVideoEmbeddable("k", "vid", (async () =>
+        Response.json({ items: [{ status: { embeddable: true } }] })) as unknown as typeof fetch),
+    ).toBe(true);
   });
 
   it("does not store anything when no title validates", async () => {

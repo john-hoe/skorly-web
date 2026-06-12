@@ -596,6 +596,9 @@ export const fixtureMedia = pgTable(
     title: text("title"),
     channelId: text("channel_id"),
     channelTitle: text("channel_title"),
+    // Some rights holders (e.g. FIFA) disable third-party embedding; the web
+    // app then renders a link-out card instead of a broken iframe.
+    embeddable: boolean("embeddable").notNull().default(true),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

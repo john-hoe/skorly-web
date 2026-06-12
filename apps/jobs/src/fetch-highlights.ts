@@ -137,6 +137,34 @@ async function searchChannel(
   return payload.items ?? [];
 }
 
+/**
+ * Whether the rights holder allows third-party embedding (videos.list,
+ * 1 quota unit). Some official channels (e.g. FIFA) block embeds entirely;
+ * the web app then renders a link-out card instead of a broken player.
+ * Treated as NOT embeddable on lookup failure — a link-out always works.
+ */
+export async function isVideoEmbeddable(
+  apiKey: string,
+  videoId: string,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
+  try {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.searchParams.set("key", apiKey);
+    url.searchParams.set("part", "status");
+    url.searchParams.set("id", videoId);
+    const res = await fetchImpl(url.toString());
+    if (!res.ok) throw new Error(`YouTube videos.list failed: ${res.status}`);
+    const payload = (await res.json()) as {
+      items?: Array<{ status?: { embeddable?: boolean } }>;
+    };
+    return payload.items?.[0]?.status?.embeddable === true;
+  } catch (error) {
+    console.error(`[highlights] embeddable check failed for ${videoId}`, error);
+    return false;
+  }
+}
+
 export interface FetchHighlightsResult {
   ok: boolean;
   skipped: boolean;
@@ -219,6 +247,7 @@ async function collectHighlights(
     channelId: string | null;
     channelTitle: string | null;
     publishedAt: Date | null;
+    embeddable: boolean;
   }>
 > {
   const publishedAfter = fixture.kickoffAt
@@ -240,13 +269,15 @@ async function collectHighlights(
     if (valid.length) {
       // One embed per fixture is enough; take the newest valid hit.
       const item = valid[0]!;
+      const videoId = item.id!.videoId!;
       return [
         {
-          videoId: item.id!.videoId!,
+          videoId,
           title: item.snippet?.title ?? null,
           channelId: item.snippet?.channelId ?? null,
           channelTitle: item.snippet?.channelTitle ?? null,
           publishedAt: item.snippet?.publishedAt ? new Date(item.snippet.publishedAt) : null,
+          embeddable: await isVideoEmbeddable(apiKey, videoId, fetchImpl),
         },
       ];
     }
