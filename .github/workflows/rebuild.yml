@@ -136,6 +136,14 @@ jobs:
             echo "recap attempt $n failed; retry in 20s"; sleep 20
           done
 
+      # Refresh prediction articles for matches kicking off within 48h using
+      # the latest model forecast (standings change after every round). The
+      # script skips articles refreshed in the last 26h, so each match costs
+      # at most ~2 refreshes; wrong-language bodies are always replaced.
+      - name: Refresh upcoming predictions
+        continue-on-error: true
+        run: pnpm tsx --env-file=.env apps/jobs/scripts/regenerate-predictions.ts --window-hours 48 --max-age-hours 26
+
       - name: Build & deploy to Cloudflare
         if: steps.fresh.outputs.changed == 'true'
         run: |

@@ -1,4 +1,5 @@
 export { critique } from "./critique";
+export { matchesLocaleLanguage } from "./language-check";
 export { judge } from "./judge";
 export { backTranslateCheck } from "./back-translate";
 export type { BackTranslateCheck } from "./back-translate";

@@ -14,31 +14,57 @@
 import type { Locale } from "@skorly/types";
 import {
   getAllFixtures,
+  getArticleGenMeta,
   getMatchForecast,
   insertArticle,
   type FixtureView,
   type MatchForecastView,
 } from "@skorly/db";
-import { generateArticle, predictionPrompt, type MatchContext } from "@skorly/ai-content";
+import {
+  generateArticle,
+  matchesLocaleLanguage,
+  predictionPrompt,
+  type MatchContext,
+} from "@skorly/ai-content";
 
 const ALL_LOCALES: Locale[] = ["id", "vi", "en", "zh"];
 const CONCURRENCY = 4;
 const MIN_LEAD_MS = 30 * 60 * 1000;
 
-function parseArgs() {
+interface Args {
+  locales: Locale[];
+  limit: number;
+  /** Only fixtures kicking off within this many hours (default: all). */
+  windowHours: number;
+  /** Skip articles refreshed more recently than this (default: regenerate all). */
+  maxAgeHours: number;
+  /** Only regenerate articles whose body is in the wrong language. */
+  fixLanguageOnly: boolean;
+}
+
+function parseArgs(): Args {
   const args = process.argv.slice(2);
-  let locales = ALL_LOCALES;
-  let limit = Infinity;
+  const out: Args = {
+    locales: ALL_LOCALES,
+    limit: Infinity,
+    windowHours: Infinity,
+    maxAgeHours: 0,
+    fixLanguageOnly: false,
+  };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--locale" && args[i + 1]) {
-      locales = [args[i + 1] as Locale];
-      i++;
+      out.locales = [args[++i] as Locale];
     } else if (args[i] === "--limit" && args[i + 1]) {
-      limit = Number(args[i + 1]);
-      i++;
+      out.limit = Number(args[++i]);
+    } else if (args[i] === "--window-hours" && args[i + 1]) {
+      out.windowHours = Number(args[++i]);
+    } else if (args[i] === "--max-age-hours" && args[i + 1]) {
+      out.maxAgeHours = Number(args[++i]);
+    } else if (args[i] === "--fix-language-only") {
+      out.fixLanguageOnly = true;
     }
   }
-  return { locales, limit };
+  return out;
 }
 
 function toContext(f: FixtureView, fv: MatchForecastView): MatchContext {
@@ -115,28 +141,52 @@ async function pool<T>(items: T[], fn: (x: T) => Promise<void>, n: number) {
 }
 
 async function main() {
-  const { locales, limit } = parseArgs();
+  const { locales, limit, windowHours, maxAgeHours, fixLanguageOnly } = parseArgs();
   const now = Date.now();
+  const windowMs = windowHours * 3600_000;
 
   const upcoming = (await getAllFixtures())
     .filter(
       (f) =>
         f.status === "scheduled" &&
         f.kickoffAt != null &&
-        f.kickoffAt.getTime() > now + MIN_LEAD_MS,
+        f.kickoffAt.getTime() > now + MIN_LEAD_MS &&
+        f.kickoffAt.getTime() < now + windowMs,
     )
     .slice(0, limit);
-  console.log(`${upcoming.length} upcoming fixtures × ${locales.length} locales`);
+  console.log(
+    `${upcoming.length} upcoming fixtures × ${locales.length} locales` +
+      (Number.isFinite(windowHours) ? ` (within ${windowHours}h)` : ""),
+  );
 
   const tasks: Array<{ f: FixtureView; locale: Locale; fv: MatchForecastView }> = [];
   for (const f of upcoming) {
-    const fv = await getMatchForecast(f.id).catch(() => null);
-    if (!fv) {
-      console.warn(`[skip] no forecast for ${f.slug}`);
-      continue;
+    let fv: MatchForecastView | null = null;
+    for (const locale of locales) {
+      // Staleness / wrong-language gates read the existing row first so the
+      // cron-driven refresh doesn't burn LLM tokens on fresh articles.
+      if (fixLanguageOnly || maxAgeHours > 0) {
+        const existing = await getArticleGenMeta(`${f.slug}-prediction`, locale).catch(() => null);
+        if (existing) {
+          const langOk = matchesLocaleLanguage(existing.body, locale);
+          if (fixLanguageOnly && langOk) continue;
+          if (!fixLanguageOnly && langOk && maxAgeHours > 0 && existing.updatedAt) {
+            const age = now - existing.updatedAt.getTime();
+            if (age < maxAgeHours * 3600_000) continue;
+          }
+        } else if (fixLanguageOnly) {
+          continue;
+        }
+      }
+      fv = fv ?? (await getMatchForecast(f.id).catch(() => null));
+      if (!fv) {
+        console.warn(`[skip] no forecast for ${f.slug}`);
+        break;
+      }
+      tasks.push({ f, locale, fv });
     }
-    for (const locale of locales) tasks.push({ f, locale, fv });
   }
+  console.log(`${tasks.length} articles to regenerate`);
 
   let replaced = 0;
   let kept = 0;

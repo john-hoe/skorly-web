@@ -7,6 +7,7 @@ import { judge } from "./quality/judge";
 import { backTranslateCheck } from "./quality/back-translate";
 import { reviewArticle } from "./quality/review";
 import { repairArticle } from "./quality/repair";
+import { matchesLocaleLanguage } from "./quality/language-check";
 import { QUALITY_THRESHOLD, MAX_REGENERATIONS } from "./quality/gate";
 
 export interface GenerateOptions {
@@ -61,6 +62,22 @@ export async function generateArticle(
       temperature: attempt === 0 ? 0.7 : 0.85,
     });
     let body = gen.text.trim();
+
+    // Hard gate: wrong output language is an automatic fail-and-regenerate
+    // (the judge scores fluency within a language, it doesn't verify which
+    // language the model actually used).
+    if (!matchesLocaleLanguage(body, locale)) {
+      qaLog.push({
+        round: attempt + 1,
+        model: gen.model,
+        fluency: 0,
+        factual: 0,
+        seo: 0,
+        overall: 0,
+        notes: `wrong output language (expected ${locale})`,
+      });
+      continue;
+    }
 
     if (opts.skipQa) {
       return {

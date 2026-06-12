@@ -847,6 +847,20 @@ export async function insertArticle(input: InsertArticleInput): Promise<void> {
     });
 }
 
+/** Body + freshness metadata for regeneration scripts. */
+export async function getArticleGenMeta(
+  slug: string,
+  locale: string,
+): Promise<{ body: string; status: string; updatedAt: Date | null } | null> {
+  const db = getDb();
+  const rows = await db
+    .select({ body: articles.body, status: articles.status, updatedAt: articles.updatedAt })
+    .from(articles)
+    .where(and(eq(articles.slug, slug), eq(articles.locale, locale)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 /** True if a published article with this slug+locale already exists. */
 export async function articleExists(slug: string, locale = "id"): Promise<boolean> {
   const db = getDb();
