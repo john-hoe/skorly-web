@@ -5,6 +5,7 @@ import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { SITE_NAME, absoluteUrl, buildAlternates, localizedPath } from "@/lib/seo";
 import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
+import { withBuildRetry } from "@/lib/build-retry";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
 type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
@@ -15,7 +16,8 @@ const fixtureArticlesCache = new Map<string, Promise<FixtureArticles>>();
 function getFixtureForStory(slug: string): Promise<Fixture> {
   let cached = fixtureCache.get(slug);
   if (!cached) {
-    cached = getFixtureBySlug(slug).catch(() => null);
+    // Same as match pages: retry transient errors instead of baking a 404.
+    cached = withBuildRetry(`cerita:${slug}`, () => getFixtureBySlug(slug));
     fixtureCache.set(slug, cached);
   }
   return cached;

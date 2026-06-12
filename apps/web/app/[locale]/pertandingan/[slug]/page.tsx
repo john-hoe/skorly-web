@@ -28,6 +28,7 @@ import { formatKickoffTime } from "@/lib/kickoff-time";
 import { renderMarkdown } from "@/lib/markdown";
 import { SITE_NAME, buildCanonicalMetadata, absoluteUrl, localizedPath, matchSeoDescription } from "@/lib/seo";
 import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
+import { withBuildRetry } from "@/lib/build-retry";
 
 type Fixture = Awaited<ReturnType<typeof getFixtureBySlug>>;
 type FixtureArticles = Awaited<ReturnType<typeof getArticlesForFixture>>;
@@ -42,7 +43,9 @@ const posterCache = new Map<string, Promise<Poster>>();
 function getFixtureForPage(slug: string): Promise<Fixture> {
   let cached = fixtureCache.get(slug);
   if (!cached) {
-    cached = getFixtureBySlug(slug).catch(() => null);
+    // Core read: a swallowed transient error here would prerender this match
+    // URL as a 404 until the next deploy. Retry, then let the build fail.
+    cached = withBuildRetry(`pertandingan:${slug}`, () => getFixtureBySlug(slug));
     fixtureCache.set(slug, cached);
   }
   return cached;
