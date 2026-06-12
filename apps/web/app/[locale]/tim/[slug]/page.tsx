@@ -34,7 +34,14 @@ const teamFixturesCache = new Map<number, Promise<TeamFixtures>>();
 const teamSquadCache = new Map<number, Promise<TeamSquad>>();
 
 function getAllTeamPagesForBuild(): Promise<TeamPages> {
-  allTeamPagesPromise ??= getAllTeamPages().catch(() => []);
+  // Fail the build on empty data: with dynamicParams=false a swallowed error
+  // here would silently generate zero team pages (all 404) until next deploy.
+  allTeamPagesPromise ??= getAllTeamPages().then((teams) => {
+    if (teams.length === 0) {
+      throw new Error("[tim/[slug]] getAllTeamPages returned 0 rows at build time");
+    }
+    return teams;
+  });
   return allTeamPagesPromise;
 }
 

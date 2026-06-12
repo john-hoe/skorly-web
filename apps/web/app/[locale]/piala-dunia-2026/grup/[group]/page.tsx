@@ -11,7 +11,12 @@ import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  const groups = await getGroupNames().catch(() => []);
+  // Fail the build on empty data: with dynamicParams=false a swallowed error
+  // here would silently drop every group page (all 404) until next deploy.
+  const groups = await getGroupNames();
+  if (groups.length === 0) {
+    throw new Error("[grup] getGroupNames returned 0 rows at build time");
+  }
   return routing.locales.flatMap((locale) =>
     groups.map((g) => ({ locale, group: g.replace("Group ", "").toLowerCase() }))
   );

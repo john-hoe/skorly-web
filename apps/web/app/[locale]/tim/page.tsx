@@ -11,7 +11,14 @@ type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
 let groupedTeamsPromise: Promise<TeamGroups> | undefined;
 
 function getGroupedTeamsForBuild(): Promise<TeamGroups> {
-  groupedTeamsPromise ??= getGroupedTeams().catch(() => []);
+  // Fail the build on empty data: a swallowed transient DB error would bake
+  // an empty static page until the next deploy.
+  groupedTeamsPromise ??= getGroupedTeams().then((groups) => {
+    if (groups.length === 0) {
+      throw new Error("[tim] getGroupedTeams returned 0 rows at build time");
+    }
+    return groups;
+  });
   return groupedTeamsPromise;
 }
 

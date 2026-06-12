@@ -36,7 +36,13 @@ export default async function SchedulePage({
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  const fixtures = await getAllFixtures().catch(() => []);
+  // Build-time read with no revalidate: swallowing a transient DB failure here
+  // would permanently bake an empty page. Fail the build instead — the
+  // match-day cron retries within 30 minutes and the old page stays live.
+  const fixtures = await getAllFixtures();
+  if (fixtures.length === 0) {
+    throw new Error("[jadwal] getAllFixtures returned 0 rows at build time");
+  }
 
   const byDay = new Map<string, { day: Date | null; fixtures: FixtureView[] }>();
   for (const f of fixtures) {
