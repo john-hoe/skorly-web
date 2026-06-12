@@ -10,6 +10,7 @@ import {
 import {
   getFixtureEvents,
   getFixturesForLiveIngestWindow,
+  getLiveCommentary,
   getTeamIdsByApiIds,
   insertFixtureEventsDeduped,
   insertLiveCommentaryDeduped,
@@ -18,6 +19,7 @@ import {
   type LiveFixtureStatus,
   type LiveIngestFixtureView,
 } from "@skorly/db";
+import type { LiveCommentaryEntry } from "@skorly/types";
 import type {
   FixtureStatus,
   LiveAllSnapshot,
@@ -419,6 +421,22 @@ export async function ingestLiveFixtures(opts: IngestLiveOptions): Promise<Inges
       const statusShort = apiFixture.fixture.status.short;
       let commentary = previous?.commentary ?? [];
       try {
+        // KV snapshot lost (TTL expiry / first tick after a stall): rebuild the
+        // timeline base from Postgres so fresh visitors don't see a truncated feed.
+        let previousCommentary = previous?.commentary;
+        if (!previousCommentary?.length) {
+          const persisted = await getLiveCommentary(dbFixture.id, 60).catch(() => []);
+          previousCommentary = persisted.map(
+            (row): LiveCommentaryEntry => ({
+              key: row.dedupeKey,
+              sortKey: row.sortKey,
+              minute: row.minute,
+              type: row.type,
+              texts: row.texts,
+            }),
+          );
+        }
+
         const drafts = buildTemplateEntries({
           fixture: summary,
           statusShort,
@@ -428,12 +446,17 @@ export async function ingestLiveFixtures(opts: IngestLiveOptions): Promise<Inges
           stats,
           prevStats: previous?.stats ?? null,
         });
-        const colorDrafts: CommentaryEntryDraft[] = [];
-        for (const draft of drafts) {
-          if (draft.type !== "goal" && draft.type !== "red_card") continue;
-          const color = await buildColorEntry(draft, summary, opts.fetchImpl ?? fetch);
-          if (color) colorDrafts.push(color);
-        }
+        // Colour lines run in parallel; each has its own timeout, so the
+        // worst case adds one bounded wait to the tick instead of N.
+        const colorDrafts = (
+          await Promise.all(
+            drafts
+              .filter((draft) => draft.type === "goal" || draft.type === "red_card")
+              .map((draft) =>
+                buildColorEntry(draft, summary, opts.fetchImpl ?? fetch).catch(() => null),
+              ),
+          )
+        ).filter((draft): draft is CommentaryEntryDraft => draft != null);
         const allDrafts = [...drafts, ...colorDrafts];
         if (allDrafts.length) {
           await insertLiveCommentaryDeduped(
@@ -447,7 +470,7 @@ export async function ingestLiveFixtures(opts: IngestLiveOptions): Promise<Inges
             })),
           );
         }
-        commentary = mergeCommentary(previous?.commentary, allDrafts);
+        commentary = mergeCommentary(previousCommentary, allDrafts);
       } catch (error) {
         console.error("[live-commentary]", error);
       }

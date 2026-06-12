@@ -261,7 +261,10 @@ export function buildTemplateEntries(ctx: CommentaryContext): CommentaryEntryDra
       texts: secondHalfTexts(),
     });
   }
-  if (f.status === "finished" && prevStatus != null && prevStatus !== "finished") {
+  // Emit FT whenever we observe the finished state and the previous snapshot
+  // wasn't already finished — including when the previous snapshot is missing
+  // (KV TTL expiry / reconciliation path). Dedupe keys keep reruns idempotent.
+  if (f.status === "finished" && prevStatus !== "finished") {
     out.push({
       dedupeKey: "status:fulltime",
       sortKey: 99_990,
@@ -316,22 +319,24 @@ export function buildTemplateEntries(ctx: CommentaryContext): CommentaryEntryDra
     }
   }
 
-  // Stats digest when crossing a milestone minute with fresh stats.
+  // Stats digest when crossing a milestone minute with fresh stats. Pick the
+  // highest bucket crossed this tick so a KV reset (prevElapsed back to 0)
+  // doesn't permanently pin us to the first bucket; per-bucket dedupe keys
+  // make reruns harmless.
   if (f.status === "live" && ctx.stats) {
     const prevElapsed = ctx.prevFixture?.elapsed ?? 0;
-    for (const bucket of STATS_BUCKETS) {
-      if (elapsed >= bucket && prevElapsed < bucket) {
-        const texts = statsTexts(f, ctx.stats);
-        if (texts.en.includes(":") && !texts.en.endsWith(": .")) {
-          out.push({
-            dedupeKey: `stats:${bucket}`,
-            sortKey: bucket * 100 + 5,
-            minute: elapsed,
-            type: "stats",
-            texts,
-          });
-        }
-        break;
+    const crossed = STATS_BUCKETS.filter((b) => elapsed >= b && prevElapsed < b);
+    const bucket = crossed.length ? crossed[crossed.length - 1]! : null;
+    if (bucket != null) {
+      const texts = statsTexts(f, ctx.stats);
+      if (texts.en.includes(":") && !texts.en.endsWith(": .")) {
+        out.push({
+          dedupeKey: `stats:${bucket}`,
+          sortKey: bucket * 100 + 5,
+          minute: elapsed,
+          type: "stats",
+          texts,
+        });
       }
     }
   }

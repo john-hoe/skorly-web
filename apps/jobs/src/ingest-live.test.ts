@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getFixtureEvents = vi.fn();
 const getFixturesForLiveIngestWindow = vi.fn();
+const getLiveCommentary = vi.fn();
 const getTeamIdsByApiIds = vi.fn();
 const insertFixtureEventsDeduped = vi.fn();
 const insertLiveCommentaryDeduped = vi.fn();
@@ -10,6 +11,7 @@ const updateLiveFixtureState = vi.fn();
 vi.mock("@skorly/db", () => ({
   getFixtureEvents,
   getFixturesForLiveIngestWindow,
+  getLiveCommentary,
   getTeamIdsByApiIds,
   insertFixtureEventsDeduped,
   insertLiveCommentaryDeduped,
@@ -61,6 +63,7 @@ describe("ingestLiveFixtures", () => {
     getFixtureEvents.mockResolvedValue([]);
     getFixturesForLiveIngestWindow.mockResolvedValue([]);
     getTeamIdsByApiIds.mockResolvedValue(new Map());
+    getLiveCommentary.mockResolvedValue([]);
     insertFixtureEventsDeduped.mockResolvedValue(0);
     insertLiveCommentaryDeduped.mockResolvedValue(0);
     updateLiveFixtureState.mockResolvedValue(undefined);

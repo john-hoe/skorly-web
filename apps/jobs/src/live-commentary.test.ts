@@ -92,7 +92,7 @@ describe("buildTemplateEntries", () => {
     expect(goal!.texts.en).toContain("1-0");
     expect(goal!.texts.en).toContain("penalty");
     expect(goal!.texts.zh).toContain("点球");
-    for (const locale of LOCALES) expect(goal!.texts[locale].length).toBeGreaterThan(8);
+    for (const locale of LOCALES) expect(goal!.texts[locale]!.length).toBeGreaterThan(8);
   });
 
   it("skips missed penalties", () => {
@@ -136,6 +136,45 @@ describe("buildTemplateEntries", () => {
     const ftEntry = ft.find((e) => e.type === "fulltime");
     expect(ftEntry).toBeDefined();
     expect(ftEntry!.texts.en).toContain("2-1");
+  });
+
+  it("still emits full-time when the previous snapshot is missing", () => {
+    const ft = buildTemplateEntries(
+      ctx({
+        fixture: fixture({ status: "finished", homeGoals: 1, awayGoals: 0 }),
+        statusShort: "FT",
+        prevStatusShort: null,
+        prevFixture: null,
+      }),
+    );
+    expect(ft.find((e) => e.type === "fulltime")).toBeDefined();
+  });
+
+  it("emits the highest stats bucket after a snapshot reset", () => {
+    const stats = {
+      updatedAt: "2026-06-12T03:05:00.000Z",
+      possessionHome: 50,
+      possessionAway: 50,
+      shotsHome: 10,
+      shotsAway: 9,
+      shotsOnHome: 5,
+      shotsOnAway: 4,
+      cornersHome: 4,
+      cornersAway: 4,
+      foulsHome: 7,
+      foulsAway: 7,
+    };
+    // KV reset mid-match: prev elapsed back to 0 while the clock reads 65'.
+    const entries = buildTemplateEntries(
+      ctx({
+        fixture: fixture({ elapsed: 65 }),
+        prevFixture: fixture({ elapsed: 0 }),
+        stats,
+      }),
+    );
+    const digest = entries.filter((e) => e.type === "stats");
+    expect(digest).toHaveLength(1);
+    expect(digest[0]!.dedupeKey).toBe("stats:60");
   });
 
   it("emits a stats digest when crossing a milestone with stats present", () => {
