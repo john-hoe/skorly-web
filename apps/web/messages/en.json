@@ -49,7 +49,9 @@
     "continuePredicting": "Keep predicting",
     "viewLeaderboard": "View leaderboard",
     "liveNow": "Live now",
-    "startingSoon": "Starting soon"
+    "startingSoon": "Starting soon",
+    "tournamentLive": "World Cup 2026 is underway — group stage",
+    "latestResults": "Latest Results"
   },
   "match": {
     "preview": "Preview",

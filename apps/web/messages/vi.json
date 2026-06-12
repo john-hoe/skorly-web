@@ -49,7 +49,9 @@
     "continuePredicting": "Tiếp tục dự đoán",
     "viewLeaderboard": "Xem bảng xếp hạng",
     "liveNow": "Đang diễn ra",
-    "startingSoon": "Sắp bắt đầu"
+    "startingSoon": "Sắp bắt đầu",
+    "tournamentLive": "World Cup 2026 đang diễn ra — vòng bảng",
+    "latestResults": "Kết quả mới nhất"
   },
   "match": {
     "preview": "Nhận định",

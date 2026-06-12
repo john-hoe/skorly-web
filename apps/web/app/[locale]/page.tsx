@@ -11,8 +11,11 @@ import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/
 import {
   getRuntimeLatestArticles,
   getRuntimeLeaderboard,
+  getRuntimeResultsFixtures,
   getRuntimeUpcomingFixtures,
 } from "@/lib/runtime-data";
+
+const TOURNAMENT_KICKOFF = new Date("2026-06-11T19:00:00Z").getTime();
 
 export const revalidate = 300;
 
@@ -39,12 +42,17 @@ export default async function HomePage({
   const t = await getTranslations("home");
   const tCommon = await getTranslations("common");
 
-  const [fixtures, articles, leaders] = await Promise.all([
-    getRuntimeUpcomingFixtures(6).catch(() => []),
+  const [allFixtures, results, articles, leaders] = await Promise.all([
+    getRuntimeUpcomingFixtures(12).catch(() => []),
+    getRuntimeResultsFixtures(4).catch(() => []),
     getRuntimeLatestArticles(locale, 6).catch(() => []),
     getRuntimeLeaderboard(5).catch(() => []),
   ]);
+  // The 3h lookback window keeps live/finished games in "upcoming"; only show
+  // genuinely future matches here (live ones surface in the top banner).
+  const fixtures = allFixtures.filter((f) => f.status === "scheduled").slice(0, 6);
   const nextMatch = fixtures[0] ?? null;
+  const tournamentLive = Date.now() >= TOURNAMENT_KICKOFF;
 
   return (
     <div>
@@ -84,9 +92,16 @@ export default async function HomePage({
               {t("bracketCta")}
             </Link>
           </div>
-          <div className="mt-5">
-            <Countdown label={t("countdown")} />
-          </div>
+          {tournamentLive ? (
+            <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#bbf7d0]" />
+              {t("tournamentLive")}
+            </p>
+          ) : (
+            <div className="mt-5">
+              <Countdown label={t("countdown")} />
+            </div>
+          )}
         </div>
       </section>
 
@@ -113,6 +128,23 @@ export default async function HomePage({
               <p className="text-sm text-[var(--muted)]">Jadwal segera hadir.</p>
             )}
           </section>
+
+          {/* Latest results → tap through to the recap */}
+          {results.length ? (
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-semibold">{t("latestResults")}</h2>
+                <Link href="/skor" className="text-sm text-[var(--brand)]">
+                  {tCommon("viewAll")}
+                </Link>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {results.map((f) => (
+                  <MatchCard key={f.id} fixture={f} locale={locale} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {/* Premium prediction plan teaser */}
           <section className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--card)] to-[var(--brand)]/5 p-5">

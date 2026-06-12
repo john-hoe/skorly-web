@@ -14,6 +14,7 @@ import {
 import { sendNotifications } from "./send-notifications";
 import { sendPremiumEmails } from "./send-premium-email";
 import { sendDailyDigest } from "./send-daily-digest";
+import { makeAiPredictions } from "./ai-predictions";
 import { generatePosters } from "./generate-posters";
 
 setDbClientCacheEnabled(false);
@@ -27,6 +28,7 @@ const LOCK_POSTERS = "jobs:posters";
 const LOCK_SEED_IDENTITIES = "jobs:seed-identities";
 const LOCK_LIVE_INGEST = "jobs:live-ingest";
 const LOCK_DAILY_DIGEST = "jobs:daily-digest";
+const LOCK_AI_PREDICTIONS = "jobs:ai-predictions";
 
 type ExclusiveResult<T> =
   | { acquired: true; value: T }
@@ -170,6 +172,12 @@ async function runDailyDigestExclusive(
   return tryRunExclusive(env, LOCK_DAILY_DIGEST, 30 * 60, sendDailyDigest);
 }
 
+async function runAiPredictionsExclusive(
+  env: Env,
+): Promise<ExclusiveResult<Awaited<ReturnType<typeof makeAiPredictions>>>> {
+  return tryRunExclusive(env, LOCK_AI_PREDICTIONS, 10 * 60, makeAiPredictions);
+}
+
 async function runPremiumEmailExclusive(
   env: Env,
 ): Promise<
@@ -277,11 +285,12 @@ export default {
         );
         break;
       case "*/15 * * * *":
-        // Pre-match premium email and poster prompts.
+        // Pre-match premium email, poster prompts and AI predictor picks.
         ctx.waitUntil(
           Promise.all([
             runPremiumEmailExclusive(env).catch((e) => console.error("[premium-email]", e)),
             runPostersExclusive(env).catch((e) => console.error("[posters]", e)),
+            runAiPredictionsExclusive(env).catch((e) => console.error("[ai-predictions]", e)),
           ]),
         );
         break;
@@ -308,6 +317,10 @@ export default {
       }
       if (url.pathname === "/__run/live") {
         const result = await runLiveIngestExclusive(env);
+        return result.acquired ? Response.json(result.value) : lockedResponse(result);
+      }
+      if (url.pathname === "/__run/ai-predictions") {
+        const result = await runAiPredictionsExclusive(env);
         return result.acquired ? Response.json(result.value) : lockedResponse(result);
       }
       if (url.pathname === "/__run/daily-digest") {

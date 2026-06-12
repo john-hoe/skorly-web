@@ -50,7 +50,9 @@
     "continuePredicting": "继续竞猜",
     "viewLeaderboard": "查看排行榜",
     "liveNow": "正在进行",
-    "startingSoon": "即将开始"
+    "startingSoon": "即将开始",
+    "tournamentLive": "2026 世界杯激战正酣 · 小组赛阶段",
+    "latestResults": "最新赛果"
   },
   "match": {
     "preview": "赛前分析",
