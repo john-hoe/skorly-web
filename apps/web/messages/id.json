@@ -59,7 +59,15 @@
     "picksCount": "{count} tebakan masuk",
     "statsMatches24h": "{count} laga dalam 24 jam ke depan",
     "statsPredictions": "{count} tebakan terkumpul",
-    "statsLeader": "Pemuncak: {name}"
+    "statsLeader": "Pemuncak: {name}",
+    "enterLive": "Masuk siaran langsung",
+    "liveSectionTitle": "Sedang berlangsung",
+    "highlightsTitle": "Sorotan hari ini",
+    "stripUpcoming": "Akan datang",
+    "stripResult": "Usai",
+    "stripArticle": "Baca",
+    "aiBlockTitle": "Penebak AI Skorly",
+    "beatAi": "Bisa kalahkan AI?"
   },
   "match": {
     "preview": "Pratinjau",
