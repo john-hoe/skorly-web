@@ -60,7 +60,15 @@
     "picksCount": "已有 {count} 条竞猜",
     "statsMatches24h": "未来 24 小时 {count} 场比赛",
     "statsPredictions": "累计 {count} 条竞猜",
-    "statsLeader": "榜首：{name}"
+    "statsLeader": "榜首：{name}",
+    "enterLive": "进入直播间",
+    "liveSectionTitle": "正在直播",
+    "highlightsTitle": "今日看点",
+    "stripUpcoming": "即将开赛",
+    "stripResult": "完场",
+    "stripArticle": "阅读",
+    "aiBlockTitle": "Skorly AI 竞猜手",
+    "beatAi": "你能赢过 AI 吗？"
   },
   "match": {
     "preview": "赛前分析",

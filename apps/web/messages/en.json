@@ -59,7 +59,15 @@
     "picksCount": "{count} predictions in",
     "statsMatches24h": "{count} matches in the next 24h",
     "statsPredictions": "{count} predictions made",
-    "statsLeader": "Leader: {name}"
+    "statsLeader": "Leader: {name}",
+    "enterLive": "Enter live",
+    "liveSectionTitle": "Live now",
+    "highlightsTitle": "Today's picks",
+    "stripUpcoming": "Upcoming",
+    "stripResult": "FT",
+    "stripArticle": "Read",
+    "aiBlockTitle": "Skorly AI predictors",
+    "beatAi": "Can you beat the AI?"
   },
   "match": {
     "preview": "Preview",

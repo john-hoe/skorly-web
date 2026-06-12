@@ -59,7 +59,15 @@
     "picksCount": "{count} dự đoán đã gửi",
     "statsMatches24h": "{count} trận trong 24h tới",
     "statsPredictions": "{count} dự đoán đã có",
-    "statsLeader": "Dẫn đầu: {name}"
+    "statsLeader": "Dẫn đầu: {name}",
+    "enterLive": "Vào tường thuật",
+    "liveSectionTitle": "Đang diễn ra",
+    "highlightsTitle": "Tâm điểm hôm nay",
+    "stripUpcoming": "Sắp diễn ra",
+    "stripResult": "FT",
+    "stripArticle": "Đọc",
+    "aiBlockTitle": "AI dự đoán của Skorly",
+    "beatAi": "Bạn thắng nổi AI không?"
   },
   "match": {
     "preview": "Nhận định",

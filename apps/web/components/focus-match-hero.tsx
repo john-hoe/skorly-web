@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
-import { getLiveFixtureApi } from "@/lib/runtime-api-client";
-import { LIVE_POLL_MS } from "@/lib/live-window";
+import { getLiveAllApi } from "@/lib/runtime-api-client";
+import { isLivePollingWindow, LIVE_POLL_MS } from "@/lib/live-window";
 import type { LiveFixtureSummary } from "@skorly/types";
 
 export interface FocusMatchData {
@@ -13,6 +13,10 @@ export interface FocusMatchData {
   slug: string;
   kickoffAt: string | null;
   groupName: string | null;
+  status: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  elapsed: number | null;
   home: { name: string; logo: string | null; code: string | null };
   away: { name: string; logo: string | null; code: string | null };
   aiName: string;
@@ -21,34 +25,121 @@ export interface FocusMatchData {
   picksCount: number;
 }
 
+interface LiveState {
+  status: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  elapsed: number | null;
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function untilParts(kickoff: number) {
-  const ms = Math.max(0, kickoff - Date.now());
+function untilLabel(kickoff: number, now: number): string {
+  const ms = Math.max(0, kickoff - now);
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   const s = Math.floor((ms % 60000) / 1000);
-  return { ms, label: `${pad(h)}:${pad(m)}:${pad(s)}` };
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function FocusCard({
+  match,
+  live,
+  now,
+}: {
+  match: FocusMatchData;
+  live: LiveState | null;
+  now: number | null;
+}) {
+  const t = useTranslations("home");
+  const status = live?.status ?? match.status;
+  const isLive = status === "live";
+  const isFinished = status === "finished";
+  const showScore = isLive || isFinished;
+  const homeGoals = live?.homeGoals ?? match.homeGoals ?? 0;
+  const awayGoals = live?.awayGoals ?? match.awayGoals ?? 0;
+  const elapsed = live?.elapsed ?? match.elapsed;
+  const kickoff = match.kickoffAt ? Date.parse(match.kickoffAt) : null;
+
+  return (
+    <div className="w-full shrink-0 snap-center px-1">
+      <div className="mx-auto max-w-xl rounded-2xl bg-white/10 p-5 backdrop-blur-sm ring-1 ring-white/20">
+        <div className="flex items-center justify-between text-xs text-white/75">
+          <span className="font-semibold uppercase tracking-wider">{t("focusBadge")}</span>
+          <span>{match.groupName ?? ""}</span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+          <div className="flex justify-end">
+            <TeamBadge name={match.home.name} logo={match.home.logo} code={match.home.code} reverse />
+          </div>
+          <div className="px-2 text-center">
+            {showScore ? (
+              <div>
+                <div className="text-3xl font-extrabold tabular-nums">
+                  {homeGoals} - {awayGoals}
+                </div>
+                <div className="mt-0.5 text-xs font-bold">
+                  {isLive ? (
+                    <span className="inline-flex items-center gap-1 text-red-300">
+                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
+                      {elapsed != null ? `${elapsed}'` : "LIVE"}
+                    </span>
+                  ) : (
+                    <span className="text-white/75">{t("fullTime")}</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-2xl font-extrabold tabular-nums">
+                  {kickoff && now != null ? untilLabel(kickoff, now) : "--:--:--"}
+                </div>
+                <div className="mt-0.5 text-xs text-white/75">{t("kickoffIn")}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-start">
+            <TeamBadge name={match.away.name} logo={match.away.logo} code={match.away.code} />
+          </div>
+        </div>
+
+        <p className="mt-3 text-center text-sm text-white/85">
+          {t("aiTeaser", { name: match.aiName, score: `${match.aiHome}-${match.aiAway}` })}
+        </p>
+
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <Link
+            href={{ pathname: "/pertandingan/[slug]", params: { slug: match.slug } }}
+            className="rounded-lg bg-white px-5 py-2 text-sm font-bold text-[var(--brand-dark)] hover:bg-white/90"
+          >
+            {isLive ? t("enterLive") : t("predictCta")}
+          </Link>
+          {match.picksCount > 0 ? (
+            <span className="text-xs text-white/75">
+              {t("picksCount", { count: match.picksCount })}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
- * Hero centerpiece: the next (or currently live) focus match. Counts down to
- * kickoff while scheduled, then flips to the live score by polling the
- * KV-backed /api/live route. Includes the AI predictor's pick as a hook and a
- * predict CTA. Page stays fully static — everything dynamic is client-side.
+ * Hero focus match — swipeable when several matches run at once (simultaneous
+ * group-stage kickoffs). Native scroll-snap with dot indicators; one shared
+ * /api/live poll keeps every card's score fresh.
  */
-export function FocusMatchHero({ match }: { match: FocusMatchData }) {
-  const t = useTranslations("home");
-  const kickoff = useMemo(
-    () => (match.kickoffAt ? new Date(match.kickoffAt).getTime() : null),
-    [match.kickoffAt],
-  );
+export function FocusMatchHero({ matches }: { matches: FocusMatchData[] }) {
+  const [liveById, setLiveById] = useState<Map<number, LiveState>>(new Map());
   const [now, setNow] = useState<number | null>(null);
-  const [live, setLive] = useState<LiveFixtureSummary | null>(null);
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  // 1s ticker for the countdown (starts after mount to avoid hydration drift).
+  // 1s ticker for countdowns (post-mount to stay hydration-safe).
   useEffect(() => {
     const update = () => setNow(Date.now());
     const first = window.setTimeout(update, 0);
@@ -59,93 +150,99 @@ export function FocusMatchHero({ match }: { match: FocusMatchData }) {
     };
   }, []);
 
-  // Poll live state once we're inside the match window.
-  const inWindow = now != null && kickoff != null && now >= kickoff - 10 * 60 * 1000;
+  // Shared live poll once any match enters its window (post-mount only).
+  const [shouldPoll, setShouldPoll] = useState(false);
   useEffect(() => {
-    if (!inWindow) return;
-    let active = true;
+    const update = () =>
+      setShouldPoll(
+        matches.some((m) => isLivePollingWindow(liveById.get(m.id)?.status ?? m.status, m.kickoffAt)),
+      );
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
+
+  useEffect(() => {
+    if (!shouldPoll) return;
+    let activeFlag = true;
     const tick = () => {
-      getLiveFixtureApi(match.id)
+      getLiveAllApi()
         .then((snapshot) => {
-          if (active && snapshot?.fixture) setLive(snapshot.fixture);
+          if (!activeFlag || !snapshot) return;
+          setLiveById((previous) => {
+            const next = new Map(previous);
+            const seen = new Set<number>();
+            for (const f of snapshot.fixtures as LiveFixtureSummary[]) {
+              seen.add(f.id);
+              next.set(f.id, {
+                status: f.status,
+                homeGoals: f.homeGoals,
+                awayGoals: f.awayGoals,
+                elapsed: f.elapsed,
+              });
+            }
+            // A match we saw live that dropped out of live:all has ended.
+            for (const [id, state] of next) {
+              if (state.status === "live" && !seen.has(id)) {
+                next.set(id, { ...state, status: "finished", elapsed: null });
+              }
+            }
+            return next;
+          });
         })
         .catch(() => {});
     };
     tick();
     const id = setInterval(tick, LIVE_POLL_MS);
     return () => {
-      active = false;
+      activeFlag = false;
       clearInterval(id);
     };
-  }, [inWindow, match.id]);
+  }, [shouldPoll]);
 
-  const isLive = live?.status === "live";
-  const isFinished = live?.status === "finished";
-  const showScore = isLive || isFinished;
-  const countdown = !showScore && kickoff && now != null ? untilParts(kickoff) : null;
+  if (!matches.length) return null;
+
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    setActive(Math.round(el.scrollLeft / el.clientWidth));
+  };
+
+  const scrollTo = (index: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  };
 
   return (
-    <div className="mx-auto mt-5 max-w-xl rounded-2xl bg-white/10 p-5 backdrop-blur-sm ring-1 ring-white/20">
-      <div className="flex items-center justify-between text-xs text-white/75">
-        <span className="font-semibold uppercase tracking-wider">{t("focusBadge")}</span>
-        <span>{match.groupName ?? ""}</span>
+    <div className="mt-5">
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className={`flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          matches.length > 1 ? "" : "justify-center"
+        }`}
+      >
+        {matches.map((match) => (
+          <FocusCard key={match.id} match={match} live={liveById.get(match.id) ?? null} now={now} />
+        ))}
       </div>
-
-      <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <div className="flex justify-end">
-          <TeamBadge name={match.home.name} logo={match.home.logo} code={match.home.code} reverse />
+      {matches.length > 1 ? (
+        <div className="mt-3 flex items-center justify-center gap-2">
+          {matches.map((match, index) => (
+            <button
+              key={match.id}
+              type="button"
+              aria-label={`${match.home.name} vs ${match.away.name}`}
+              onClick={() => scrollTo(index)}
+              className={`h-2 rounded-full transition-all ${
+                index === active ? "w-5 bg-white" : "w-2 bg-white/40 hover:bg-white/70"
+              }`}
+            />
+          ))}
         </div>
-        <div className="px-2 text-center">
-          {showScore ? (
-            <div>
-              <div className="text-3xl font-extrabold tabular-nums">
-                {live?.homeGoals ?? 0} - {live?.awayGoals ?? 0}
-              </div>
-              <div className="mt-0.5 text-xs font-bold">
-                {isLive ? (
-                  <span className="inline-flex items-center gap-1 text-red-300">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-400" />
-                    {live?.elapsed != null ? `${live.elapsed}'` : "LIVE"}
-                  </span>
-                ) : (
-                  <span className="text-white/75">{t("fullTime")}</span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-2xl font-extrabold tabular-nums">
-                {countdown ? countdown.label : "--:--:--"}
-              </div>
-              <div className="mt-0.5 text-xs text-white/75">{t("kickoffIn")}</div>
-            </div>
-          )}
-        </div>
-        <div className="flex justify-start">
-          <TeamBadge name={match.away.name} logo={match.away.logo} code={match.away.code} />
-        </div>
-      </div>
-
-      <p className="mt-3 text-center text-sm text-white/85">
-        {t("aiTeaser", {
-          name: match.aiName,
-          score: `${match.aiHome}-${match.aiAway}`,
-        })}
-      </p>
-
-      <div className="mt-3 flex items-center justify-center gap-3">
-        <Link
-          href={{ pathname: "/pertandingan/[slug]", params: { slug: match.slug } }}
-          className="rounded-lg bg-white px-5 py-2 text-sm font-bold text-[var(--brand-dark)] hover:bg-white/90"
-        >
-          {t("predictCta")}
-        </Link>
-        {match.picksCount > 0 ? (
-          <span className="text-xs text-white/75">
-            {t("picksCount", { count: match.picksCount })}
-          </span>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }
