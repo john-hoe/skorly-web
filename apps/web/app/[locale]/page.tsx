@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Countdown } from "@/components/countdown";
+import { LiveNowBanner } from "@/components/live-now-banner";
 import { MatchCard } from "@/components/match-card";
 import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
@@ -47,6 +48,19 @@ export default async function HomePage({
 
   return (
     <div>
+      {/* Live-now strip: first thing a visitor sees on match days */}
+      <LiveNowBanner
+        next={
+          nextMatch
+            ? {
+                slug: nextMatch.slug,
+                kickoffAt: nextMatch.kickoffAt ? new Date(nextMatch.kickoffAt).toISOString() : null,
+                homeName: nextMatch.home.name,
+                awayName: nextMatch.away.name,
+              }
+            : null
+        }
+      />
       {/* Compact hero: predict-first CTAs, smaller countdown */}
       <section className="bg-gradient-to-br from-[var(--brand)] to-[var(--brand-dark)] py-7">
         <div className="mx-auto max-w-5xl px-4 text-center text-white">

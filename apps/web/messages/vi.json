@@ -47,7 +47,9 @@
     "myPoints": "Điểm",
     "myRank": "Hạng",
     "continuePredicting": "Tiếp tục dự đoán",
-    "viewLeaderboard": "Xem bảng xếp hạng"
+    "viewLeaderboard": "Xem bảng xếp hạng",
+    "liveNow": "Đang diễn ra",
+    "startingSoon": "Sắp bắt đầu"
   },
   "match": {
     "preview": "Nhận định",
