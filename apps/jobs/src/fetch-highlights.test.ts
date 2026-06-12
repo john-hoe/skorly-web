@@ -149,8 +149,9 @@ describe("fetchHighlights", () => {
     });
 
     expect(result).toMatchObject({ ok: true, skipped: false, fixtures: 1, searches: 1, found: 1 });
+    // FIFA is embedBlocked: stored as link-out regardless of the API status.
     expect(insertFixtureMediaDeduped).toHaveBeenCalledWith(2, [
-      expect.objectContaining({ videoId: "abc123def45", channelId: FIFA, embeddable: true }),
+      expect.objectContaining({ videoId: "abc123def45", channelId: FIFA, embeddable: false }),
     ]);
 
     // Second run within the spacing window: attempt marker blocks a re-search.
@@ -181,10 +182,10 @@ describe("fetchHighlights", () => {
     expect(result.fixtures).toBe(0);
   });
 
-  it("flags embed-blocked videos (e.g. FIFA) so the web renders a link-out", async () => {
+  it("never calls videos.list for embed-blocked channels (flag decides)", async () => {
     vi.stubEnv("YOUTUBE_API_KEY", "test-key");
     getResultsFixtures.mockResolvedValue([fixture()]);
-    const fetchImpl = youtubeFetch(VALID_ITEMS, false);
+    const fetchImpl = youtubeFetch(VALID_ITEMS, true);
 
     await fetchHighlights({
       kv: mockKv() as unknown as KVNamespace,
@@ -195,6 +196,9 @@ describe("fetchHighlights", () => {
     expect(insertFixtureMediaDeduped).toHaveBeenCalledWith(2, [
       expect.objectContaining({ videoId: "abc123def45", embeddable: false }),
     ]);
+    expect(
+      fetchImpl.mock.calls.filter(([url]) => String(url).includes("/youtube/v3/videos")),
+    ).toHaveLength(0);
   });
 
   it("treats an embeddable-lookup failure as not embeddable (safe link-out)", async () => {

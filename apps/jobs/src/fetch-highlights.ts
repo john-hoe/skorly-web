@@ -19,9 +19,17 @@ import {
 /**
  * Official channels only. Add per-market rights holders here after manually
  * verifying their channel IDs (changes go through PR review).
+ *
+ * embedBlocked: FIFA blocks third-party playback via Content ID even when the
+ * YouTube API reports status.embeddable=true, so the API check can't be
+ * trusted for them — always render a link-out card instead.
  */
-export const HIGHLIGHT_CHANNELS: Array<{ name: string; channelId: string }> = [
-  { name: "FIFA", channelId: "UCpcTrCXblq78GZrTUTLWeBw" },
+export const HIGHLIGHT_CHANNELS: Array<{
+  name: string;
+  channelId: string;
+  embedBlocked?: boolean;
+}> = [
+  { name: "FIFA", channelId: "UCpcTrCXblq78GZrTUTLWeBw", embedBlocked: true },
 ];
 
 const SEARCH_WINDOW_HOURS = 48;
@@ -278,7 +286,9 @@ async function collectHighlights(
           channelId: item.snippet?.channelId ?? null,
           channelTitle: item.snippet?.channelTitle ?? null,
           publishedAt: item.snippet?.publishedAt ? new Date(item.snippet.publishedAt) : null,
-          embeddable: await isVideoEmbeddable(apiKey, videoId, fetchImpl),
+          embeddable: channel.embedBlocked
+            ? false
+            : await isVideoEmbeddable(apiKey, videoId, fetchImpl),
         },
       ];
     }
