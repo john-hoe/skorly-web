@@ -60,6 +60,15 @@ describe("title matching", () => {
     expect(titleMentionsTeam("Mexico v South Africa | Highlights", "South Korea")).toBe(false);
   });
 
+  it("accepts FIFA naming aliases", () => {
+    expect(titleMentionsTeam("Korea Republic v Czech Republic | Highlights", "South Korea")).toBe(true);
+    expect(titleMentionsTeam("United States v Paraguay | Highlights", "USA")).toBe(true);
+  });
+
+  it("does not substring-match across country names", () => {
+    expect(titleMentionsTeam("Nigeria v Ghana | Highlights", "Niger")).toBe(false);
+  });
+
   it("matches both teams for a valid highlight title", () => {
     expect(
       isHighlightMatch(

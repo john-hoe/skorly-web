@@ -52,15 +52,43 @@ function readEnv(): { YOUTUBE_API_KEY?: string } {
   );
 }
 
-/** Loose containment: every significant word of the team name in the title. */
-export function titleMentionsTeam(title: string, teamName: string): boolean {
-  const t = title.toLowerCase();
-  const words = teamName
+/**
+ * FIFA's official video titles use FIFA naming, which differs from our
+ * API-Football team names. Checked alongside the canonical name.
+ */
+const TEAM_ALIASES: Record<string, string[]> = {
+  "South Korea": ["Korea Republic"],
+  USA: ["United States", "United States of America"],
+  Iran: ["IR Iran"],
+  China: ["China PR"],
+  "Bosnia & Herzegovina": ["Bosnia and Herzegovina", "Bosnia-Herzegovina"],
+  Türkiye: ["Turkiye", "Turkey"],
+  "Ivory Coast": ["Côte d'Ivoire", "Cote d'Ivoire"],
+  "Cape Verde": ["Cabo Verde"],
+};
+
+function tokenize(value: string): string[] {
+  return value
     .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 2 && !["the", "and", "republic"].includes(w));
-  if (!words.length) return t.includes(teamName.toLowerCase());
-  return words.every((w) => t.includes(w));
+}
+
+/**
+ * Whole-word match: every significant token of the team name (or one of its
+ * FIFA aliases) must appear as an exact token in the title — substring checks
+ * would let e.g. "Niger" match inside "Nigeria".
+ */
+export function titleMentionsTeam(title: string, teamName: string): boolean {
+  const titleTokens = new Set(tokenize(title));
+  const candidates = [teamName, ...(TEAM_ALIASES[teamName] ?? [])];
+  return candidates.some((candidate) => {
+    const words = tokenize(candidate);
+    if (!words.length) return false;
+    return words.every((w) => titleTokens.has(w));
+  });
 }
 
 export function isHighlightMatch(title: string, home: string, away: string): boolean {
@@ -131,7 +159,8 @@ export async function fetchHighlights(opts: {
   const now = opts.now ?? new Date();
   const nowMs = now.getTime();
 
-  const candidates = (await getResultsFixtures(20)).filter((f) => {
+  // 40 covers even the densest 48h stretch of the group stage.
+  const candidates = (await getResultsFixtures(40)).filter((f) => {
     if (f.status !== "finished" || !f.kickoffAt) return false;
     const sinceKickoff = nowMs - new Date(f.kickoffAt).getTime();
     // ~Full time (105') + MIN_AGE buffer for the channel to upload, up to the

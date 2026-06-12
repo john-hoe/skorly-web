@@ -97,8 +97,12 @@ jobs:
             "$SUPABASE_URL/rest/v1/articles?select=id&status=eq.published&published_at=gte.$SINCE&limit=1")
           fixtures=$(curl -sf "${AUTH[@]}" \
             "$SUPABASE_URL/rest/v1/fixtures?select=id&updated_at=gte.$SINCE&limit=1")
-          echo "articles=$articles fixtures=$fixtures since=$SINCE"
-          if [ "$articles" != "[]" ] || [ "$fixtures" != "[]" ]; then
+          # Highlights land hours after FT, when no other content changes —
+          # without this probe match pages would keep stale empty embeds.
+          media=$(curl -sf "${AUTH[@]}" \
+            "$SUPABASE_URL/rest/v1/fixture_media?select=id&created_at=gte.$SINCE&limit=1")
+          echo "articles=$articles fixtures=$fixtures media=$media since=$SINCE"
+          if [ "$articles" != "[]" ] || [ "$fixtures" != "[]" ] || [ "$media" != "[]" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "No new content; skipping build."
