@@ -2,15 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getFixtureEvents = vi.fn();
 const getFixturesForLiveIngestWindow = vi.fn();
+const getLiveCommentary = vi.fn();
 const getTeamIdsByApiIds = vi.fn();
 const insertFixtureEventsDeduped = vi.fn();
+const insertLiveCommentaryDeduped = vi.fn();
 const updateLiveFixtureState = vi.fn();
 
 vi.mock("@skorly/db", () => ({
   getFixtureEvents,
   getFixturesForLiveIngestWindow,
+  getLiveCommentary,
   getTeamIdsByApiIds,
   insertFixtureEventsDeduped,
+  insertLiveCommentaryDeduped,
   updateLiveFixtureState,
 }));
 
@@ -59,7 +63,9 @@ describe("ingestLiveFixtures", () => {
     getFixtureEvents.mockResolvedValue([]);
     getFixturesForLiveIngestWindow.mockResolvedValue([]);
     getTeamIdsByApiIds.mockResolvedValue(new Map());
+    getLiveCommentary.mockResolvedValue([]);
     insertFixtureEventsDeduped.mockResolvedValue(0);
+    insertLiveCommentaryDeduped.mockResolvedValue(0);
     updateLiveFixtureState.mockResolvedValue(undefined);
   });
 
@@ -112,6 +118,30 @@ describe("ingestLiveFixtures", () => {
           },
         ]);
       }
+      if (url.includes("/fixtures/statistics")) {
+        return response([
+          {
+            team: { id: 777, name: "Home", logo: null },
+            statistics: [
+              { type: "Ball Possession", value: "61%" },
+              { type: "Total Shots", value: 8 },
+              { type: "Shots on Goal", value: 4 },
+              { type: "Corner Kicks", value: 5 },
+              { type: "Fouls", value: 6 },
+            ],
+          },
+          {
+            team: { id: 888, name: "Away", logo: null },
+            statistics: [
+              { type: "Ball Possession", value: "39%" },
+              { type: "Total Shots", value: 2 },
+              { type: "Shots on Goal", value: 1 },
+              { type: "Corner Kicks", value: 1 },
+              { type: "Fouls", value: 9 },
+            ],
+          },
+        ]);
+      }
       return response([
         {
           fixture: {
@@ -146,8 +176,9 @@ describe("ingestLiveFixtures", () => {
       fixtures: 1,
       events: 1,
       reconciled: 0,
-      apiCalls: 2,
-      apiCallsToday: 2,
+      // live=all + events + statistics
+      apiCalls: 3,
+      apiCallsToday: 3,
     });
     expect(updateLiveFixtureState).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -167,8 +198,26 @@ describe("ingestLiveFixtures", () => {
         playerName: "Scorer",
       },
     ]);
-    expect(kv.store.get("apiq:20260611")).toBe("2");
-    expect(kv.store.get("live:fixture:10")).toContain('"status":"live"');
+    expect(kv.store.get("apiq:20260611")).toBe("3");
+    const fixtureSnapshot = JSON.parse(kv.store.get("live:fixture:10")!);
+    expect(fixtureSnapshot.fixture.status).toBe("live");
+    expect(fixtureSnapshot.stats).toMatchObject({
+      possessionHome: 61,
+      possessionAway: 39,
+      shotsHome: 8,
+      shotsAway: 2,
+    });
+    expect(fixtureSnapshot.statsHistory).toHaveLength(1);
+    // Kickoff transition + the goal event → commentary persisted and snapshotted.
+    expect(insertLiveCommentaryDeduped).toHaveBeenCalled();
+    const commentaryTypes = fixtureSnapshot.commentary.map((entry: { type: string }) => entry.type);
+    expect(commentaryTypes).toContain("kickoff");
+    expect(commentaryTypes).toContain("goal");
+    const goalEntry = fixtureSnapshot.commentary.find(
+      (entry: { type: string }) => entry.type === "goal",
+    );
+    expect(goalEntry.texts.en).toContain("Scorer");
+    expect(goalEntry.texts.zh).toContain("进球");
     expect(kv.store.get("live:all")).toContain('"fixtures":[{');
   });
 

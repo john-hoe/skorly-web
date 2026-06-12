@@ -64,6 +64,18 @@ export interface AfFixtureEvent {
   comments: string | null;
 }
 
+export interface AfFixtureStatistics {
+  team: {
+    id: number | null;
+    name: string | null;
+    logo: string | null;
+  };
+  statistics: Array<{
+    type: string | null;
+    value: number | string | null;
+  }>;
+}
+
 export interface AfPlayer {
   player: {
     id: number;

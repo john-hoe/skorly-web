@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
-import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
+import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 
 const homeTeam = () => alias(teams, "home_team");
@@ -3067,4 +3067,69 @@ export async function ensureProfile(input: {
       target: profiles.id,
       set: { email: input.email, displayName: input.displayName },
     });
+}
+
+/* ------------------------------------------------------------------ */
+/* 三期 D1 — live text commentary                                      */
+/* ------------------------------------------------------------------ */
+
+export interface LiveCommentaryInsertInput {
+  dedupeKey: string;
+  sortKey: number;
+  minute: number | null;
+  type: string;
+  texts: Record<string, string>;
+}
+
+export interface LiveCommentaryRow {
+  dedupeKey: string;
+  sortKey: number;
+  minute: number | null;
+  type: string;
+  texts: Record<string, string>;
+}
+
+/** Idempotent batch insert; returns how many rows were actually new. */
+export async function insertLiveCommentaryDeduped(
+  fixtureId: number,
+  entries: LiveCommentaryInsertInput[],
+): Promise<number> {
+  if (!entries.length) return 0;
+  const db = getDb();
+  const rows = await db
+    .insert(liveCommentary)
+    .values(
+      entries.map((entry) => ({
+        fixtureId,
+        dedupeKey: entry.dedupeKey,
+        sortKey: entry.sortKey,
+        minute: entry.minute,
+        type: entry.type,
+        texts: entry.texts,
+      })),
+    )
+    .onConflictDoNothing()
+    .returning({ id: liveCommentary.id });
+  return rows.length;
+}
+
+/** Chronological commentary for one fixture (oldest first). */
+export async function getLiveCommentary(
+  fixtureId: number,
+  limit = 200,
+): Promise<LiveCommentaryRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      dedupeKey: liveCommentary.dedupeKey,
+      sortKey: liveCommentary.sortKey,
+      minute: liveCommentary.minute,
+      type: liveCommentary.type,
+      texts: liveCommentary.texts,
+    })
+    .from(liveCommentary)
+    .where(eq(liveCommentary.fixtureId, fixtureId))
+    .orderBy(asc(liveCommentary.sortKey), asc(liveCommentary.id))
+    .limit(limit);
+  return rows.map((r) => ({ ...r, texts: r.texts as Record<string, string> }));
 }

@@ -74,10 +74,48 @@ export interface LiveFixtureEventSnapshot {
   playerName: string | null;
 }
 
+/** Head-to-head live technical statistics (subset of /fixtures/statistics). */
+export interface LiveStatsSnapshot {
+  updatedAt: string;
+  possessionHome: number | null;
+  possessionAway: number | null;
+  shotsHome: number | null;
+  shotsAway: number | null;
+  shotsOnHome: number | null;
+  shotsOnAway: number | null;
+  cornersHome: number | null;
+  cornersAway: number | null;
+  foulsHome: number | null;
+  foulsAway: number | null;
+}
+
+/** Rolling sample used by the client-side momentum gauge. */
+export interface LiveStatsSample {
+  at: string;
+  elapsed: number | null;
+  shotsHome: number | null;
+  shotsAway: number | null;
+}
+
+/** One live text-commentary entry; texts keyed by locale. */
+export interface LiveCommentaryEntry {
+  /** Stable dedupe key, also used to merge snapshot updates client-side. */
+  key: string;
+  sortKey: number;
+  minute: number | null;
+  type: string;
+  texts: Record<string, string>;
+}
+
 export interface LiveFixtureSnapshot {
   generatedAt: string;
   fixture: LiveFixtureSummary;
   events: LiveFixtureEventSnapshot[];
+  /** Raw API status short code (e.g. HT, FT) for richer commentary states. */
+  statusShort?: string | null;
+  stats?: LiveStatsSnapshot | null;
+  statsHistory?: LiveStatsSample[];
+  commentary?: LiveCommentaryEntry[];
 }
 
 export interface LiveAllSnapshot {

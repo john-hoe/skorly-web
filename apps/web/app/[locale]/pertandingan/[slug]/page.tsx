@@ -2,7 +2,15 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { FixtureStatus, LiveFixtureSummary } from "@skorly/types";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getFixtureBySlug, getArticlesForFixture, getHeadToHead, getFixturePoster } from "@skorly/db";
+import {
+  getFixtureBySlug,
+  getArticlesForFixture,
+  getHeadToHead,
+  getFixturePoster,
+  getLiveCommentary,
+} from "@skorly/db";
+import { LiveCommentaryFeed } from "@/components/live-commentary-feed";
+import { LiveStatsPanel } from "@/components/live-stats-panel";
 import { routing } from "@/i18n/routing";
 import { LiveMatchHeader } from "@/components/live-match-header";
 import { PredictScore } from "@/components/predict-score";
@@ -61,6 +69,18 @@ function getHeadToHeadForPage(teamA: number, teamB: number): Promise<HeadToHead>
       meetings: [],
     }));
     h2hCache.set(key, cached);
+  }
+  return cached;
+}
+
+type Commentary = Awaited<ReturnType<typeof getLiveCommentary>>;
+const commentaryCache = new Map<number, Promise<Commentary>>();
+
+function getCommentaryForPage(fixtureId: number): Promise<Commentary> {
+  let cached = commentaryCache.get(fixtureId);
+  if (!cached) {
+    cached = getLiveCommentary(fixtureId).catch(() => []);
+    commentaryCache.set(fixtureId, cached);
   }
   return cached;
 }
@@ -138,11 +158,19 @@ export default async function MatchPage({
     fixture.id,
     fixture.status === "finished" ? "result_card" : "prematch_poster"
   );
-  const [articles, h2h, poster] = await Promise.all([
+  const [articles, h2h, poster, commentaryRows] = await Promise.all([
     articlesPromise,
     h2hPromise,
     posterPromise,
+    getCommentaryForPage(fixture.id),
   ]);
+  const initialCommentary = commentaryRows.map((row) => ({
+    key: row.dedupeKey,
+    sortKey: row.sortKey,
+    minute: row.minute,
+    type: row.type,
+    texts: row.texts,
+  }));
   const byType = new Map(articles.map((a) => [a.type, a]));
   const finished = fixture.status === "finished";
   const matchTitle = `${fixture.home.name} vs ${fixture.away.name}`;
@@ -226,7 +254,36 @@ export default async function MatchPage({
         ],
       }
     : null;
-  const jsonLdData = [eventLd, breadcrumbLd, faqLd].filter(
+  // LiveBlogPosting: Google's structured data surface for live coverage.
+  // Update timestamps are approximated from kickoff + match minute.
+  const kickoffMs = kickoffIso ? Date.parse(kickoffIso) : null;
+  const liveBlogLd = initialCommentary.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "LiveBlogPosting",
+        headline: `${matchTitle} — Live`,
+        url: absoluteUrl(
+          localizedPath({ pathname: "/pertandingan/[slug]", params: { slug } }, locale)
+        ),
+        coverageStartTime: kickoffIso ?? undefined,
+        ...(finished && kickoffMs
+          ? { coverageEndTime: new Date(kickoffMs + 2 * 60 * 60 * 1000).toISOString() }
+          : {}),
+        about: { "@type": "SportsEvent", name: matchTitle },
+        liveBlogUpdate: initialCommentary.slice(-50).map((entry) => {
+          const text = entry.texts[locale] ?? entry.texts.en ?? "";
+          return {
+            "@type": "BlogPosting",
+            headline: text.slice(0, 110),
+            articleBody: text,
+            ...(kickoffMs && entry.minute != null
+              ? { datePublished: new Date(kickoffMs + entry.minute * 60 * 1000).toISOString() }
+              : {}),
+          };
+        }),
+      }
+    : null;
+  const jsonLdData = [eventLd, breadcrumbLd, faqLd, liveBlogLd].filter(
     (item): item is Record<string, unknown> => Boolean(item)
   );
 
@@ -267,12 +324,33 @@ export default async function MatchPage({
         <ForecastCard fixtureId={fixture.id} />
       </div>
 
-      {/* Minute-level events (live + post-match), client island */}
-      <EventsTimeline
+      {/* Match center: live text commentary + technical stats (client islands;
+          page stays SSG, data flows from the KV-backed /api/live route). */}
+      <LiveCommentaryFeed
         fixtureId={fixture.id}
+        locale={locale}
         initialStatus={fixture.status}
         kickoffAt={kickoffIso}
+        initialEntries={initialCommentary}
       />
+      {!finished && (
+        <LiveStatsPanel
+          fixtureId={fixture.id}
+          homeName={fixture.home.name}
+          awayName={fixture.away.name}
+          initialStatus={fixture.status}
+          kickoffAt={kickoffIso}
+        />
+      )}
+
+      {/* Minute-level events fallback for matches without commentary coverage */}
+      {initialCommentary.length === 0 && (
+        <EventsTimeline
+          fixtureId={fixture.id}
+          initialStatus={fixture.status}
+          kickoffAt={kickoffIso}
+        />
+      )}
 
       {/* Goal highlights (finished matches): goals-only timeline + official
           video embeds from the recap article. No self-hosted clips. */}

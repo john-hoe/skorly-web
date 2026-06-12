@@ -390,5 +390,17 @@
     "viewAll": "View all",
     "allTypes": "All",
     "groupAnalysis": "Group Analysis"
+  },
+  "matchCenter": {
+    "commentaryTitle": "Live commentary",
+    "commentaryWaiting": "Commentary starts at kick-off.",
+    "statsTitle": "Match stats",
+    "possession": "Possession",
+    "shots": "Shots",
+    "shotsOnTarget": "On target",
+    "corners": "Corners",
+    "fouls": "Fouls",
+    "momentum": "Momentum",
+    "momentumNote": "estimate from recent shots"
   }
 }

@@ -5,29 +5,44 @@ import {
   WORLD_CUP_LEAGUE_ID,
   type AfFixture,
   type AfFixtureEvent,
+  type AfFixtureStatistics,
 } from "@skorly/api-football";
 import {
   getFixtureEvents,
   getFixturesForLiveIngestWindow,
+  getLiveCommentary,
   getTeamIdsByApiIds,
   insertFixtureEventsDeduped,
+  insertLiveCommentaryDeduped,
   updateLiveFixtureState,
   type FixtureEventInsertInput,
   type LiveFixtureStatus,
   type LiveIngestFixtureView,
 } from "@skorly/db";
+import type { LiveCommentaryEntry } from "@skorly/types";
 import type {
   FixtureStatus,
   LiveAllSnapshot,
   LiveFixtureEventSnapshot,
   LiveFixtureSnapshot,
   LiveFixtureSummary,
+  LiveStatsSample,
+  LiveStatsSnapshot,
 } from "@skorly/types";
+import {
+  buildColorEntry,
+  buildTemplateEntries,
+  diffNewEvents,
+  mergeCommentary,
+  type CommentaryEntryDraft,
+} from "./live-commentary";
 
 const LIVE_ALL_KEY = "live:all";
 const LIVE_FIXTURE_PREFIX = "live:fixture:";
 const API_QUOTA_PREFIX = "apiq:";
 const SNAPSHOT_TTL_SECONDS = 90;
+const STATS_REFRESH_MS = 170_000;
+const STATS_HISTORY_CAP = 15;
 const QUOTA_TTL_SECONDS = 3 * 24 * 60 * 60;
 const EVENT_TRIGGER_ONLY_AT = 6_000;
 const SLOWDOWN_AT = 7_000;
@@ -196,6 +211,61 @@ function slowdownMinuteSkipped(now: Date): boolean {
   return Math.floor(now.getTime() / 60_000) % 2 === 1;
 }
 
+function statValue(stats: AfFixtureStatistics | undefined, type: string): number | null {
+  const raw = stats?.statistics.find((s) => s.type === type)?.value;
+  if (raw == null) return null;
+  if (typeof raw === "number") return raw;
+  const parsed = Number(String(raw).replace("%", ""));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseLiveStats(
+  response: AfFixtureStatistics[],
+  homeApiId: number,
+  awayApiId: number,
+  updatedAt: string,
+): LiveStatsSnapshot {
+  const home = response.find((entry) => entry.team.id === homeApiId);
+  const away = response.find((entry) => entry.team.id === awayApiId);
+  return {
+    updatedAt,
+    possessionHome: statValue(home, "Ball Possession"),
+    possessionAway: statValue(away, "Ball Possession"),
+    shotsHome: statValue(home, "Total Shots"),
+    shotsAway: statValue(away, "Total Shots"),
+    shotsOnHome: statValue(home, "Shots on Goal"),
+    shotsOnAway: statValue(away, "Shots on Goal"),
+    cornersHome: statValue(home, "Corner Kicks"),
+    cornersAway: statValue(away, "Corner Kicks"),
+    foulsHome: statValue(home, "Fouls"),
+    foulsAway: statValue(away, "Fouls"),
+  };
+}
+
+function statsStale(previous: LiveFixtureSnapshot | null, nowMs: number): boolean {
+  const last = previous?.stats?.updatedAt;
+  if (!last) return true;
+  const parsed = Date.parse(last);
+  return !Number.isFinite(parsed) || nowMs - parsed >= STATS_REFRESH_MS;
+}
+
+function appendStatsHistory(
+  previous: LiveStatsSample[] | undefined,
+  stats: LiveStatsSnapshot,
+  elapsed: number | null,
+): LiveStatsSample[] {
+  const next = [
+    ...(previous ?? []),
+    {
+      at: stats.updatedAt,
+      elapsed,
+      shotsHome: stats.shotsHome,
+      shotsAway: stats.shotsAway,
+    },
+  ];
+  return next.slice(-STATS_HISTORY_CAP);
+}
+
 function emptyAllSnapshot(
   generatedAt: string,
   apiCallsToday: number,
@@ -324,7 +394,96 @@ export async function ingestLiveFixtures(opts: IngestLiveOptions): Promise<Inges
         events = await loadFixtureEventsForSnapshot(dbFixture.id);
       }
 
-      const snapshot: LiveFixtureSnapshot = { generatedAt, fixture: summary, events };
+      // Live technical stats every ~3 minutes (normal quota state only).
+      let stats = previous?.stats ?? null;
+      let statsHistory = previous?.statsHistory ?? [];
+      if (
+        summary.status === "live" &&
+        quotaState(apiCallsToday) === "normal" &&
+        statsStale(previous, now.getTime())
+      ) {
+        try {
+          const statsRes = await client.fixtureStatistics(apiFixture.fixture.id);
+          await flushApiCalls();
+          stats = parseLiveStats(
+            statsRes.response,
+            apiFixture.teams.home.id,
+            apiFixture.teams.away.id,
+            generatedAt,
+          );
+          statsHistory = appendStatsHistory(previous?.statsHistory, stats, summary.elapsed);
+        } catch {
+          await flushApiCalls();
+        }
+      }
+
+      // Text commentary: templates always; one colour line for big moments.
+      const statusShort = apiFixture.fixture.status.short;
+      let commentary = previous?.commentary ?? [];
+      try {
+        // KV snapshot lost (TTL expiry / first tick after a stall): rebuild the
+        // timeline base from Postgres so fresh visitors don't see a truncated feed.
+        let previousCommentary = previous?.commentary;
+        if (!previousCommentary?.length) {
+          const persisted = await getLiveCommentary(dbFixture.id, 60).catch(() => []);
+          previousCommentary = persisted.map(
+            (row): LiveCommentaryEntry => ({
+              key: row.dedupeKey,
+              sortKey: row.sortKey,
+              minute: row.minute,
+              type: row.type,
+              texts: row.texts,
+            }),
+          );
+        }
+
+        const drafts = buildTemplateEntries({
+          fixture: summary,
+          statusShort,
+          prevStatusShort: previous?.statusShort ?? null,
+          prevFixture: previous?.fixture ?? null,
+          newEvents: diffNewEvents(previous?.events, events),
+          stats,
+          prevStats: previous?.stats ?? null,
+        });
+        // Colour lines run in parallel; each has its own timeout, so the
+        // worst case adds one bounded wait to the tick instead of N.
+        const colorDrafts = (
+          await Promise.all(
+            drafts
+              .filter((draft) => draft.type === "goal" || draft.type === "red_card")
+              .map((draft) =>
+                buildColorEntry(draft, summary, opts.fetchImpl ?? fetch).catch(() => null),
+              ),
+          )
+        ).filter((draft): draft is CommentaryEntryDraft => draft != null);
+        const allDrafts = [...drafts, ...colorDrafts];
+        if (allDrafts.length) {
+          await insertLiveCommentaryDeduped(
+            dbFixture.id,
+            allDrafts.map((draft) => ({
+              dedupeKey: draft.dedupeKey,
+              sortKey: draft.sortKey,
+              minute: draft.minute,
+              type: draft.type,
+              texts: draft.texts,
+            })),
+          );
+        }
+        commentary = mergeCommentary(previousCommentary, allDrafts);
+      } catch (error) {
+        console.error("[live-commentary]", error);
+      }
+
+      const snapshot: LiveFixtureSnapshot = {
+        generatedAt,
+        fixture: summary,
+        events,
+        statusShort,
+        stats,
+        statsHistory,
+        commentary,
+      };
       await writeLiveFixture(opts.kv, snapshot);
       return snapshot;
     };
