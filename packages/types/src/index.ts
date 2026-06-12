@@ -125,6 +125,68 @@ export interface LiveAllSnapshot {
   quotaState: "normal" | "event_trigger_only" | "slowdown" | "stopped";
 }
 
+/**
+ * Emails of the four "Skorly AI" predictor accounts (seeded by
+ * apps/jobs/scripts/seed-ai-predictors.ts). Shared so web can distinguish
+ * AI rows on leaderboards and jobs can award "AI slayer" badges.
+ */
+export const AI_PREDICTOR_EMAILS = [
+  "ai-elo@skorly.cc",
+  "ai-poisson@skorly.cc",
+  "ai-brave@skorly.cc",
+  "ai-cautious@skorly.cc",
+] as const;
+
+/** One badge entry inside profiles.badges (jsonb array). */
+export interface ProfileBadge {
+  /** Unique per award, e.g. "ai_slayer:2026-W25". */
+  id: string;
+  kind: "ai_slayer";
+  /** ISO week the badge was earned for, e.g. "2026-W25". */
+  week: string;
+  /** Weekly points the user scored when earning it. */
+  points: number;
+  awardedAt: string;
+}
+
+/** ISO week label (e.g. "2026-W25") plus its [start, end) UTC window. */
+export interface IsoWeekWindow {
+  label: string;
+  start: Date;
+  end: Date;
+}
+
+function startOfIsoWeekUtc(d: Date): Date {
+  const out = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = out.getUTCDay(); // 0=Sun..6=Sat
+  out.setUTCDate(out.getUTCDate() - ((day + 6) % 7));
+  return out;
+}
+
+function isoWeekLabel(weekStart: Date): string {
+  // ISO week number = week containing that week's Thursday.
+  const thursday = new Date(weekStart);
+  thursday.setUTCDate(thursday.getUTCDate() + 3);
+  const year = thursday.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const week1Start = startOfIsoWeekUtc(jan4);
+  const week = 1 + Math.round((weekStart.getTime() - week1Start.getTime()) / (7 * 86400000));
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+/** The ISO week (Mon 00:00 UTC → next Mon) containing `now`. */
+export function isoWeekContaining(now: Date = new Date()): IsoWeekWindow {
+  const start = startOfIsoWeekUtc(now);
+  return { label: isoWeekLabel(start), start, end: new Date(start.getTime() + 7 * 86400000) };
+}
+
+/** The most recent fully-completed ISO week before `now`. */
+export function isoWeekBefore(now: Date = new Date()): IsoWeekWindow {
+  const currentStart = startOfIsoWeekUtc(now);
+  const start = new Date(currentStart.getTime() - 7 * 86400000);
+  return { label: isoWeekLabel(start), start, end: currentStart };
+}
+
 /** Result of one content-QA pass, stored in articles.qa_log. */
 export interface QaRound {
   round: number;

@@ -1253,6 +1253,68 @@ export async function getLeaderboard(limit = 50): Promise<LeaderRow[]> {
   return rows as LeaderRow[];
 }
 
+export interface ScoredTotalsRow {
+  userId: string;
+  points: number;
+  played: number;
+  exact: number;
+}
+
+/**
+ * Per-user totals over scored predictions whose fixture kicked off in
+ * [start, end). Used by the weekly "you vs AI" badge award (D4).
+ */
+export async function getScoredTotalsBetween(start: Date, end: Date): Promise<ScoredTotalsRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      userId: predictions.userId,
+      points: sql<number>`coalesce(sum(${predictions.pointsAwarded}), 0)::int`,
+      played: sql<number>`count(${predictions.pointsAwarded})::int`,
+      exact: sql<number>`count(*) filter (where ${predictions.pointsAwarded} = 5)::int`,
+    })
+    .from(predictions)
+    .innerJoin(fixtures, eq(fixtures.id, predictions.fixtureId))
+    .where(
+      and(
+        sql`${predictions.pointsAwarded} is not null`,
+        gte(fixtures.kickoffAt, start),
+        sql`${fixtures.kickoffAt} < ${end}`,
+      ),
+    )
+    .groupBy(predictions.userId);
+  return rows;
+}
+
+export interface ProfileBadgeInput {
+  id: string;
+  kind: string;
+  week: string;
+  points: number;
+  awardedAt: string;
+}
+
+/**
+ * Append a badge to profiles.badges unless one with the same badge id is
+ * already present (idempotent). Returns true when the badge was added.
+ */
+export async function appendProfileBadge(
+  userId: string,
+  badge: ProfileBadgeInput,
+): Promise<boolean> {
+  const db = getDb();
+  const appended = JSON.stringify([badge]);
+  const marker = JSON.stringify([{ id: badge.id }]);
+  const rows = await db.execute(sql`
+    update profiles
+       set badges = coalesce(badges, '[]'::jsonb) || ${appended}::jsonb
+     where id = ${userId}
+       and not coalesce(badges, '[]'::jsonb) @> ${marker}::jsonb
+    returning id
+  `);
+  return rows.length > 0;
+}
+
 export interface PredictionStats {
   points: number;
   played: number;

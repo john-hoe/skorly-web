@@ -91,6 +91,9 @@ export function LiveNowBanner({ next }: { next: NextMatchTeaser | null }) {
   }
 
   if (next?.kickoffAt) {
+    // Intentional render-time clock read: the page is statically generated and
+    // rebuilt every ~30min on match days, so the boundary drift is acceptable.
+    // eslint-disable-next-line react-hooks/purity
     const ms = new Date(next.kickoffAt).getTime() - Date.now();
     if (ms > 0 && ms <= SOON_WINDOW_MS) {
       return (

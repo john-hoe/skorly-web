@@ -226,6 +226,18 @@
     },
     "myPredictions": "Dự đoán của tôi",
     "noPredictions": "Bạn chưa có dự đoán nào.",
+    "vsAi": {
+      "title": "Bạn vs Skorly AI",
+      "weeklySummary": "Tuần này ({week}) bạn có {mine} điểm, AI tốt nhất {ai} điểm.",
+      "beatingAll": "Bạn đang dẫn trước mọi AI!",
+      "keepGoing": "Tiếp tục dự đoán — vượt cả bốn AI để nhận huy hiệu Khắc tinh AI.",
+      "badgeName": "Khắc tinh AI",
+      "cardTitle": "Tôi đã đánh bại mọi Skorly AI",
+      "shareText": "Tôi đã thắng mọi Skorly AI trong trò dự đoán World Cup tuần này 🤖🏆",
+      "saveCard": "Lưu thẻ thành tích",
+      "empty": "Chưa có dự đoán nào được chấm điểm. Hãy dự đoán vài trận rồi quay lại xem bạn hay AI giỏi hơn!",
+      "you": "Bạn"
+    },
     "stats": {
       "points": "Điểm",
       "rank": "Hạng",
@@ -273,7 +285,17 @@
     "anonymous": "Người chơi",
     "empty": "Chưa có dự đoán nào được tính điểm — hãy là người đầu tiên!",
     "scoring": "Cách tính: tỉ số chính xác 5 điểm · đúng kết quả + hiệu số 3 điểm · đúng kết quả 2 điểm.",
-    "shareText": "Xem bảng xếp hạng dự đoán World Cup 2026 trên Skorly ⚽"
+    "shareText": "Xem bảng xếp hạng dự đoán World Cup 2026 trên Skorly ⚽",
+    "tabs": {
+      "overall": "Mọi thời điểm",
+      "vsAi": "Tuần này vs AI"
+    },
+    "vsAi": {
+      "subtitle": "Điểm AI cao nhất tuần này ({week}): {points} điểm — vượt cả bốn AI để nhận huy hiệu Khắc tinh AI.",
+      "beating": "Dẫn trước AI",
+      "badgeName": "Khắc tinh AI",
+      "empty": "Tuần này chưa có dự đoán nào được chấm điểm — hãy quay lại sau các trận đấu."
+    }
   },
   "comments": {
     "title": "Bình luận",
