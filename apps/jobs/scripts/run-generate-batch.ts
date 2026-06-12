@@ -8,10 +8,12 @@
 import type { Locale } from "@skorly/types";
 import {
   getFixturesByGroup,
+  getMatchForecast,
   getStandingsByGroup,
   insertArticle,
   articleExists,
   type FixtureView,
+  type MatchForecastView,
 } from "@skorly/db";
 import {
   generateArticle,
@@ -39,7 +41,7 @@ function parseArgs() {
   return { groupName, locale };
 }
 
-function toContext(f: FixtureView): MatchContext {
+function toContext(f: FixtureView, fv: MatchForecastView | null): MatchContext {
   return {
     fixture: {
       apiId: 0,
@@ -51,6 +53,16 @@ function toContext(f: FixtureView): MatchContext {
       home: { apiId: 0, name: f.home.name, slug: f.home.slug },
       away: { apiId: 0, name: f.away.name, slug: f.away.slug },
     },
+    // Grounds the prediction article in the in-house Elo/Poisson model so the
+    // predicted score is real analysis, not an LLM guess.
+    forecast: fv
+      ? {
+          probabilities: fv.forecast.probabilities,
+          mostLikelyScore: fv.forecast.mostLikelyScore,
+          topScores: fv.forecast.topScores.slice(0, 3),
+          confidence: fv.forecast.confidence,
+        }
+      : undefined,
   };
 }
 
@@ -63,9 +75,12 @@ const TYPE_IMAGE: Record<string, string> = {
 };
 
 async function genMatch(f: FixtureView, locale: Locale) {
-  const ctx = toContext(f);
+  const fv = await getMatchForecast(f.id).catch(() => null);
+  const ctx = toContext(f, fv);
   const entities = [f.home.name, f.away.name];
-  const facts = `Match: ${f.home.name} vs ${f.away.name}. Group: ${f.groupName}.`;
+  const facts =
+    `Match: ${f.home.name} vs ${f.away.name}. Group: ${f.groupName}.` +
+    (fv ? ` In-house statistical model forecast: ${fv.summary}.` : "");
 
   const jobs = [
     { type: "preview", prompt: previewPrompt(ctx) },
