@@ -20,6 +20,7 @@ import {
   localizedPath,
   pageSeoDescription,
 } from "@/lib/seo";
+import { withBuildRetry } from "@/lib/build-retry";
 
 type Team = Awaited<ReturnType<typeof getAllTeamPages>>[number] | null;
 type TeamPages = Awaited<ReturnType<typeof getAllTeamPages>>;
@@ -34,9 +35,12 @@ const teamFixturesCache = new Map<number, Promise<TeamFixtures>>();
 const teamSquadCache = new Map<number, Promise<TeamSquad>>();
 
 function getAllTeamPagesForBuild(): Promise<TeamPages> {
-  // Fail the build on empty data: with dynamicParams=false a swallowed error
-  // here would silently generate zero team pages (all 404) until next deploy.
-  allTeamPagesPromise ??= getAllTeamPages().then((teams) => {
+  // Retry transient pooler errors, then fail the build on empty data: with
+  // dynamicParams=false a swallowed error here would silently generate zero
+  // team pages (all 404) until next deploy.
+  allTeamPagesPromise ??= withBuildRetry("tim/[slug]:getAllTeamPages", () =>
+    getAllTeamPages(),
+  ).then((teams) => {
     if (teams.length === 0) {
       throw new Error("[tim/[slug]] getAllTeamPages returned 0 rows at build time");
     }

@@ -6,14 +6,16 @@ import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
 import { StandingsTable } from "@/components/standings-table";
 import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
+import { withBuildRetry } from "@/lib/build-retry";
 
 // Fully static: prerendered at build, no DB at runtime.
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
-  // Fail the build on empty data: with dynamicParams=false a swallowed error
-  // here would silently drop every group page (all 404) until next deploy.
-  const groups = await getGroupNames();
+  // Retry transient pooler errors, then fail the build on empty data: with
+  // dynamicParams=false a swallowed error here would silently drop every
+  // group page (all 404) until next deploy.
+  const groups = await withBuildRetry("grup:getGroupNames", () => getGroupNames());
   if (groups.length === 0) {
     throw new Error("[grup] getGroupNames returned 0 rows at build time");
   }

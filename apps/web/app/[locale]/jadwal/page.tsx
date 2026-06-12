@@ -5,6 +5,7 @@ import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
 import { formatKickoffDay, kickoffDayKey } from "@/lib/kickoff-time";
 import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
+import { withBuildRetry } from "@/lib/build-retry";
 
 export const dynamicParams = false;
 
@@ -37,9 +38,9 @@ export default async function SchedulePage({
   const t = await getTranslations();
 
   // Build-time read with no revalidate: swallowing a transient DB failure here
-  // would permanently bake an empty page. Fail the build instead — the
+  // would permanently bake an empty page. Retry, then fail the build — the
   // match-day cron retries within 30 minutes and the old page stays live.
-  const fixtures = await getAllFixtures();
+  const fixtures = await withBuildRetry("jadwal:getAllFixtures", () => getAllFixtures());
   if (fixtures.length === 0) {
     throw new Error("[jadwal] getAllFixtures returned 0 rows at build time");
   }

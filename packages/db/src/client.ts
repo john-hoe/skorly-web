@@ -38,10 +38,13 @@ export function getDb() {
   // fail fast instead of hanging forever when the pooler is saturated.
   // Note: `statement_timeout` is sent via Postgres startup options and is
   // generally honored by the Supavisor transaction pooler (port 6543).
+  // max: 2 — CI builds run against the SESSION-mode pooler (pool_size 15);
+  // 3 Next.js SSG workers × max connections must stay well under that or
+  // builds hit EMAXCONNSESSION (which once shipped an empty schedule page).
   _client = postgres(url, {
     prepare: false,
     idle_timeout: 20,
-    max: 4,
+    max: 2,
     connect_timeout: 15,
     connection: { statement_timeout: 30000 },
   });

@@ -5,20 +5,23 @@ import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
 import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
+import { withBuildRetry } from "@/lib/build-retry";
 
 type TeamGroups = Awaited<ReturnType<typeof getGroupedTeams>>;
 
 let groupedTeamsPromise: Promise<TeamGroups> | undefined;
 
 function getGroupedTeamsForBuild(): Promise<TeamGroups> {
-  // Fail the build on empty data: a swallowed transient DB error would bake
-  // an empty static page until the next deploy.
-  groupedTeamsPromise ??= getGroupedTeams().then((groups) => {
-    if (groups.length === 0) {
-      throw new Error("[tim] getGroupedTeams returned 0 rows at build time");
-    }
-    return groups;
-  });
+  // Retry transient pooler errors, then fail the build on empty data: a
+  // swallowed error here would bake an empty static page until next deploy.
+  groupedTeamsPromise ??= withBuildRetry("tim:getGroupedTeams", () => getGroupedTeams()).then(
+    (groups) => {
+      if (groups.length === 0) {
+        throw new Error("[tim] getGroupedTeams returned 0 rows at build time");
+      }
+      return groups;
+    },
+  );
   return groupedTeamsPromise;
 }
 
