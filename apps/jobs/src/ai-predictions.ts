@@ -13,21 +13,21 @@ import {
   getUpcomingFixtures,
   upsertPrediction,
 } from "@skorly/db";
-import { AI_PREDICTOR_EMAILS } from "@skorly/types";
+import { AI_PREDICTORS, type AiPredictorStrategy } from "@skorly/types";
 
 export interface AiPersona {
   email: string;
   displayName: string;
-  strategy: "model" | "sampled" | "upset" | "cautious";
+  strategy: AiPredictorStrategy;
 }
 
-// Emails come from the shared constant so web-side AI detection can't drift.
-export const AI_PERSONAS: AiPersona[] = [
-  { email: AI_PREDICTOR_EMAILS[0], displayName: "Skorly AI · Elo", strategy: "model" },
-  { email: AI_PREDICTOR_EMAILS[1], displayName: "Skorly AI · Poisson", strategy: "sampled" },
-  { email: AI_PREDICTOR_EMAILS[2], displayName: "Skorly AI · Brave", strategy: "upset" },
-  { email: AI_PREDICTOR_EMAILS[3], displayName: "Skorly AI · Cautious", strategy: "cautious" },
-];
+// Derived from the shared @skorly/types source so web-side AI detection,
+// the public detail page and these picks can never drift apart.
+export const AI_PERSONAS: AiPersona[] = AI_PREDICTORS.map((p) => ({
+  email: p.email,
+  displayName: p.name,
+  strategy: p.strategy,
+}));
 
 const HORIZON_MS = 48 * 60 * 60 * 1000;
 const MIN_LEAD_MS = 5 * 60 * 1000;

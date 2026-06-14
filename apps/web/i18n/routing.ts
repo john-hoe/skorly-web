@@ -113,6 +113,8 @@ export const routing = defineRouting({
     // 二期 — predictions & leaderboard
     "/prediksi": "/prediksi",
     "/peringkat": "/peringkat",
+    // 三期 D4 — public Skorly AI predictor profile
+    "/peringkat/ai/[slug]": "/peringkat/ai/[slug]",
     // 二期 M5 — private prediction mini-leagues
     "/liga": "/liga",
     "/liga/[slug]": "/liga/[slug]",

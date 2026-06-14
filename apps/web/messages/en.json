@@ -296,6 +296,24 @@
       "beating": "Beating AI",
       "badgeName": "AI Slayer",
       "empty": "No scored predictions this week yet — check back after the matches."
+    },
+    "aiDetail": {
+      "back": "Back to leaderboard",
+      "viewStrategy": "View this AI's strategy and predictions",
+      "strategyTitle": "Prediction strategy",
+      "accuracy": "Accuracy",
+      "upcomingTitle": "Current predictions",
+      "resultsTitle": "Track record",
+      "noUpcoming": "No upcoming predictions yet.",
+      "noResults": "No scored predictions yet.",
+      "pick": "Pick",
+      "actual": "Actual",
+      "strategy": {
+        "model": "Pure model: always picks the most likely scoreline from our in-house Elo + Poisson model. Data-driven, never reaching for an upset.",
+        "sampled": "Probability sampler: samples from the model's score distribution, favouring high-probability results but allowing variance — closer to real-match uncertainty.",
+        "upset": "Upset hunter: leans into surprises, backing scorelines where the underdog springs a shock. High risk, high reward.",
+        "cautious": "Cautious: prefers low-scoring, safe results and avoids high-scoreline gambles, chasing steady accuracy."
+      }
     }
   },
   "comments": {
