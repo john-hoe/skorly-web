@@ -297,6 +297,24 @@
       "beating": "领先 AI",
       "badgeName": "AI 终结者",
       "empty": "本周还没有已结算的竞猜，开赛后再来看看吧。"
+    },
+    "aiDetail": {
+      "back": "返回排行榜",
+      "viewStrategy": "查看该 AI 的策略与预测",
+      "strategyTitle": "预测策略",
+      "accuracy": "命中率",
+      "upcomingTitle": "当前预测",
+      "resultsTitle": "历史战绩",
+      "noUpcoming": "暂无未开赛的预测。",
+      "noResults": "暂无已结算的预测。",
+      "pick": "预测",
+      "actual": "实际",
+      "strategy": {
+        "model": "纯模型派：始终选择内部 Elo + 泊松模型计算出的最可能比分，完全以数据为准，不刻意冒险。",
+        "sampled": "概率抽样派：按模型给出的比分概率分布随机抽样，偏向高概率结果，但允许一定波动，更接近真实比赛的不确定性。",
+        "upset": "爆冷派：偏好冷门，倾向于押注非热门球队制造爆冷的比分，高风险高回报。",
+        "cautious": "保守派：偏好低比分、稳健的结果，回避大比分豪赌，追求稳定命中。"
+      }
     }
   },
   "comments": {

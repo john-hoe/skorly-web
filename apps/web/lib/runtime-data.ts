@@ -1,6 +1,8 @@
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 import {
   AI_PREDICTOR_EMAILS,
+  aiPredictorByEmail,
+  aiPredictorBySlug,
   isoWeekContaining,
   type ProfileBadge,
 } from "@skorly/types";
@@ -556,6 +558,8 @@ export interface RuntimeLeaderRow {
   exact: number;
   /** Row belongs to one of the four Skorly AI predictor accounts. */
   isAi: boolean;
+  /** Public detail-page slug when this is an AI row (else null). */
+  aiSlug: string | null;
   /** Number of persisted weekly "AI slayer" badges. */
   aiSlayerBadges: number;
 }
@@ -586,6 +590,36 @@ export interface RuntimeVsAiDuelRow {
   awayGoals: number | null;
   mine: { homeGoalsPred: number; awayGoalsPred: number; pointsAwarded: number | null };
   ai: RuntimeVsAiDuelAiPick[];
+}
+
+/** One AI prediction row on the public AI-predictor detail page. */
+export interface RuntimeAiPrediction {
+  fixtureId: number;
+  slug: string;
+  kickoffAt: string | null;
+  status: string;
+  homeName: string;
+  awayName: string;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  homeGoalsPred: number;
+  awayGoalsPred: number;
+  pointsAwarded: number | null;
+}
+
+/** Public profile + record for a single Skorly AI predictor. */
+export interface RuntimeAiPredictor {
+  slug: string;
+  name: string;
+  strategy: string;
+  points: number;
+  /** Number of scored predictions. */
+  played: number;
+  exact: number;
+  /** Scored predictions that earned any points. */
+  correct: number;
+  upcoming: RuntimeAiPrediction[];
+  results: RuntimeAiPrediction[];
 }
 
 export interface RuntimeArticleCardData {
@@ -3151,6 +3185,7 @@ function toLeaderRow(
     played: s.played,
     exact: s.exact,
     isAi: isAiEmail(profile?.email),
+    aiSlug: aiPredictorByEmail(profile?.email)?.slug ?? null,
     aiSlayerBadges: aiSlayerBadgeCount(profile?.badges),
   };
 }
@@ -3322,6 +3357,95 @@ export async function getRuntimeUserVsAi(
     .filter((r): r is RuntimeVsAiDuelRow => r != null)
     .sort((a, b) => (b.kickoffAt ?? "").localeCompare(a.kickoffAt ?? ""))
     .slice(0, limit);
+}
+
+/**
+ * Public detail for a single Skorly AI predictor: its strategy, aggregate
+ * record and per-match picks (upcoming + scored results). Returns null for an
+ * unknown slug or before the account has been seeded — only the four AI
+ * accounts are addressable here (human profiles are never exposed this way).
+ */
+export async function getRuntimeAiPredictor(
+  slug: string,
+  opts: { upcomingLimit?: number; resultsLimit?: number } = {},
+): Promise<RuntimeAiPredictor | null> {
+  const meta = aiPredictorBySlug(slug);
+  if (!meta) return null;
+
+  const profiles = await selectRows<ProfileRow>("profiles", {
+    select: "id,email",
+    email: `eq.${meta.email}`,
+    limit: 1,
+  });
+  const profile = profiles[0];
+  if (!profile) return null;
+
+  const empty: RuntimeAiPredictor = {
+    slug: meta.slug,
+    name: meta.name,
+    strategy: meta.strategy,
+    points: 0,
+    played: 0,
+    exact: 0,
+    correct: 0,
+    upcoming: [],
+    results: [],
+  };
+
+  const preds = await selectRows<PredictionRow>("predictions", {
+    select: "user_id,fixture_id,home_goals_pred,away_goals_pred,points_awarded,submitted_at",
+    user_id: `eq.${profile.id}`,
+    limit: 1000,
+  });
+  if (preds.length === 0) return empty;
+
+  const fixtureIds = Array.from(new Set(preds.map((p) => p.fixture_id)));
+  const fixtureRows = await selectRows<FixtureRow>("fixtures", {
+    select: FIXTURE_SELECT,
+    id: inFilter(fixtureIds),
+  });
+  const fixtures = new Map((await fixtureRowsToViews(fixtureRows)).map((f) => [f.id, f]));
+
+  const items = preds
+    .map((p): RuntimeAiPrediction | null => {
+      const f = fixtures.get(p.fixture_id);
+      if (!f) return null;
+      return {
+        fixtureId: p.fixture_id,
+        slug: f.slug,
+        kickoffAt: f.kickoffAt ? f.kickoffAt.toISOString() : null,
+        status: f.status,
+        homeName: f.home.name,
+        awayName: f.away.name,
+        homeGoals: f.homeGoals,
+        awayGoals: f.awayGoals,
+        homeGoalsPred: p.home_goals_pred,
+        awayGoalsPred: p.away_goals_pred,
+        pointsAwarded: p.points_awarded,
+      };
+    })
+    .filter((r): r is RuntimeAiPrediction => r != null);
+
+  // Stats are over genuinely-scored picks only. Results show every finished
+  // fixture (so a pick scored by the cron later doesn't briefly vanish between
+  // kickoff-finish and scoring); upcoming holds the rest.
+  const scored = items.filter((i) => i.pointsAwarded != null);
+  const results = items
+    .filter((i) => i.status === "finished")
+    .sort((a, b) => (b.kickoffAt ?? "").localeCompare(a.kickoffAt ?? ""));
+  const upcoming = items
+    .filter((i) => i.status !== "finished")
+    .sort((a, b) => (a.kickoffAt ?? "").localeCompare(b.kickoffAt ?? ""));
+
+  return {
+    ...empty,
+    points: scored.reduce((s, i) => s + (i.pointsAwarded ?? 0), 0),
+    played: scored.length,
+    exact: scored.filter((i) => i.pointsAwarded === 5).length,
+    correct: scored.filter((i) => (i.pointsAwarded ?? 0) > 0).length,
+    upcoming: upcoming.slice(0, opts.upcomingLimit ?? 30),
+    results: results.slice(0, opts.resultsLimit ?? 30),
+  };
 }
 
 export async function getRuntimeLatestArticles(

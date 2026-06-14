@@ -296,6 +296,24 @@
       "beating": "Mengungguli AI",
       "badgeName": "Penakluk AI",
       "empty": "Belum ada tebakan yang dinilai minggu ini — kembali lagi setelah pertandingan."
+    },
+    "aiDetail": {
+      "back": "Kembali ke klasemen",
+      "viewStrategy": "Lihat strategi dan tebakan AI ini",
+      "strategyTitle": "Strategi prediksi",
+      "accuracy": "Akurasi",
+      "upcomingTitle": "Tebakan saat ini",
+      "resultsTitle": "Rekam jejak",
+      "noUpcoming": "Belum ada tebakan untuk laga mendatang.",
+      "noResults": "Belum ada tebakan yang dinilai.",
+      "pick": "Tebakan",
+      "actual": "Hasil",
+      "strategy": {
+        "model": "Murni model: selalu memilih skor paling mungkin dari model Elo + Poisson internal kami. Berbasis data, tidak mengejar kejutan.",
+        "sampled": "Pengambil sampel peluang: mengambil sampel dari distribusi skor model, condong ke hasil berpeluang tinggi namun tetap memberi ruang variasi — lebih dekat ke ketidakpastian laga nyata.",
+        "upset": "Pemburu kejutan: condong ke hasil mengejutkan, mendukung skor saat tim non-unggulan menciptakan kejutan. Risiko tinggi, imbalan tinggi.",
+        "cautious": "Hati-hati: memilih skor rendah dan hasil aman, menghindari taruhan skor besar demi akurasi yang stabil."
+      }
     }
   },
   "comments": {

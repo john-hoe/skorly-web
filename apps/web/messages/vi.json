@@ -296,6 +296,24 @@
       "beating": "Dẫn trước AI",
       "badgeName": "Khắc tinh AI",
       "empty": "Tuần này chưa có dự đoán nào được chấm điểm — hãy quay lại sau các trận đấu."
+    },
+    "aiDetail": {
+      "back": "Về bảng xếp hạng",
+      "viewStrategy": "Xem chiến lược và dự đoán của AI này",
+      "strategyTitle": "Chiến lược dự đoán",
+      "accuracy": "Độ chính xác",
+      "upcomingTitle": "Dự đoán hiện tại",
+      "resultsTitle": "Thành tích",
+      "noUpcoming": "Chưa có dự đoán cho trận sắp tới.",
+      "noResults": "Chưa có dự đoán nào được chấm điểm.",
+      "pick": "Dự đoán",
+      "actual": "Kết quả",
+      "strategy": {
+        "model": "Thuần mô hình: luôn chọn tỉ số khả dĩ nhất từ mô hình Elo + Poisson nội bộ. Dựa trên dữ liệu, không cố tạo bất ngờ.",
+        "sampled": "Lấy mẫu xác suất: lấy mẫu từ phân phối tỉ số của mô hình, ưu tiên kết quả xác suất cao nhưng vẫn cho phép biến động — gần với sự bất định của trận đấu thực.",
+        "upset": "Săn bất ngờ: thiên về kết quả gây sốc, đặt cược vào tỉ số khi cửa dưới tạo địa chấn. Rủi ro cao, phần thưởng cao.",
+        "cautious": "Thận trọng: ưu tiên tỉ số thấp và kết quả an toàn, tránh canh bạc tỉ số đậm để theo đuổi độ chính xác ổn định."
+      }
     }
   },
   "comments": {

@@ -125,17 +125,44 @@ export interface LiveAllSnapshot {
   quotaState: "normal" | "event_trigger_only" | "slowdown" | "stopped";
 }
 
+/** Prediction strategy each Skorly AI persona follows. */
+export type AiPredictorStrategy = "model" | "sampled" | "upset" | "cautious";
+
+/** One "Skorly AI" predictor account's public metadata. */
+export interface AiPredictorMeta {
+  /** URL slug for the public detail page, e.g. "elo". */
+  slug: string;
+  /** Seed auth email — the stable join key to the profiles row. */
+  email: string;
+  /** Display name shown on the leaderboard, e.g. "Skorly AI · Elo". */
+  name: string;
+  strategy: AiPredictorStrategy;
+}
+
 /**
- * Emails of the four "Skorly AI" predictor accounts (seeded by
- * apps/jobs/scripts/seed-ai-predictors.ts). Shared so web can distinguish
- * AI rows on leaderboards and jobs can award "AI slayer" badges.
+ * The four "Skorly AI" predictor accounts (seeded by
+ * apps/jobs/scripts/seed-ai-predictors.ts). Single source of truth shared by
+ * jobs (prediction generation), web (AI detection + the public detail page)
+ * and the badge job.
  */
-export const AI_PREDICTOR_EMAILS = [
-  "ai-elo@skorly.cc",
-  "ai-poisson@skorly.cc",
-  "ai-brave@skorly.cc",
-  "ai-cautious@skorly.cc",
-] as const;
+export const AI_PREDICTORS: AiPredictorMeta[] = [
+  { slug: "elo", email: "ai-elo@skorly.cc", name: "Skorly AI · Elo", strategy: "model" },
+  { slug: "poisson", email: "ai-poisson@skorly.cc", name: "Skorly AI · Poisson", strategy: "sampled" },
+  { slug: "brave", email: "ai-brave@skorly.cc", name: "Skorly AI · Brave", strategy: "upset" },
+  { slug: "cautious", email: "ai-cautious@skorly.cc", name: "Skorly AI · Cautious", strategy: "cautious" },
+];
+
+/** Emails of the four AI predictor accounts (derived; single source above). */
+export const AI_PREDICTOR_EMAILS: string[] = AI_PREDICTORS.map((p) => p.email);
+
+export function aiPredictorByEmail(email: string | null | undefined): AiPredictorMeta | undefined {
+  if (!email) return undefined;
+  return AI_PREDICTORS.find((p) => p.email === email);
+}
+
+export function aiPredictorBySlug(slug: string): AiPredictorMeta | undefined {
+  return AI_PREDICTORS.find((p) => p.slug === slug);
+}
 
 /** Minimum scored predictions in a week to qualify for the AI Slayer badge. */
 export const AI_SLAYER_MIN_PLAYED = 3;

@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import type { RuntimeLeaderRow, RuntimeWeeklyVsAi } from "@/lib/runtime-data";
 
 export function LeaderboardTabs({
@@ -117,7 +118,18 @@ function LeaderTable({
                 <td className="px-4 py-3 font-medium">
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {r.isAi && <span aria-hidden>🤖</span>}
-                    <span>{r.displayName?.trim() || t("anonymous")}</span>
+                    {r.isAi && r.aiSlug ? (
+                      <Link
+                        href={{ pathname: "/peringkat/ai/[slug]", params: { slug: r.aiSlug } }}
+                        className="font-semibold text-[var(--brand)] hover:underline"
+                        title={t("aiDetail.viewStrategy")}
+                      >
+                        {r.displayName?.trim() || t("anonymous")}
+                        <span aria-hidden> ›</span>
+                      </Link>
+                    ) : (
+                      <span>{r.displayName?.trim() || t("anonymous")}</span>
+                    )}
                     {r.aiSlayerBadges > 0 && (
                       <span
                         className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-600"
