@@ -3426,10 +3426,15 @@ export async function getRuntimeAiPredictor(
     })
     .filter((r): r is RuntimeAiPrediction => r != null);
 
+  // Stats are over genuinely-scored picks only. Results show every finished
+  // fixture (so a pick scored by the cron later doesn't briefly vanish between
+  // kickoff-finish and scoring); upcoming holds the rest.
   const scored = items.filter((i) => i.pointsAwarded != null);
-  const results = [...scored].sort((a, b) => (b.kickoffAt ?? "").localeCompare(a.kickoffAt ?? ""));
+  const results = items
+    .filter((i) => i.status === "finished")
+    .sort((a, b) => (b.kickoffAt ?? "").localeCompare(a.kickoffAt ?? ""));
   const upcoming = items
-    .filter((i) => i.pointsAwarded == null && i.status !== "finished")
+    .filter((i) => i.status !== "finished")
     .sort((a, b) => (a.kickoffAt ?? "").localeCompare(b.kickoffAt ?? ""));
 
   return {
