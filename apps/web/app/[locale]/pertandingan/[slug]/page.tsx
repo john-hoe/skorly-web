@@ -264,6 +264,13 @@ export default async function MatchPage({
   // LiveBlogPosting: Google's structured data surface for live coverage.
   // Update timestamps are approximated from kickoff + match minute.
   const kickoffMs = kickoffIso ? Date.parse(kickoffIso) : null;
+  // Reuse the fully-populated SportsEvent (startDate/location/endDate/image)
+  // as `about`. A name-only SportsEvent fails Google's Event rich-result
+  // validation ("missing field location / startDate"); omit `about` entirely
+  // when the fixture lacks the data to build a valid event.
+  const eventAbout = eventLd
+    ? Object.fromEntries(Object.entries(eventLd).filter(([k]) => k !== "@context"))
+    : null;
   const liveBlogLd = initialCommentary.length
     ? {
         "@context": "https://schema.org",
@@ -276,7 +283,7 @@ export default async function MatchPage({
         ...(finished && kickoffMs
           ? { coverageEndTime: new Date(kickoffMs + 2 * 60 * 60 * 1000).toISOString() }
           : {}),
-        about: { "@type": "SportsEvent", name: matchTitle },
+        ...(eventAbout ? { about: eventAbout } : {}),
         liveBlogUpdate: initialCommentary.slice(-50).map((entry) => {
           const text = entry.texts[locale] ?? entry.texts.en ?? "";
           return {
