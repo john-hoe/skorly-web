@@ -36,10 +36,10 @@ export function MatchCard({
       </div>
 
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <div className="flex justify-end">
+        <div className="flex min-w-0 justify-end">
           <TeamBadge name={fixture.home.name} logo={fixture.home.logo} code={fixture.home.code} reverse />
         </div>
-        <div className="px-3 text-center font-bold tabular-nums">
+        <div className="shrink-0 px-2 text-center font-bold tabular-nums">
           {finished || live ? (
             <span>
               {fixture.homeGoals ?? 0} <span className="text-[var(--muted)]">-</span>{" "}
@@ -49,7 +49,7 @@ export function MatchCard({
             <span className="text-[var(--muted)] text-sm">vs</span>
           )}
         </div>
-        <div className="flex justify-start">
+        <div className="flex min-w-0 justify-start">
           <TeamBadge name={fixture.away.name} logo={fixture.away.logo} code={fixture.away.code} />
         </div>
       </div>

@@ -17,7 +17,7 @@ export function TeamBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 ${reverse ? "flex-row-reverse" : ""}`}
+      className={`inline-flex max-w-full items-center gap-2 min-w-0 ${reverse ? "flex-row-reverse" : ""}`}
     >
       {logo ? (
         <Image
@@ -25,18 +25,24 @@ export function TeamBadge({
           alt={name}
           width={size}
           height={size}
-          className="object-contain"
+          className="shrink-0 object-contain"
           style={{ width: size, height: size }}
         />
       ) : (
         <span
-          className="inline-flex items-center justify-center rounded-full bg-[var(--border)] text-[10px] font-semibold"
+          className="inline-flex shrink-0 items-center justify-center rounded-full bg-[var(--border)] text-[10px] font-semibold"
           style={{ width: size, height: size }}
         >
           {code ?? name.slice(0, 3).toUpperCase()}
         </span>
       )}
-      {showName && <span className="font-medium">{name}</span>}
+      {showName && (
+        <span
+          className={`min-w-0 break-words text-sm font-medium leading-tight ${reverse ? "text-right" : "text-left"}`}
+        >
+          {name}
+        </span>
+      )}
     </span>
   );
 }

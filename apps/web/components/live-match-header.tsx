@@ -62,7 +62,7 @@ export function LiveMatchHeader({
         {matchTitle}
       </h1>
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex min-w-0 flex-col items-center gap-2">
           <TeamBadge
             name={fixture.home.name}
             logo={fixture.home.logo}
@@ -70,9 +70,9 @@ export function LiveMatchHeader({
             size={48}
             showName={false}
           />
-          <span className="text-center text-sm font-medium">{fixture.home.name}</span>
+          <span className="text-center text-sm font-medium break-words">{fixture.home.name}</span>
         </div>
-        <div className="text-center">
+        <div className="shrink-0 text-center">
           <div className="text-3xl font-bold tabular-nums">{score}</div>
           {fixture.status === "live" && (
             <div className="mt-1 text-xs font-semibold uppercase text-white/80">
@@ -80,7 +80,7 @@ export function LiveMatchHeader({
             </div>
           )}
         </div>
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex min-w-0 flex-col items-center gap-2">
           <TeamBadge
             name={fixture.away.name}
             logo={fixture.away.logo}
@@ -88,7 +88,7 @@ export function LiveMatchHeader({
             size={48}
             showName={false}
           />
-          <span className="text-center text-sm font-medium">{fixture.away.name}</span>
+          <span className="text-center text-sm font-medium break-words">{fixture.away.name}</span>
         </div>
       </div>
       {venue && (

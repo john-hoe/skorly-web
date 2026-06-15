@@ -72,10 +72,10 @@ function FocusCard({
         </div>
 
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-          <div className="flex justify-end">
+          <div className="flex min-w-0 justify-end">
             <TeamBadge name={match.home.name} logo={match.home.logo} code={match.home.code} reverse />
           </div>
-          <div className="px-2 text-center">
+          <div className="shrink-0 px-2 text-center">
             {showScore ? (
               <div>
                 <div className="text-3xl font-extrabold tabular-nums">
@@ -101,7 +101,7 @@ function FocusCard({
               </div>
             )}
           </div>
-          <div className="flex justify-start">
+          <div className="flex min-w-0 justify-start">
             <TeamBadge name={match.away.name} logo={match.away.logo} code={match.away.code} />
           </div>
         </div>
