@@ -32,6 +32,10 @@ function kickoffLabel(iso: string): string {
 export function LiveNowBanner({ next }: { next: NextMatchTeaser | null }) {
   const t = useTranslations("home");
   const [live, setLive] = useState<LiveFixtureSummary[]>([]);
+  // Read only after mount: the soon-window check and the locale/timezone
+  // formatted kickoff label both depend on the clock, so evaluating them
+  // during SSR would diverge from the client and cause a hydration mismatch.
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,9 +49,16 @@ export function LiveNowBanner({ next }: { next: NextMatchTeaser | null }) {
     };
     tick();
     const id = setInterval(tick, LIVE_POLL_MS);
+    // Defer the first clock read (post-mount) so it isn't a synchronous
+    // setState in the effect body; refresh every minute to keep the window check fresh.
+    const updateClock = () => setNow(Date.now());
+    const first = window.setTimeout(updateClock, 0);
+    const clock = window.setInterval(updateClock, 60_000);
     return () => {
       active = false;
       clearInterval(id);
+      window.clearTimeout(first);
+      window.clearInterval(clock);
     };
   }, []);
 
@@ -90,11 +101,8 @@ export function LiveNowBanner({ next }: { next: NextMatchTeaser | null }) {
     );
   }
 
-  if (next?.kickoffAt) {
-    // Intentional render-time clock read: the page is statically generated and
-    // rebuilt every ~30min on match days, so the boundary drift is acceptable.
-    // eslint-disable-next-line react-hooks/purity
-    const ms = new Date(next.kickoffAt).getTime() - Date.now();
+  if (now != null && next?.kickoffAt) {
+    const ms = new Date(next.kickoffAt).getTime() - now;
     if (ms > 0 && ms <= SOON_WINDOW_MS) {
       return (
         <div className="bg-[#0f1720] text-white">
