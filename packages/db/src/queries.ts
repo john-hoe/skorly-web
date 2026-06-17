@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, ne, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
 import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, fixtureMedia, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
@@ -926,12 +926,18 @@ export interface ArticleBackfillSource {
   publishedAt: Date | null;
 }
 
-/** Published source articles for faithful locale backfill. */
+/**
+ * Published source articles for faithful locale backfill. When targetLocale is
+ * provided, sources with an already-published target article are excluded;
+ * target drafts remain eligible so the backfill can repair and publish them.
+ */
 export async function getPublishedArticlesForBackfill(input: {
   sourceLocale?: string;
+  targetLocale?: string;
   limit?: number;
   type?: string;
 } = {}): Promise<ArticleBackfillSource[]> {
+  const db = getDb();
   const sourceLocale = input.sourceLocale ?? "en";
   const limit = Math.max(1, Math.min(input.limit ?? 320, 1000));
   const conds = [
@@ -939,7 +945,25 @@ export async function getPublishedArticlesForBackfill(input: {
     eq(articles.status, "published"),
   ];
   if (input.type) conds.push(eq(articles.type, input.type as (typeof articles.type.enumValues)[number]));
-  const rows = await getDb()
+  if (input.targetLocale) {
+    const targetArticle = alias(articles, "target_article");
+    conds.push(
+      notExists(
+        db
+          .select({ id: targetArticle.id })
+          .from(targetArticle)
+          .where(
+            and(
+              eq(targetArticle.slug, articles.slug),
+              eq(targetArticle.locale, input.targetLocale),
+              eq(targetArticle.status, "published"),
+            ),
+          )
+          .limit(1),
+      ),
+    );
+  }
+  const rows = await db
     .select({
       id: articles.id,
       slug: articles.slug,
