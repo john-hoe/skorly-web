@@ -299,6 +299,7 @@ async function main() {
 
   const articles = await getPublishedArticlesForBackfill({
     sourceLocale: args.source,
+    targetLocale: args.target,
     limit: args.limit,
     type: args.type,
   });

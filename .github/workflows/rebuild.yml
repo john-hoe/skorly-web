@@ -5,7 +5,7 @@ name: Match Day Rebuild
 # workflow rebuilds once a day, which can delay a post-match recap by up to
 # ~24h. This workflow closes that gap: every 30 minutes it
 #   1. probes for finished fixtures that still lack a recap article and, if
-#      found, generates them (4 locales) through the QA pipeline, then
+#      found, generates them for every public locale through the QA pipeline, then
 #   2. probes for fresh content (new articles / fixture updates) and only
 #      then runs the full build + deploy.
 #
@@ -62,16 +62,36 @@ jobs:
           set -a; . ./.env; set +a
           SINCE=$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           AUTH=(-H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          locales=$(node <<'NODE'
+          const fs = require("fs");
+          const source = fs.readFileSync("packages/types/src/index.ts", "utf8");
+          const arrayExports = new Map(
+            [...source.matchAll(/export const (\w+_LOCALES) = \[([^\]]+)\]/g)].map((match) => [
+              match[1],
+              [...match[2].matchAll(/"([^"]+)"/g)].map((item) => item[1]),
+            ]),
+          );
+          const alias = source.match(/export const PUBLIC_LOCALES = (\w+_LOCALES);/);
+          const locales = arrayExports.get("PUBLIC_LOCALES") ?? (alias ? arrayExports.get(alias[1]) : null);
+          if (!locales?.length) {
+            console.error("Could not parse PUBLIC_LOCALES from packages/types/src/index.ts");
+            process.exit(1);
+          }
+          console.log(locales.join(" "));
+          NODE
+          )
           slugs=$(curl -sf "${AUTH[@]}" \
             "$SUPABASE_URL/rest/v1/fixtures?select=slug&status=eq.finished&kickoff_at=gte.$SINCE" \
             | grep -o '"slug":"[^"]*"' | cut -d'"' -f4)
           needed=false
           for s in $slugs; do
-            have=$(curl -sf "${AUTH[@]}" \
-              "$SUPABASE_URL/rest/v1/articles?select=id&slug=eq.${s}-recap&locale=eq.id&limit=1")
-            if [ "$have" = "[]" ]; then
-              echo "missing recap: $s"; needed=true
-            fi
+            for locale in $locales; do
+              have=$(curl -sf "${AUTH[@]}" \
+                "$SUPABASE_URL/rest/v1/articles?select=id&slug=eq.${s}-recap&locale=eq.${locale}&limit=1")
+              if [ "$have" = "[]" ]; then
+                echo "missing recap: $s ($locale)"; needed=true
+              fi
+            done
           done
           echo "needed=$needed" >> "$GITHUB_OUTPUT"
 
