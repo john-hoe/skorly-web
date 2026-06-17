@@ -79,6 +79,12 @@ const OPT_IN: Record<string, { subject: string; lead: string; cta: string; foot:
     cta: "确认我的邮箱",
     foot: "你收到此邮件是因为在 skorly.cc 注册。如非本人操作请忽略。",
   },
+  th: {
+    subject: "ยืนยันการสมัครรับคาดการณ์ Skorly",
+    lead: "อีกเพียงขั้นเดียว! คลิกปุ่มด้านล่างเพื่อยืนยันอีเมลและเริ่มรับคาดการณ์กับบทวิเคราะห์พิเศษฟุตบอลโลก 2026",
+    cta: "ยืนยันอีเมลของฉัน",
+    foot: "คุณได้รับอีเมลนี้เพราะสมัครที่ skorly.cc หากไม่ใช่คุณ โปรดละเว้นอีเมลนี้",
+  },
 };
 
 const RECOVERY: Record<string, { subject: string; lead: string; cta: string; foot: string }> = {
@@ -105,6 +111,12 @@ const RECOVERY: Record<string, { subject: string; lead: string; cta: string; foo
     lead: "我们收到了重置 Skorly 账户密码的请求。点击下方按钮打开新密码表单。",
     cta: "重置密码",
     foot: "如果这不是你本人请求，请忽略此邮件。",
+  },
+  th: {
+    subject: "รีเซ็ตรหัสผ่าน Skorly",
+    lead: "เราได้รับคำขอรีเซ็ตรหัสผ่านบัญชี Skorly ของคุณ คลิกปุ่มด้านล่างเพื่อเปิดแบบฟอร์มตั้งรหัสผ่านใหม่",
+    cta: "รีเซ็ตรหัสผ่าน",
+    foot: "ละเว้นอีเมลนี้หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน",
   },
 };
 

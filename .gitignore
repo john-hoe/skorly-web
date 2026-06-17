@@ -45,3 +45,8 @@ coverage/
 
 # local tooling state
 .omc/
+.codex/
+.codex-tmp/
+
+# local review/browser artifacts
+docs/review/artifacts/

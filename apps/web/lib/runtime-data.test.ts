@@ -31,6 +31,7 @@ const {
   getRuntimeAdminSubscribers,
   reportRuntimeComment,
   retryRuntimeAdminMediaItem,
+  saveRuntimePushSubscription,
   setRuntimeAdminMatchStatus,
   setRuntimeAdminMediaUrl,
   setRuntimeAdminSubscriberConfirmToken,
@@ -177,6 +178,56 @@ describe("admin subscriber runtime helpers", () => {
       "subscribers",
       { id: "eq.42" },
       { confirm_token: "token-1" },
+      { returning: false },
+    );
+  });
+});
+
+describe("saveRuntimePushSubscription", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rest.upsertRows.mockResolvedValue([]);
+  });
+
+  it("preserves existing topic preferences when no topics are provided", async () => {
+    await saveRuntimePushSubscription({
+      endpoint: "https://push.example/sub-1",
+      keys: { p256dh: "p256dh", auth: "auth" },
+      userId: "user-1",
+      locale: "th",
+      userAgent: "Test UA",
+    });
+
+    expect(rest.upsertRows).toHaveBeenCalledWith(
+      "push_subscriptions",
+      {
+        endpoint: "https://push.example/sub-1",
+        keys: { p256dh: "p256dh", auth: "auth" },
+        user_id: "user-1",
+        locale: "th",
+        user_agent: "Test UA",
+        failure_count: 0,
+      },
+      "endpoint",
+      { returning: false },
+    );
+  });
+
+  it("persists explicit topic choices including false values", async () => {
+    await saveRuntimePushSubscription({
+      endpoint: "https://push.example/sub-1",
+      keys: { p256dh: "p256dh", auth: "auth" },
+      topics: { kickoff: false, goals: true, predictionResult: false },
+    });
+
+    expect(rest.upsertRows).toHaveBeenCalledWith(
+      "push_subscriptions",
+      expect.objectContaining({
+        kickoff: false,
+        goals: true,
+        prediction_result: false,
+      }),
+      "endpoint",
       { returning: false },
     );
   });

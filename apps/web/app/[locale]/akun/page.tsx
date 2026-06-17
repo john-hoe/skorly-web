@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 import { AccountForm } from "@/components/auth/account-form";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ShareButtons } from "@/components/share-buttons";
+import { NotificationPreferences } from "@/components/notification-preferences";
 import { localizedPath } from "@/lib/seo";
 import {
   getRuntimeProfile,
@@ -156,6 +157,8 @@ export default async function AccountPage({
         weekly={weeklyVsAi}
         t={t}
       />
+
+      <NotificationPreferences />
 
       <AccountForm
         email={user!.email ?? profile?.email ?? ""}

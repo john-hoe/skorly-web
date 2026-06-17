@@ -21,6 +21,11 @@ const OFFLINE_COPY = {
     body: "网络连接不可用。恢复联网后请重试，或返回已访问过的首页。",
     home: "返回首页",
   },
+  th: {
+    title: "Skorly ออฟไลน์อยู่",
+    body: "การเชื่อมต่อขัดข้อง ลองใหม่เมื่อออนไลน์ หรือกลับไปหน้าแรกที่เคยเปิดแล้ว",
+    home: "กลับหน้าแรก",
+  },
 };
 
 function localeFromUrl(url) {
@@ -62,6 +67,31 @@ a{display:inline-flex;min-height:44px;align-items:center;border-radius:8px;backg
 </html>`;
 }
 
+function reportPwaEvent(event, payload) {
+  return fetch("/api/pwa-events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    keepalive: true,
+    body: JSON.stringify({ event, ...payload }),
+  }).catch(() => undefined);
+}
+
+function openNotificationTarget(target) {
+  return self.clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+      return undefined;
+    });
+}
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -75,15 +105,20 @@ self.addEventListener("fetch", (event) => {
   if (request.mode !== "navigate") return;
 
   event.respondWith(
-    fetch(request).catch(
-      () =>
-        new Response(offlineFallback(request.url), {
+    fetch(request).catch(() => {
+      event.waitUntil(
+        reportPwaEvent("offline_fallback_seen", {
+          path: new URL(request.url).pathname,
+          locale: localeFromUrl(request.url),
+        })
+      );
+      return new Response(offlineFallback(request.url), {
           headers: {
             "Content-Type": "text/html; charset=utf-8",
             "Cache-Control": "no-store",
           },
-        })
-    )
+        });
+    })
   );
 });
 
@@ -113,17 +148,9 @@ self.addEventListener("notificationclick", (event) => {
   const target = (event.notification.data && event.notification.data.url) || "/";
 
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          if ("focus" in client) {
-            client.navigate(target);
-            return client.focus();
-          }
-        }
-        if (self.clients.openWindow) return self.clients.openWindow(target);
-        return undefined;
-      })
+    Promise.allSettled([
+      reportPwaEvent("notification_click", { target }),
+      openNotificationTarget(target),
+    ])
   );
 });

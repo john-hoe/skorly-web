@@ -15,6 +15,7 @@ import {
   type RuntimeAdminSubscriberListItem,
   type RuntimeAdminSubscriberStatus,
 } from "@/lib/runtime-data";
+import { PUBLIC_LOCALES } from "@/i18n/locales";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ const CHANNEL_FILTERS: Array<{ value: RuntimeAdminSubscriberChannel; label: stri
   { value: "email", label: "Email only" },
   { value: "whatsapp", label: "Has WhatsApp" },
 ];
-const SUBSCRIBER_LOCALES = ["id", "vi", "en", "zh"] as const;
+const SUBSCRIBER_LOCALES = PUBLIC_LOCALES;
 
 type SearchParams = {
   q?: string;

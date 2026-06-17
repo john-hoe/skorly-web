@@ -15,6 +15,7 @@ import {
   type WhatsappTarget,
 } from "@skorly/db";
 import { whatsappConfig, sendPremiumWhatsapp, type WhatsappConfig } from "./whatsapp";
+import { PUBLIC_LOCALES, localizedSitePath } from "@skorly/types";
 
 function readEnv(): Record<string, string | undefined> {
   return (
@@ -26,7 +27,7 @@ function siteUrl(): string {
   return (readEnv().SITE_URL ?? "https://skorly.cc").replace(/\/$/, "");
 }
 
-const LOCALES = ["id", "vi", "en"] as const;
+const LOCALES = PUBLIC_LOCALES;
 
 const COPY: Record<string, { subject: (m: string) => string; lead: string; cta: string; foot: string }> = {
   id: {
@@ -52,6 +53,12 @@ const COPY: Record<string, { subject: (m: string) => string; lead: string; cta: 
     lead: "我们针对这场比赛的深度分析与推荐比分已就绪。解锁完整方案：",
     cta: "查看完整预测",
     foot: "退订",
+  },
+  th: {
+    subject: (m) => `คาดการณ์พิเศษ: ${m}`,
+    lead: "บทวิเคราะห์เชิงลึกและคาดการณ์สกอร์ของเราสำหรับแมตช์นี้พร้อมแล้ว เปิดแผนฉบับเต็ม:",
+    cta: "เปิดคาดการณ์ฉบับเต็ม",
+    foot: "ยกเลิกการสมัคร",
   },
 };
 
@@ -113,7 +120,7 @@ async function emailFixtureForLocale(
   const preview = prediction.summary?.trim() || plainPreview(prediction.body);
   let sent = 0;
   for (const r of recipients) {
-    const link = `${base}/${locale}/pertandingan/${fixture.slug}`;
+    const link = `${base}${localizedSitePath(locale, "match", { slug: fixture.slug })}`;
     const unsub = r.confirmToken
       ? `${base}/api/subscribe/unsubscribe?token=${encodeURIComponent(r.confirmToken)}&l=${locale}`
       : `${base}/${locale}`;
@@ -149,7 +156,7 @@ async function whatsappFixtureForLocale(
   if (!arts.some((a) => a.type === "prediction")) return 0;
 
   const match = `${fixture.homeName} vs ${fixture.awayName}`;
-  const link = `${base}/${locale}/pertandingan/${fixture.slug}`;
+  const link = `${base}${localizedSitePath(locale, "match", { slug: fixture.slug })}`;
   let sent = 0;
   for (const r of recipients) {
     if (await sendPremiumWhatsapp(cfg, r.whatsappNumber, locale, match, link)) sent++;

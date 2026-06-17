@@ -8,13 +8,13 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  * so we never show broken buttons before the OAuth apps are configured in the
  * Supabase dashboard (Authentication -> Providers).
  */
-export function OAuthButtons({ locale }: { locale: string }) {
+export function OAuthButtons({ locale, nextPath }: { locale: string; nextPath?: string | null }) {
   const t = useTranslations("auth");
   if (process.env.NEXT_PUBLIC_ENABLE_OAUTH !== "true") return null;
 
   async function signIn(provider: "google" | "facebook") {
     const supabase = createSupabaseBrowserClient();
-    const next = encodeURIComponent(`/${locale}/akun`);
+    const next = encodeURIComponent(nextPath ?? `/${locale}/akun`);
     await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback?next=${next}` },

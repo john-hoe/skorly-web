@@ -1,7 +1,12 @@
 # Current Status
 
 **Phase**: 三期 S1 执行中。第一周 P0 全部完成（AdSense 提审、部署提频、每日摘要、PostHog 看板，PR #43–#47）；等待 AdSense（1–14天）与 Involve Asia（≤48h）审核；6/11 比赛日实战盯守待执行 → 台账见 [phase-3-growth-revenue-plan.md](phase-3-growth-revenue-plan.md) §0b
-**Updated**: 2026-06-10 15:25 (v2.1)
+**Updated**: 2026-06-11 11:27 (v2.2)
+
+## 2026-06-11 Test Data Cleanup
+- Supabase production project `majrlaxktengachwrskk`: removed 35 test Auth users/profiles, 1 test comment, 1 like, 2 reports, 2 predictions, 7 campaign entries, 8 test subscribers, 37 refresh tokens, and 5 flow_state rows.
+- Supabase review seed project `utvbuirtllvxhzlsytrx`: removed 1 test Auth user/profile, 1 prediction, 2 review articles, 2 review fixtures, 8 fixture events, 4 standings rows, 4 review teams, 1 review league, and 3 refresh tokens.
+- Verification: broad test markers (`codex`, `e2e`, `test`, `测试`, review seed slugs) returned 0 for matching users/comments/subscribers in production and 0 for review seed users/fixtures/articles/events/teams/leagues.
 
 ## Phase 2 — DEPLOYED (2026-06-03)
 Phase 2 is live at https://skorly.cc, shipped via the `Daily News` GitHub Actions workflow (build + deploy to Cloudflare Workers).

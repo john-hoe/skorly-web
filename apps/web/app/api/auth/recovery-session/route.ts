@@ -64,7 +64,7 @@ async function readBody(request: Request): Promise<RecoverySessionBody> {
 }
 
 function sanitizeResetNext(next: string | null): string | null {
-  if (!next || !/^\/(id|vi|en|zh)\/atur-ulang-sandi$/.test(next)) return null;
+  if (!next || !/^\/(id|vi|en|zh|th)\/atur-ulang-sandi$/.test(next)) return null;
   return next;
 }
 

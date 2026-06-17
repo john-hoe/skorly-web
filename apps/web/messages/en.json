@@ -12,9 +12,11 @@
     "teams": "Teams",
     "articles": "Articles",
     "leaderboard": "Leaderboard",
+    "predictions": "Predictions",
     "leagues": "Leagues",
     "groups": "Groups",
     "news": "News",
+    "mobileNav": "Primary navigation",
     "contact": "Contact",
     "login": "Log in",
     "register": "Sign up",
@@ -98,6 +100,81 @@
     "busyLabel": "Saving alert preference",
     "onLabel": "Disable match alerts",
     "deniedLabel": "Match alerts are blocked"
+  },
+  "pwaInstall": {
+    "title": "Install Skorly",
+    "body": "Open scores, schedules, and predictions faster from your home screen.",
+    "iosTitle": "Add Skorly to your home screen",
+    "iosBody": "Use Safari's Share button, then choose Add to Home Screen.",
+    "install": "Install",
+    "notNow": "Not now"
+  },
+  "seoLinks": {
+    "title": "Explore World Cup 2026",
+    "description": "Quick links to live scores, fixtures, predictions, teams, and official viewing guides.",
+    "items": {
+      "scores": {
+        "title": "World Cup live scores",
+        "description": "Follow live scores, match status, and recent results."
+      },
+      "schedule": {
+        "title": "World Cup 2026 schedule",
+        "description": "See dates, kick-off times, groups, and match links."
+      },
+      "predictions": {
+        "title": "Score predictions",
+        "description": "Enter the prediction game and collect points."
+      },
+      "groups": {
+        "title": "Groups and standings",
+        "description": "Track team positions, group stage context, and tournament paths."
+      },
+      "teams": {
+        "title": "Team profiles",
+        "description": "Open squads, fixtures, and pages for every qualified team."
+      },
+      "watch": {
+        "title": "Where to watch officially",
+        "description": "Find licensed broadcaster guidance without illegal streams."
+      },
+      "news": {
+        "title": "World Cup news",
+        "description": "Follow updates, injuries, and match context."
+      },
+      "archive": {
+        "title": "Previews and recaps",
+        "description": "Read previews, predictions, recaps, and tactical analysis."
+      }
+    },
+    "teamTitle": "{team} team profile",
+    "teamDescription": "Squad, fixtures, and World Cup 2026 match links for {team}."
+  },
+  "pushPreferences": {
+    "title": "Notification preferences",
+    "description": "Choose the match alerts you want to receive on this device.",
+    "unsupported": "This browser does not support push notifications yet.",
+    "denied": "Notifications are blocked in the browser. Change the site permission to enable them.",
+    "enable": "Enable notifications",
+    "save": "Save preferences",
+    "disable": "Turn off notifications",
+    "busy": "Saving...",
+    "saved": "Notification preferences saved.",
+    "disabled": "Notifications are off on this device.",
+    "error": "Preferences could not be saved. Try again.",
+    "topics": {
+      "kickoff": {
+        "title": "Kick-off",
+        "description": "Reminder before a match starts."
+      },
+      "goals": {
+        "title": "Goals",
+        "description": "Alert when a goal is scored."
+      },
+      "predictionResult": {
+        "title": "Prediction results",
+        "description": "Alert when your prediction has been scored."
+      }
+    }
   },
   "share": {
     "label": "Share:",

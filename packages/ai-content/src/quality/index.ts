@@ -14,6 +14,8 @@ export type {
   WebFactCheckResult,
   WebVerifyResult,
 } from "./web-factcheck";
+export { thaiQualityGate } from "./thai-quality";
+export type { ThaiQualityResult, ThaiReviewJson } from "./thai-quality";
 export {
   decide,
   shouldRegenerate,

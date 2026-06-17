@@ -25,11 +25,15 @@ function inferContent(shareUrl: string): { contentType: ShareContentType; conten
   try {
     const parsed = new URL(shareUrl);
     const parts = parsed.pathname.split("/").filter(Boolean);
-    const articleIndex = parts.indexOf("artikel");
+    const articleIndex = parts.findIndex((part) =>
+      ["artikel", "bai-viet", "article", "wenzhang", "บทความ"].includes(part),
+    );
     if (articleIndex >= 0 && parts[articleIndex + 1]) {
       return { contentType: "article", contentId: parts[articleIndex + 1]! };
     }
-    const matchIndex = parts.indexOf("pertandingan");
+    const matchIndex = parts.findIndex((part) =>
+      ["pertandingan", "tran-dau", "match", "bisai", "การแข่งขัน"].includes(part),
+    );
     if (matchIndex >= 0 && parts[matchIndex + 1]) {
       return { contentType: "prediction", contentId: parts[matchIndex + 1]! };
     }

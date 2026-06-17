@@ -8,6 +8,7 @@ import { rateLimit, clientIp } from "./ratelimit";
 import { recoveryEmail, sendEmail } from "./email";
 import { analyticsIdentityFromCookieHeader } from "./analytics";
 import { trackServerAfter } from "./analytics-server";
+import { ALL_LOCALES } from "@/i18n/locales";
 
 export interface ActionResult {
   ok: boolean;
@@ -36,7 +37,7 @@ function configuredSiteOrigin(fallback: string): string {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const LOCALES = new Set(["id", "vi", "en", "zh"]);
+const LOCALES = new Set<string>(ALL_LOCALES);
 
 /** Register with email + password. Sends a confirmation email. */
 export async function signUpAction(formData: FormData): Promise<ActionResult> {

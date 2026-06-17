@@ -20,6 +20,12 @@ export type ShareContentType =
   | "page";
 
 export type AnalyticsEventMap = {
+  predict_start: {
+    fixtureId: number;
+    league?: string;
+    home?: string;
+    away?: string;
+  };
   predict_submit: {
     fixtureId: number;
     league?: string;
@@ -28,11 +34,35 @@ export type AnalyticsEventMap = {
     predHome: number;
     predAway: number;
   };
+  prediction_submitted: {
+    fixtureId: number;
+    league?: string;
+    home?: string;
+    away?: string;
+    predHome: number;
+    predAway: number;
+    source: "create" | "update";
+  };
   bracket_save: { numPicks: number; championTeamId: number | null };
+  auth_started: { method: "email" | "oauth" | "google" | "facebook"; source: string };
+  auth_completed: { method: "email" | "oauth" | "google" | "facebook"; source: string };
   signup: { method: "email" | "oauth" | "google" | "facebook" };
   login: { method: "email" | "oauth" | "google" | "facebook" };
   push_opt_in: Record<string, never>;
   push_opt_out: Record<string, never>;
+  push_prompt_shown: { source: string; topics: string };
+  mobile_bottom_nav_click: { target: string; currentPath: string };
+  focus_match_cta_click: {
+    fixtureId: number;
+    target: string;
+    status: string;
+    source: string;
+  };
+  pwa_install_prompt_shown: { platform: string; source: string };
+  pwa_install_accepted: { platform: string };
+  pwa_install_dismissed: { platform: string; reason: string };
+  notification_click: { target: string };
+  offline_fallback_seen: { path: string; locale: string };
   email_subscribe: { locale: string; source: string };
   league_create: { leagueId: number };
   league_join: { leagueId: number };

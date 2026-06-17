@@ -5,6 +5,7 @@ import type { ScoreRow as ScoreRowData } from "@/lib/score-types";
 import { toScoreRow } from "@/lib/score-types";
 import { LiveScoreboard } from "@/components/live-scoreboard";
 import { ScoreRow } from "@/components/score-row";
+import { SeoIntentLinks } from "@/components/seo-intent-links";
 import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 import { getLiveAllSnapshot } from "@/lib/live-kv";
 import { getRuntimeResultsFixtures } from "@/lib/runtime-data";
@@ -133,6 +134,8 @@ export default async function ScoresPage({
           </div>
         )}
       </section>
+
+      <SeoIntentLinks variant="scores" />
     </div>
   );
 }

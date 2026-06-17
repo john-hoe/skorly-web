@@ -8,17 +8,18 @@
  * Usage:
  *   pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-recaps.ts
  */
-import type { Locale } from "@skorly/types";
+import { PUBLIC_LOCALES, type Locale } from "@skorly/types";
 import {
   getResultsFixtures,
   getFixtureEvents,
   insertArticle,
   articleExists,
   type FixtureView,
+  type FixtureEventView,
 } from "@skorly/db";
 import { generateArticle, recapPrompt, type MatchContext } from "@skorly/ai-content";
 
-const LOCALES: Locale[] = ["id", "vi", "en", "zh"];
+const LOCALES: readonly Locale[] = PUBLIC_LOCALES;
 const RECAP_WINDOW_HOURS = 36;
 const RECAP_IMAGE = "/news/result.webp";
 
@@ -39,20 +40,48 @@ function toContext(f: FixtureView): MatchContext {
   };
 }
 
+function sameEventSubject(a: FixtureEventView, b: FixtureEventView): boolean {
+  return (
+    a.minute === b.minute &&
+    a.teamId === b.teamId &&
+    (a.playerName ?? "").trim().toLowerCase() === (b.playerName ?? "").trim().toLowerCase()
+  );
+}
+
+function isDisallowedGoalReview(e: FixtureEventView): boolean {
+  return (
+    (e.type ?? "").toLowerCase() === "var" &&
+    /goal disallowed|disallowed|offside/i.test(e.detail ?? "")
+  );
+}
+
+function validGoalEvents(events: FixtureEventView[]): FixtureEventView[] {
+  const disallowed = events.filter(isDisallowedGoalReview);
+  return events.filter((e) => {
+    if ((e.type ?? "").toLowerCase() !== "goal") return false;
+    return !disallowed.some((d) => sameEventSubject(e, d));
+  });
+}
+
 async function buildFacts(f: FixtureView): Promise<string> {
   const events = await getFixtureEvents(f.id).catch(() => []);
-  const goals = events
-    .filter((e) => (e.type ?? "").toLowerCase() === "goal")
+  const totalGoals = (f.homeGoals ?? 0) + (f.awayGoals ?? 0);
+  const goals = validGoalEvents(events)
     .map((e) => `${e.minute ?? "?"}' ${e.playerName ?? "unknown"} (${e.teamName ?? "?"})`);
   const cards = events
     .filter((e) => (e.type ?? "").toLowerCase() === "card" && /red/i.test(e.detail ?? ""))
     .map((e) => `${e.minute ?? "?"}' red card: ${e.playerName ?? "unknown"} (${e.teamName ?? "?"})`);
+  const goalFacts = goals.length === totalGoals && totalGoals > 0
+    ? `Goals: ${goals.join("; ")}.`
+    : totalGoals === 0
+      ? "No goals were scored."
+      : "Goal scorer and minute details are not complete enough to publish from the verified event feed.";
 
   const lines = [
     `Final score: ${f.home.name} ${f.homeGoals ?? 0}-${f.awayGoals ?? 0} ${f.away.name}.`,
     f.groupName ? `Stage: ${f.groupName}, World Cup 2026.` : `World Cup 2026.`,
     f.venue ? `Venue: ${f.venue}${f.city ? `, ${f.city}` : ""}.` : "",
-    goals.length ? `Goals: ${goals.join("; ")}.` : "No goals were scored.",
+    goalFacts,
     cards.length ? `${cards.join("; ")}.` : "",
     "Only use the facts above. Do not invent goals, scorers, assists or statistics.",
   ].filter(Boolean);
@@ -61,7 +90,7 @@ async function buildFacts(f: FixtureView): Promise<string> {
 
 async function recapFixture(f: FixtureView): Promise<number> {
   const ctx = toContext(f);
-  const entities = [f.home.name, f.away.name];
+  const entities = [f.home.name, f.away.name, `${f.homeGoals ?? 0}-${f.awayGoals ?? 0}`];
   const facts = await buildFacts(f);
   let written = 0;
 
@@ -82,6 +111,10 @@ async function recapFixture(f: FixtureView): Promise<number> {
         locale,
         expectedEntities: entities,
         facts,
+        review: {
+          theme: "a post-match recap for a 2026 FIFA World Cup fixture",
+          facts,
+        },
       });
       await insertArticle({
         slug,

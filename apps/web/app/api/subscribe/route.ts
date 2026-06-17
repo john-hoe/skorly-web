@@ -3,12 +3,13 @@ import { verifyTurnstile } from "@/lib/turnstile";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { sendEmail, optInEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/seo";
+import { ALL_LOCALES } from "@/i18n/locales";
 import { upsertRuntimeSubscriber } from "@/lib/runtime-data";
 import { analyticsIdentityFromCookieHeader } from "@/lib/analytics";
 import { trackServerAfter } from "@/lib/analytics-server";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const LOCALES = new Set(["id", "vi", "en", "zh"]);
+const LOCALES = new Set<string>(ALL_LOCALES);
 
 /**
  * Lead capture with double opt-in. Validates + rate-limits + Turnstile,

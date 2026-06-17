@@ -1,11 +1,14 @@
 import { absoluteUrl, localizedPath, SITE_NAME } from "@/lib/seo";
+import { INDEXABLE_LOCALES } from "@/i18n/locales";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const NEWS_LANG: Record<string, string> = { id: "id", vi: "vi", en: "en", zh: "zh-cn" };
+const NEWS_LANG: Record<string, string> = { id: "id", vi: "vi", en: "en", zh: "zh-cn", th: "th" };
 const NEWS_WINDOW_MS = 1000 * 60 * 60 * 48;
 const NEWS_SITEMAP_FETCH_TIMEOUT_MS = 6_000;
+const NEWS_SITEMAP_CACHE_CONTROL =
+  "public, max-age=0, s-maxage=600, stale-while-revalidate=3600";
 
 interface NewsSitemapEntry {
   slug: string;
@@ -95,37 +98,14 @@ async function getNewsSitemapEntries(cutoff: Date): Promise<NewsSitemapEntry[]> 
   }
 }
 
-/**
- * Google News sitemap. Per spec, only articles published in the last 48h are
- * valid; older ones are ignored by Google. This must be request-time filtered
- * because a build-time snapshot goes stale even when the XML route is cached
- * correctly.
- */
-export async function GET() {
-  const cutoff = new Date(Date.now() - NEWS_WINDOW_MS);
-  let articles: NewsSitemapEntry[];
-  let source = "supabase-rest";
-
-  try {
-    articles = await getNewsSitemapEntries(cutoff);
-    lastGoodArticles = articles;
-  } catch (error) {
-    console.warn("[news-sitemap] query failed", error);
-    if (!lastGoodArticles) {
-      return new Response("News sitemap temporarily unavailable", {
-        status: 503,
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-store",
-        },
-      });
-    }
-    articles = lastGoodArticles;
-    source = "memory-fallback";
-  }
-
+function buildNewsSitemapXml(articles: NewsSitemapEntry[], cutoff: Date): string {
   const items = articles
-    .filter((a) => a.publishedAt && a.publishedAt >= cutoff)
+    .filter(
+      (a) =>
+        a.publishedAt &&
+        a.publishedAt >= cutoff &&
+        INDEXABLE_LOCALES.some((locale) => locale === a.locale),
+    )
     .map((a) => {
       const loc = absoluteUrl(
         localizedPath({ pathname: "/artikel/[slug]", params: { slug: a.slug } }, a.locale)
@@ -144,16 +124,39 @@ export async function GET() {
     })
     .join("\n");
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
 ${items}
 </urlset>`;
+}
+
+/**
+ * Google News sitemap. Per spec, only articles published in the last 48h are
+ * valid; older ones are ignored by Google. This must be request-time filtered
+ * because a build-time snapshot goes stale even when the XML route is cached
+ * correctly.
+ */
+export async function GET() {
+  const cutoff = new Date(Date.now() - NEWS_WINDOW_MS);
+  let articles: NewsSitemapEntry[];
+  let source = "supabase-rest";
+
+  try {
+    articles = await getNewsSitemapEntries(cutoff);
+    lastGoodArticles = articles;
+  } catch (error) {
+    console.warn("[news-sitemap] query failed", error);
+    articles = lastGoodArticles ?? [];
+    source = lastGoodArticles ? "memory-fallback" : "empty-fallback";
+  }
+
+  const xml = buildNewsSitemapXml(articles, cutoff);
 
   return new Response(xml, {
     headers: {
       "Content-Type": "application/xml",
-      "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=60",
+      "Cache-Control": NEWS_SITEMAP_CACHE_CONTROL,
       "X-Skorly-News-Sitemap-Source": source,
     },
   });

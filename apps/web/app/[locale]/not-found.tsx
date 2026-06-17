@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLocale } from "next-intl/server";
 import { routing, type Locale } from "@/i18n/routing";
+import { localizedSitePath } from "@/i18n/locales";
 
 const COPY: Record<
   Locale,
@@ -40,13 +41,13 @@ const COPY: Record<
     home: "Skorly 首页",
     schedule: "查看赛程",
   },
-};
-
-const SCHEDULE_PATH: Record<Locale, string> = {
-  id: "/id/jadwal",
-  vi: "/vi/lich-thi-dau",
-  en: "/en/schedule",
-  zh: "/zh/saicheng",
+  th: {
+    eyebrow: "ไม่พบหน้า",
+    title: "ลิงก์นี้ยังไม่พร้อมใช้งาน",
+    body: "หน้านี้อาจถูกย้าย ยังไม่เผยแพร่ หรือที่อยู่อาจไม่ถูกต้อง",
+    home: "หน้าแรก Skorly",
+    schedule: "ดูตารางบอล",
+  },
 };
 
 function normalizeLocale(locale: string): Locale {
@@ -72,7 +73,7 @@ export default async function NotFound() {
           {copy.home}
         </Link>
         <Link
-          href={SCHEDULE_PATH[locale]}
+          href={localizedSitePath(locale, "schedule")}
           className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] px-4 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]"
         >
           {copy.schedule}

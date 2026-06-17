@@ -44,6 +44,7 @@ const REGIONS: Region[] = [
   { label: "Indonesia", broadcaster: null },
   { label: "Việt Nam", broadcaster: null },
   { label: "Philippines", broadcaster: null },
+  { label: "ประเทศไทย / Thailand", broadcaster: null },
   {
     label: "United States",
     broadcaster: { name: "FOX Sports / Telemundo", url: "https://www.foxsports.com" },

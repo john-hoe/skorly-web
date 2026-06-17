@@ -4,6 +4,7 @@ import { useActionState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { signInAction, type ActionResult } from "@/lib/auth-actions";
+import { track } from "@/lib/analytics";
 import { Turnstile } from "./turnstile";
 import { OAuthButtons } from "./oauth-buttons";
 
@@ -23,9 +24,11 @@ const KNOWN = new Set([
 export function LoginForm({
   locale,
   initialError,
+  nextPath,
 }: {
   locale: string;
   initialError?: string;
+  nextPath?: string | null;
 }) {
   const t = useTranslations("auth");
   const router = useRouter();
@@ -36,10 +39,15 @@ export function LoginForm({
 
   useEffect(() => {
     if (state?.ok) {
+      track("auth_completed", { method: "email", source: "login_form" });
+      if (nextPath) {
+        window.location.assign(nextPath);
+        return;
+      }
       router.push("/akun");
       router.refresh();
     }
-  }, [state, router]);
+  }, [state, router, nextPath]);
 
   const errMsg =
     state && !state.ok && state.error
@@ -54,7 +62,11 @@ export function LoginForm({
         <h1 className="text-xl font-bold">{t("login.title")}</h1>
         <p className="text-sm text-[var(--muted)] mt-1">{t("login.subtitle")}</p>
       </div>
-      <form action={action} className="space-y-3">
+      <form
+        action={action}
+        onSubmit={() => track("auth_started", { method: "email", source: "login_form" })}
+        className="space-y-3"
+      >
         <input type="hidden" name="locale" value={locale} />
         <label className="block space-y-1">
           <span className="text-sm font-medium">{t("login.email")}</span>
@@ -80,7 +92,7 @@ export function LoginForm({
           {t("login.submit")}
         </button>
       </form>
-      <OAuthButtons locale={locale} />
+      <OAuthButtons locale={locale} nextPath={nextPath} />
       <div className="flex items-center justify-between text-sm">
         <Link href="/lupa-sandi" className="text-[var(--muted)] hover:text-[var(--brand)]">
           {t("login.forgot")}

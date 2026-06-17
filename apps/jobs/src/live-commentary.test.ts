@@ -7,7 +7,7 @@ import {
 } from "./live-commentary";
 import type { LiveFixtureEventSnapshot, LiveFixtureSummary } from "@skorly/types";
 
-const LOCALES = ["id", "vi", "en", "zh"] as const;
+const LOCALES = ["id", "vi", "en", "zh", "th"] as const;
 
 function fixture(overrides: Partial<LiveFixtureSummary> = {}): LiveFixtureSummary {
   return {
@@ -92,6 +92,7 @@ describe("buildTemplateEntries", () => {
     expect(goal!.texts.en).toContain("1-0");
     expect(goal!.texts.en).toContain("penalty");
     expect(goal!.texts.zh).toContain("点球");
+    expect(goal!.texts.th).toContain("จุดโทษ");
     for (const locale of LOCALES) expect(goal!.texts[locale]!.length).toBeGreaterThan(8);
   });
 

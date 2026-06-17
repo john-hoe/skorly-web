@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { subscribePushApi, unsubscribePushApi } from "@/lib/runtime-api-client";
+import { track } from "@/lib/analytics";
 
 const VAPID = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+const DEFAULT_TOPICS = {
+  kickoff: true,
+  goals: true,
+  predictionResult: true,
+};
+const DEFAULT_TOPIC_LABEL = "kickoff,goals,prediction_result";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -55,6 +62,10 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
   async function enable() {
     setState("busy");
     try {
+      track("push_prompt_shown", {
+        source: compact ? "header_compact" : "header",
+        topics: DEFAULT_TOPIC_LABEL,
+      });
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
         setState(permission === "denied" ? "denied" : "idle");
@@ -72,7 +83,7 @@ export function NotifyBell({ compact = false }: { compact?: boolean }) {
       }
       const res = await subscribePushApi(
         { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } },
-        { locale },
+        { locale, topics: DEFAULT_TOPICS },
       );
       setState(res.ok ? "subscribed" : "idle");
     } catch {

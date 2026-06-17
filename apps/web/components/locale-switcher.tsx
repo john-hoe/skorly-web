@@ -4,14 +4,8 @@ import { useParams } from "next/navigation";
 import { useTransition } from "react";
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
-import { routing, type Locale } from "@/i18n/routing";
-
-const LABELS: Record<Locale, string> = {
-  id: "ID",
-  vi: "VI",
-  en: "EN",
-  zh: "中文",
-};
+import { type Locale } from "@/i18n/routing";
+import { LOCALE_LABELS, PUBLIC_LOCALES } from "@/i18n/locales";
 
 /** Dynamic segment names from App Router (exclude locale prefix). */
 function routeParams(params: Record<string, string | string[] | undefined>) {
@@ -44,7 +38,7 @@ export function LocaleSwitcher() {
 
   return (
     <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] p-0.5 text-xs">
-      {routing.locales.map((code) => {
+      {PUBLIC_LOCALES.map((code) => {
         const active = code === locale;
         return (
           <button
@@ -59,7 +53,7 @@ export function LocaleSwitcher() {
                 : "text-[var(--muted)] hover:text-[var(--foreground)]"
             }`}
           >
-            {LABELS[code]}
+            {LOCALE_LABELS[code]}
           </button>
         );
       })}
