@@ -87,7 +87,7 @@ jobs:
           for s in $slugs; do
             for locale in $locales; do
               have=$(curl -sf "${AUTH[@]}" \
-                "$SUPABASE_URL/rest/v1/articles?select=id&slug=eq.${s}-recap&locale=eq.${locale}&limit=1")
+                "$SUPABASE_URL/rest/v1/articles?select=id&slug=eq.${s}-recap&locale=eq.${locale}&status=eq.published&limit=1")
               if [ "$have" = "[]" ]; then
                 echo "missing recap: $s ($locale)"; needed=true
               fi

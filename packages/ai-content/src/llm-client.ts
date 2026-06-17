@@ -98,6 +98,10 @@ function requestTimeoutMs(): number {
   return Number.isFinite(raw) && raw >= 5_000 ? Math.floor(raw) : DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
+function remainingDeadlineMs(deadlineMs: number): number {
+  return Math.max(0, deadlineMs - Date.now());
+}
+
 export interface CompleteParams {
   role?: LlmRole;
   provider?: ProviderName;
@@ -122,23 +126,28 @@ export interface CompleteResult {
   model: string;
 }
 
-/** One provider attempt with in-SDK + outer network retries. */
+/** One provider attempt bounded by the caller's complete() deadline. */
 async function callProvider(
   name: ProviderName,
   cfg: ProviderConfig,
-  params: CompleteParams
+  params: CompleteParams,
+  deadlineMs: number,
 ): Promise<CompleteResult> {
-  // maxRetries covers transient 429/5xx; outer loop covers low-level network
-  // drops (ECONNRESET / TLS reset) that can escape the SDK.
-  const client = new OpenAI({
-    apiKey: cfg.apiKey!,
-    baseURL: cfg.baseUrl,
-    maxRetries: 3,
-    timeout: requestTimeoutMs(),
-  });
+  // Keep retries under one shared deadline. SDK retries stay disabled so a
+  // timeout cannot multiply across SDK retries, our retry loop, and fallbacks.
   const model = params.model ?? cfg.model;
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const remaining = remainingDeadlineMs(deadlineMs);
+    if (remaining <= 0) {
+      throw lastErr ?? new Error(`LLM provider "${name}" timed out before request`);
+    }
+    const client = new OpenAI({
+      apiKey: cfg.apiKey!,
+      baseURL: cfg.baseUrl,
+      maxRetries: 0,
+      timeout: remaining,
+    });
     try {
       const completion = await client.chat.completions.create({
         model,
@@ -158,7 +167,10 @@ async function callProvider(
       return { text, provider: name, model };
     } catch (e) {
       lastErr = e;
-      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      const sleepMs = Math.min(1000 * (attempt + 1), remainingDeadlineMs(deadlineMs));
+      if (attempt < 2 && sleepMs > 0) {
+        await new Promise((r) => setTimeout(r, sleepMs));
+      }
     }
   }
   throw lastErr;
@@ -178,14 +190,16 @@ export async function complete(params: CompleteParams): Promise<CompleteResult> 
   ];
 
   let lastErr: unknown;
+  const deadlineMs = Date.now() + requestTimeoutMs();
   for (const name of chain) {
+    if (remainingDeadlineMs(deadlineMs) <= 0) break;
     const cfg = all[name];
     if (!cfg.apiKey) {
       lastErr = new Error(`LLM provider "${name}" missing API key`);
       continue;
     }
     try {
-      return await callProvider(name, cfg, params);
+      return await callProvider(name, cfg, params, deadlineMs);
     } catch (e) {
       lastErr = e;
       // fall through to the next provider in the chain
