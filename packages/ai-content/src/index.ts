@@ -5,7 +5,7 @@ export { generateArticle } from "./generator";
 export type { GenerateOptions, GeneratedArticle } from "./generator";
 export { extractFactSheet } from "./news/factsheet";
 export type { FactSheet, SignalLead } from "./news/factsheet";
-export { translateArticle } from "./translate";
+export { fitThaiArticleHeadline, reviseThaiArticleTranslation, translateArticle } from "./translate";
 export {
   buildPrematchPoster,
   buildResultCard,

@@ -1,5 +1,6 @@
 import { getPathname } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import { INDEXABLE_LOCALES, LOCALE_HREFLANG, LOCALE_OG } from "@/i18n/locales";
 
 export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://skorly.cc"
@@ -9,14 +10,6 @@ export const SITE_NAME = "Skorly";
 export const SITE_LOGO_PATH = "/icon-512.png";
 
 type Href = Parameters<typeof getPathname>[0]["href"];
-
-/** hreflang code per locale (Google-friendly). */
-const HREFLANG: Record<string, string> = {
-  id: "id",
-  vi: "vi",
-  en: "en",
-  zh: "zh-Hans",
-};
 
 export function absoluteUrl(path: string): string {
   return path.startsWith("http") ? path : `${SITE_URL}${path}`;
@@ -30,12 +23,12 @@ export function localizedPath(href: Href, locale: string): string {
 }
 
 export function hreflangForLocale(locale: string): string {
-  return HREFLANG[locale] ?? locale;
+  return LOCALE_HREFLANG[locale as keyof typeof LOCALE_HREFLANG] ?? locale;
 }
 
 export function buildLanguageAlternates(
   href: Href,
-  locales: readonly string[] = routing.locales
+  locales: readonly string[] = INDEXABLE_LOCALES
 ): Record<string, string> {
   const languages: Record<string, string> = {};
   for (const l of locales) {
@@ -55,7 +48,7 @@ export function buildLanguageAlternates(
 export function buildAlternates(
   href: Href,
   locale: string,
-  locales: readonly string[] = routing.locales
+  locales: readonly string[] = INDEXABLE_LOCALES
 ) {
   return {
     canonical: absoluteUrl(localizedPath(href, locale)),
@@ -64,12 +57,7 @@ export function buildAlternates(
 }
 
 /** Open Graph locale tag per app locale. */
-export const OG_LOCALE: Record<string, string> = {
-  id: "id_ID",
-  vi: "vi_VN",
-  en: "en_PH",
-  zh: "zh_CN",
-};
+export const OG_LOCALE: Record<string, string> = { ...LOCALE_OG };
 
 const DEFAULT_OG_IMAGE = {
   url: "/og.png",
@@ -81,7 +69,7 @@ const DEFAULT_OG_IMAGE = {
 export function buildCanonicalMetadata(
   href: Href,
   locale: string,
-  locales: readonly string[] = routing.locales
+  locales: readonly string[] = INDEXABLE_LOCALES
 ) {
   const alternates = buildAlternates(href, locale, locales);
   return {
@@ -148,6 +136,8 @@ export function matchSeoDescription(locale: string, matchTitle: string): string 
       return `${matchTitle} — nhận định World Cup 2026, dự đoán tỉ số, giờ bóng lăn, thông tin đội tuyển và phân tích trận đấu.`;
     case "zh":
       return `${matchTitle} — 2026 世界杯赛前分析、比分预测、开球信息、球队动态和比赛看点。`;
+    case "th":
+      return `${matchTitle} — พรีวิวฟุตบอลโลก 2026, คาดการณ์สกอร์, เวลาแข่งขัน, ข่าวทีม และประเด็นน่าจับตา.`;
     default:
       return `${matchTitle} — World Cup 2026 preview, score prediction, kickoff details, team news and match analysis.`;
   }
@@ -284,6 +274,34 @@ const PAGE_DESCRIPTIONS: Record<
     group: (group) =>
       `查看 2026 世界杯 ${group} 组积分榜和赛程，包括球队排名、比赛安排、出线形势、关键赛程和比分预测入口。`,
   },
+  th: {
+    home: () =>
+      "ข่าวฟุตบอลโลก 2026 ตารางบอล คาดการณ์สกอร์ วิเคราะห์กลุ่ม และคู่มือทีมสำหรับแฟนบอลไทย.",
+    worldCup: () =>
+      "ศูนย์รวมฟุตบอลโลก 2026 พร้อมกลุ่ม โปรแกรมแข่งขัน คู่เด่น คาดการณ์สกอร์ และคู่มือทัวร์นาเมนต์.",
+    teams: () =>
+      "รายชื่อทีมฟุตบอลโลก 2026 พร้อมกลุ่ม โปรแกรมแข่งขัน ข้อมูลทีม และโปรไฟล์ทีมชาติแต่ละทีม.",
+    team: (team) =>
+      `โปรไฟล์ ${team} ในฟุตบอลโลก 2026: ทีม ผู้เล่น โปรแกรมแข่งขัน กลุ่ม ฟอร์มล่าสุด และข้อมูลสำคัญ.`,
+    schedule: () =>
+      "ตารางบอลฟุตบอลโลก 2026 ตามเวลาไทย พร้อมรอบแบ่งกลุ่ม วันที่แข่งขัน ทีม และลิงก์คาดการณ์สกอร์.",
+    scores: () =>
+      "ผลบอลสดฟุตบอลโลก 2026 ผลการแข่งขัน สถานะเกม และอัปเดตนาทีต่อนาทีสำหรับทุกทีม.",
+    news: () =>
+      "ข่าวล่าสุดฟุตบอลโลก 2026 อัปเดตทีม โปรแกรม รายชื่อนักเตะ ตั๋ว และประเด็นสำคัญก่อนทัวร์นาเมนต์.",
+    articles: () =>
+      "รวมบทความฟุตบอลโลก 2026: ข่าว พรีวิวการแข่งขัน คาดการณ์สกอร์ วิเคราะห์กลุ่ม และประเด็นแท็กติก.",
+    leaderboard: () =>
+      "ตารางจัดอันดับผู้ทายผล Skorly ฟุตบอลโลก 2026 พร้อมคะแนน จำนวนการทาย และสกอร์ที่ทายถูกเป๊ะ.",
+    bracket: () =>
+      "สร้าง bracket ฟุตบอลโลก 2026 เลือกสี่ทีมสุดท้าย คู่ชิง แชมป์ และแชร์เส้นทางแชมป์ของคุณ.",
+    stories: () =>
+      "Web Stories ฟุตบอลโลก 2026 พร้อมพรีวิวภาพสั้น โปรแกรมการแข่งขัน และคำชวนทายสกอร์บน Skorly.",
+    watch: () =>
+      "คู่มือดูฟุตบอลโลก 2026 ผ่านผู้ถือลิขสิทธิ์อย่างเป็นทางการตามภูมิภาค ไม่มีลิงก์สตรีมผิดกฎหมาย.",
+    group: (group) =>
+      `ตารางคะแนนและโปรแกรมกลุ่ม ${group} ฟุตบอลโลก 2026 พร้อมอันดับทีม ตารางแข่ง และลิงก์คาดการณ์สกอร์.`,
+  },
 };
 
 export function pageSeoDescription(
@@ -317,6 +335,11 @@ const PAGE_TITLES: Record<
     home: () => "2026 世界杯赛程、比分预测与球队指南",
     worldCup: () => "2026 世界杯赛事中心",
     scores: () => "2026 世界杯实时比分与赛果",
+  },
+  th: {
+    home: () => "ฟุตบอลโลก 2026: ตารางบอลและคาดการณ์สกอร์",
+    worldCup: () => "ศูนย์รวมฟุตบอลโลก 2026",
+    scores: () => "ผลบอลสดฟุตบอลโลก 2026 และผลการแข่งขัน",
   },
 };
 

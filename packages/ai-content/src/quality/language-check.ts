@@ -7,6 +7,7 @@
 
 const VI_DIACRITICS =
   /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/gi;
+const THAI_CHARS = /[\u0e00-\u0e7f]/g;
 
 function countWords(haystack: string, words: string[]): number {
   let n = 0;
@@ -24,6 +25,11 @@ export function matchesLocaleLanguage(body: string, locale: string): boolean {
   switch (locale) {
     case "zh":
       return cjkRatio >= 0.2;
+    case "th": {
+      const thaiCount = sample.match(THAI_CHARS)?.length ?? 0;
+      const latinCount = sample.match(/[a-z]/gi)?.length ?? 0;
+      return thaiCount >= 80 && thaiCount > latinCount * 1.5 && cjkRatio < 0.05;
+    }
     case "vi":
       return cjkRatio < 0.05 && (sample.match(VI_DIACRITICS)?.length ?? 0) >= 20;
     case "en": {

@@ -7,6 +7,7 @@ import { MatchCard } from "@/components/match-card";
 import { ArticleCard } from "@/components/article-card";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
 import { HomePersonalized } from "@/components/home-personalized";
+import { SeoIntentLinks } from "@/components/seo-intent-links";
 import { buildCanonicalMetadata, pageSeoDescription, pageSeoTitle } from "@/lib/seo";
 import { formatKickoffTime } from "@/lib/kickoff-time";
 import { FocusMatchHero, type FocusMatchData } from "@/components/focus-match-hero";
@@ -277,8 +278,8 @@ export default async function HomePage({
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-5xl px-4 py-8 grid gap-8 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-8">
+      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-4 py-8 md:grid-cols-3">
+        <div className="min-w-0 space-y-8 md:col-span-2">
           {/* Live now — match-day top priority in the main column */}
           <HomeLiveSection
             initialLive={initialLive}
@@ -350,6 +351,8 @@ export default async function HomePage({
             )}
           </section>
 
+          <SeoIntentLinks variant="home" />
+
           {/* Premium prediction plan teaser — after the content that earns it */}
           <section className="rounded-2xl border border-[var(--border)] bg-gradient-to-br from-[var(--card)] to-[var(--brand)]/5 p-5">
             <div className="flex items-center gap-2">
@@ -368,7 +371,7 @@ export default async function HomePage({
           </section>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           {/* Leaderboard snippet */}
           {leaders.length > 0 && (
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">

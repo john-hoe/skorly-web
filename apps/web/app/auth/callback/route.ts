@@ -80,7 +80,7 @@ function noStoreRedirect(url: string) {
 }
 
 function isRecoveryResetPath(path: string): boolean {
-  return /^\/(id|vi|en|zh)\/atur-ulang-sandi$/.test(path);
+  return /^\/(id|vi|en|zh|th)\/atur-ulang-sandi$/.test(path);
 }
 
 function recoveryBridge(next: string, tokenHash?: string | null) {

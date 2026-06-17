@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@skorly/predict-model": "workspace:*",
+    "@skorly/types": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "postgres": "^3.4.0"
   },

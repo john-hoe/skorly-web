@@ -14,6 +14,7 @@ export const LOCALE_META: Record<Locale, LocaleMeta> = {
   vi: { englishName: "Vietnamese", label: "VI", htmlLang: "vi" },
   en: { englishName: "English", label: "EN", htmlLang: "en" },
   zh: { englishName: "Chinese (Simplified)", label: "中文", htmlLang: "zh-Hans" },
+  th: { englishName: "Thai", label: "TH", htmlLang: "th" },
 };
 
 export function localeEnglishName(locale: string): string {

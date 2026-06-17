@@ -55,12 +55,34 @@ const securityHeaders = [
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
 ];
 
+const sitemapHeaders = [
+  {
+    key: "Cache-Control",
+    value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+  },
+];
+
+const newsSitemapHeaders = [
+  {
+    key: "Cache-Control",
+    value: "public, max-age=0, s-maxage=600, stale-while-revalidate=3600",
+  },
+];
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/sitemap.xml",
+        headers: sitemapHeaders,
+      },
+      {
+        source: "/news-sitemap.xml",
+        headers: newsSitemapHeaders,
       },
     ];
   },
@@ -72,9 +94,9 @@ const nextConfig: NextConfig = {
     "@skorly/ui",
   ],
   // Cap SSG worker parallelism: default fans out to ~all CPUs (15 here) and can
-  // OOM-kill memory-tight builds. Three workers keep peak usage bounded while
-  // letting cached static generation finish materially faster than one worker.
-  experimental: { cpus: 3 },
+  // OOM-kill memory-tight builds. Keep Thai rollout builds stable now that the
+  // static page set is near 2,400 generated routes.
+  experimental: { cpus: 1 },
   // Each static page queries Supabase at build time and occasionally hits a
   // flaky DB connection stall. Lower the per-page timeout from the 600s default
   // so a stalled page fails fast and Next retries it quickly (retries succeed

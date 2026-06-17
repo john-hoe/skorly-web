@@ -1,9 +1,14 @@
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
 import {
   AI_PREDICTOR_EMAILS,
+  NEWS_PIPELINE_DRAFT_REASON_LABELS,
+  PUBLIC_LOCALES,
   aiPredictorByEmail,
   aiPredictorBySlug,
+  classifyNewsPipelineDraftReasons,
   isoWeekContaining,
+  localizedSitePath,
+  type NewsPipelineDraftReasonCode,
   type ProfileBadge,
 } from "@skorly/types";
 import {
@@ -517,6 +522,34 @@ export interface RuntimeAdminArticleUpdateInput {
   publishedAt: string | null;
 }
 
+export type RuntimeNewsPipelineHealthStatus = "healthy" | "degraded" | "failed";
+
+export interface RuntimeNewsPipelineReasonCount {
+  code: NewsPipelineDraftReasonCode;
+  label: string;
+  count: number;
+}
+
+export interface RuntimeNewsPipelineReport {
+  generatedAt: Date;
+  since: Date;
+  hours: number;
+  status: RuntimeNewsPipelineHealthStatus;
+  signalsInserted: number;
+  signalsBySource: Array<{ source: string; count: number }>;
+  topicsUpdated: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishedTopics: number;
+  draftOrSkippedTopics: number;
+  publishedArticles: number;
+  draftArticles: number;
+  publishRate: number | null;
+  draftReasons: RuntimeNewsPipelineReasonCount[];
+  diagnostics: string[];
+  recommendedActions: string[];
+}
+
 export interface RuntimeTeamOption {
   id: number;
   name: string;
@@ -794,6 +827,27 @@ interface AdminArticleRow {
   updated_at: string | null;
 }
 
+interface NewsPipelineArticleRow {
+  id: number;
+  topic_id: number | null;
+  status: string;
+  title: string;
+  quality_score: number | null;
+  qa_log: unknown;
+  created_at: string | null;
+}
+
+interface NewsPipelineTopicRow {
+  id: number;
+  status: string;
+  title: string;
+  updated_at: string | null;
+}
+
+interface NewsPipelineSignalRow {
+  source: string;
+}
+
 interface CampaignRow {
   id: number;
   slug: string;
@@ -917,7 +971,7 @@ const ADMIN_ARTICLE_LIST_SELECT =
   "id,slug,locale,type,title,summary,fixture_id,team_id,group_name,topic_id,image_url,status,quality_score,model,published_at,created_at,updated_at";
 const ADMIN_ARTICLE_DETAIL_SELECT = `${ADMIN_ARTICLE_LIST_SELECT},body`;
 const BRACKET_SLUG = "wc2026-bracket";
-const ADMIN_LOCALES = ["id", "vi", "en", "zh"] as const;
+const ADMIN_LOCALES = PUBLIC_LOCALES;
 const ADMIN_ROLES = ["member", "premium", "admin"] as const;
 const ADMIN_USER_PAGE_SIZE = 25;
 const ADMIN_SUBSCRIBER_PAGE_SIZE = 25;
@@ -956,6 +1010,85 @@ function hoursAgo(hours: number): string {
 
 function roundMetric(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function normalizeReportHours(hours: number | undefined): number {
+  if (!Number.isFinite(hours)) return 24;
+  return Math.min(168, Math.max(1, Math.floor(hours ?? 24)));
+}
+
+function addNewsPipelineReasonCount(
+  counts: Map<NewsPipelineDraftReasonCode, number>,
+  code: NewsPipelineDraftReasonCode,
+): void {
+  counts.set(code, (counts.get(code) ?? 0) + 1);
+}
+
+function buildRuntimeNewsPipelineStatus(input: {
+  signalsInserted: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishRate: number | null;
+  targetTopics: number;
+}): RuntimeNewsPipelineHealthStatus {
+  if (input.signalsInserted === 0) return "failed";
+  if (input.pendingTopics > 0 && input.attemptedTopics === 0) return "failed";
+  if (input.publishRate != null && input.publishRate < 0.4) return "degraded";
+  if (input.pendingTopics > 0 && input.attemptedTopics < Math.ceil(input.targetTopics * 0.8)) {
+    return "degraded";
+  }
+  return "healthy";
+}
+
+function buildRuntimeNewsPipelineDiagnostics(input: {
+  status: RuntimeNewsPipelineHealthStatus;
+  signalsInserted: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishRate: number | null;
+  topReason: RuntimeNewsPipelineReasonCount | null;
+  targetTopics: number;
+}): { diagnostics: string[]; recommendedActions: string[] } {
+  const diagnostics: string[] = [];
+  const recommendedActions: string[] = [];
+
+  if (input.signalsInserted === 0) {
+    diagnostics.push("No new news signals were stored in the report window.");
+    recommendedActions.push("Check the ingest workflow/API keys before changing generation logic.");
+  }
+  if (input.pendingTopics > 100) {
+    diagnostics.push(`${input.pendingTopics} topics are still pending; backlog is accumulating.`);
+    recommendedActions.push("Review topic selection and run size after checking signal quality.");
+  }
+  if (input.pendingTopics > 0 && input.attemptedTopics < Math.ceil(input.targetTopics * 0.8)) {
+    diagnostics.push(
+      `Only ${input.attemptedTopics} topic(s) were attempted against a target of ${input.targetTopics}.`,
+    );
+    recommendedActions.push("Check whether the scheduled generation job ran and whether topics reset to pending.");
+  }
+  if (input.publishRate != null && input.publishRate < 0.5) {
+    diagnostics.push(`Publish rate is ${(input.publishRate * 100).toFixed(0)}%, below the 50% target.`);
+    recommendedActions.push("Use the top draft reason before increasing topic count.");
+  }
+  if (input.topReason && input.topReason.code !== "unknown") {
+    diagnostics.push(`Top draft reason: ${input.topReason.label} (${input.topReason.count}).`);
+    if (input.topReason.code === "spam_topic") {
+      recommendedActions.push("Tighten radar/topic filters before generation.");
+    } else if (input.topReason.code === "thin_fact_sheet") {
+      recommendedActions.push("Improve source selection or route score-only topics to brief templates.");
+    } else if (
+      input.topReason.code === "web_factcheck_fail" ||
+      input.topReason.code === "unsupported_claim" ||
+      input.topReason.code === "contradicted_fact"
+    ) {
+      recommendedActions.push("Inspect unsupported claims and adjust the repair/delete policy.");
+    }
+  }
+  if (!diagnostics.length) diagnostics.push("No obvious pipeline blockage in this report window.");
+  if (!recommendedActions.length && input.status !== "healthy") {
+    recommendedActions.push("Inspect recent draft QA logs for the first failing topic.");
+  }
+  return { diagnostics, recommendedActions };
 }
 
 function cleanArticleText(body: string): string {
@@ -2585,6 +2718,147 @@ export async function getRuntimeAdminOverviewStats(): Promise<RuntimeAdminOvervi
   }
 }
 
+export async function getRuntimeNewsPipelineReport(
+  hoursInput = 24,
+  configuredTopicCount = 6,
+): Promise<RuntimeNewsPipelineReport> {
+  const hours = normalizeReportHours(hoursInput);
+  const targetTopics = Math.max(1, Math.floor(configuredTopicCount));
+  const generatedAt = new Date();
+  const since = new Date(generatedAt.getTime() - hours * 60 * 60 * 1000);
+  const sinceIso = since.toISOString();
+  const rowLimit = 2_000;
+
+  const [
+    signalsInserted,
+    signalRows,
+    topicsUpdated,
+    pendingTopics,
+    recentTopics,
+    recentArticles,
+  ] = await Promise.all([
+    selectCount("news_signals", { fetched_at: `gte.${sinceIso}` }),
+    selectRows<NewsPipelineSignalRow>("news_signals", {
+      select: "source",
+      fetched_at: `gte.${sinceIso}`,
+      limit: rowLimit,
+    }),
+    selectCount("topics", { updated_at: `gte.${sinceIso}` }),
+    selectCount("topics", { status: "eq.pending" }),
+    selectRows<NewsPipelineTopicRow>("topics", {
+      select: "id,status,title,updated_at",
+      updated_at: `gte.${sinceIso}`,
+      order: "updated_at.desc",
+      limit: rowLimit,
+    }),
+    selectRows<NewsPipelineArticleRow>("articles", {
+      select: "id,topic_id,status,title,quality_score,qa_log,created_at",
+      type: "eq.news",
+      created_at: `gte.${sinceIso}`,
+      order: "created_at.desc",
+      limit: rowLimit,
+    }),
+  ]);
+
+  const attemptedTopicIds = new Set<number>();
+  const publishedTopicIds = new Set<number>();
+  const draftOrSkippedTopicIds = new Set<number>();
+  const articleTopicIds = new Set<number>();
+  const reasonCounts = new Map<NewsPipelineDraftReasonCode, number>();
+
+  for (const article of recentArticles) {
+    if (article.topic_id == null) continue;
+    articleTopicIds.add(article.topic_id);
+    attemptedTopicIds.add(article.topic_id);
+    if (article.status === "published") {
+      publishedTopicIds.add(article.topic_id);
+    } else {
+      draftOrSkippedTopicIds.add(article.topic_id);
+      for (const reason of classifyNewsPipelineDraftReasons({
+        title: article.title,
+        qaLog: article.qa_log,
+        qualityScore: article.quality_score,
+        status: article.status,
+      })) {
+        addNewsPipelineReasonCount(reasonCounts, reason);
+      }
+    }
+  }
+
+  for (const topic of recentTopics) {
+    if (topic.status === "done" || topic.status === "skipped") {
+      attemptedTopicIds.add(topic.id);
+    }
+    if (topic.status === "skipped" && !articleTopicIds.has(topic.id)) {
+      draftOrSkippedTopicIds.add(topic.id);
+      addNewsPipelineReasonCount(reasonCounts, "thin_fact_sheet");
+    }
+  }
+
+  for (const topicId of publishedTopicIds) {
+    draftOrSkippedTopicIds.delete(topicId);
+  }
+
+  const sourceCounts = new Map<string, number>();
+  for (const row of signalRows) {
+    sourceCounts.set(row.source, (sourceCounts.get(row.source) ?? 0) + 1);
+  }
+
+  const attemptedTopics = attemptedTopicIds.size;
+  const publishedTopics = publishedTopicIds.size;
+  const publishRate = attemptedTopics > 0 ? publishedTopics / attemptedTopics : null;
+  const draftReasons = Array.from(reasonCounts.entries())
+    .map(([code, count]) => ({
+      code,
+      label: NEWS_PIPELINE_DRAFT_REASON_LABELS[code],
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const status = buildRuntimeNewsPipelineStatus({
+    signalsInserted,
+    pendingTopics,
+    attemptedTopics,
+    publishRate,
+    targetTopics,
+  });
+  const { diagnostics, recommendedActions } = buildRuntimeNewsPipelineDiagnostics({
+    status,
+    signalsInserted,
+    pendingTopics,
+    attemptedTopics,
+    publishRate,
+    topReason: draftReasons[0] ?? null,
+    targetTopics,
+  });
+
+  const boundedDiagnostics = [...diagnostics];
+  if (recentTopics.length >= rowLimit || recentArticles.length >= rowLimit || signalRows.length >= rowLimit) {
+    boundedDiagnostics.push(`Report used a ${rowLimit}-row cap for detailed breakdowns.`);
+  }
+
+  return {
+    generatedAt,
+    since,
+    hours,
+    status,
+    signalsInserted,
+    signalsBySource: Array.from(sourceCounts.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source)),
+    topicsUpdated,
+    pendingTopics,
+    attemptedTopics,
+    publishedTopics,
+    draftOrSkippedTopics: draftOrSkippedTopicIds.size,
+    publishedArticles: recentArticles.filter((article) => article.status === "published").length,
+    draftArticles: recentArticles.filter((article) => article.status === "draft").length,
+    publishRate,
+    draftReasons,
+    diagnostics: boundedDiagnostics,
+    recommendedActions,
+  };
+}
+
 export async function getRuntimeTeamOptions(): Promise<RuntimeTeamOption[]> {
   const rows = await selectRows<{ id: number; name: string; is_national: boolean }>("teams", {
     select: "id,name,is_national",
@@ -2867,7 +3141,7 @@ function commentTarget(
     return {
       type: "article",
       label: article.title,
-      href: `/${article.locale}/artikel/${article.slug}`,
+      href: localizedSitePath(article.locale, "article", { slug: article.slug }),
     };
   }
   if (comment.fixture_id != null) {
@@ -2878,7 +3152,7 @@ function commentTarget(
     return {
       type: "fixture",
       label: `${fixture.home.name} vs ${fixture.away.name}`,
-      href: `/id/pertandingan/${fixture.slug}`,
+      href: localizedSitePath("id", "match", { slug: fixture.slug }),
     };
   }
   return { type: "unknown", label: "Unknown target", href: null };
@@ -3513,19 +3787,22 @@ export async function saveRuntimePushSubscription(input: {
   userAgent?: string | null;
 }): Promise<void> {
   const topics = input.topics ?? {};
+  const body: Record<string, unknown> = {
+    endpoint: input.endpoint,
+    keys: input.keys,
+    user_id: input.userId ?? null,
+    locale: input.locale ?? "id",
+    user_agent: input.userAgent ?? null,
+    failure_count: 0,
+  };
+  if (input.topics) {
+    body.kickoff = topics.kickoff ?? true;
+    body.goals = topics.goals ?? true;
+    body.prediction_result = topics.predictionResult ?? true;
+  }
   await upsertRows(
     "push_subscriptions",
-    {
-      endpoint: input.endpoint,
-      keys: input.keys,
-      user_id: input.userId ?? null,
-      locale: input.locale ?? "id",
-      kickoff: topics.kickoff ?? true,
-      goals: topics.goals ?? true,
-      prediction_result: topics.predictionResult ?? true,
-      user_agent: input.userAgent ?? null,
-      failure_count: 0,
-    },
+    body,
     "endpoint",
     { returning: false },
   );

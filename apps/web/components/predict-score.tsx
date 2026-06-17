@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { getMyPredictionApi, submitPredictionApi } from "@/lib/runtime-api-client";
+import { track } from "@/lib/analytics";
 import { ShareButtons } from "@/components/share-buttons";
 
 interface Props {
@@ -20,7 +21,7 @@ interface Props {
 type Saved = { home: number; away: number; points: number | null } | null;
 
 const NUM =
-  "w-14 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 py-2 text-center text-lg font-bold tabular-nums";
+  "h-12 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2 text-center text-xl font-bold tabular-nums";
 
 export function PredictScore({
   fixtureId,
@@ -41,6 +42,8 @@ export function PredictScore({
   const [justSaved, setJustSaved] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  const trackedStart = useRef(false);
+  const loginNext = sharePath ?? null;
 
   useEffect(() => {
     const update = () => setNow(Date.now());
@@ -85,7 +88,7 @@ export function PredictScore({
     };
   }, [fixtureId]);
 
-  function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const h = Number(home);
@@ -97,6 +100,15 @@ export function PredictScore({
     startTransition(async () => {
       const res = await submitPredictionApi(fixtureId, h, a);
       if (res.ok) {
+        track("prediction_submitted", {
+          fixtureId,
+          league: "world_cup",
+          home: homeName,
+          away: awayName,
+          predHome: h,
+          predAway: a,
+          source: saved ? "update" : "create",
+        });
         setSaved({ home: h, away: a, points: null });
         setJustSaved(true);
         setTimeout(() => setJustSaved(false), 2500);
@@ -108,8 +120,20 @@ export function PredictScore({
     });
   }
 
+  function trackStart() {
+    if (trackedStart.current) return;
+    trackedStart.current = true;
+    track("predict_start", {
+      fixtureId,
+      league: "world_cup",
+      home: homeName,
+      away: awayName,
+    });
+  }
+
   const card =
     "rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 space-y-3";
+  const formId = `predict-score-${fixtureId}`;
 
   // Loading
   if (auth === null) {
@@ -123,7 +147,7 @@ export function PredictScore({
         <h2 className="font-bold">{t("title")}</h2>
         <p className="text-sm text-[var(--muted)]">{t("loginToPredict")}</p>
         <Link
-          href="/masuk"
+          href={loginNext ? { pathname: "/masuk", query: { next: loginNext } } : "/masuk"}
           className="inline-block rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)]"
         >
           {t("login")}
@@ -180,8 +204,14 @@ export function PredictScore({
         <h2 className="font-bold">{t("title")}</h2>
         <p className="text-sm text-[var(--muted)]">{t("subtitle")}</p>
       </div>
-      <form onSubmit={onSubmit} className="flex items-center justify-center gap-3">
-        <span className="text-sm font-medium truncate max-w-[30%] text-right">{homeName}</span>
+      <form
+        id={formId}
+        onSubmit={onSubmit}
+        className="grid grid-cols-[minmax(0,1fr)_3.5rem_0.75rem_3.5rem_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_4rem_1rem_4rem_minmax(0,1fr)]"
+      >
+        <span className="min-w-0 text-right text-xs font-semibold leading-tight [overflow-wrap:anywhere] sm:text-sm">
+          {homeName}
+        </span>
         <input
           type="number"
           min={0}
@@ -189,11 +219,15 @@ export function PredictScore({
           inputMode="numeric"
           aria-label={homeName}
           value={home}
-          onChange={(e) => setHome(e.target.value)}
+          onFocus={trackStart}
+          onChange={(e) => {
+            trackStart();
+            setHome(e.target.value);
+          }}
           className={NUM}
           required
         />
-        <span className="text-[var(--muted)]">-</span>
+        <span className="text-center text-[var(--muted)]">-</span>
         <input
           type="number"
           min={0}
@@ -201,17 +235,23 @@ export function PredictScore({
           inputMode="numeric"
           aria-label={awayName}
           value={away}
-          onChange={(e) => setAway(e.target.value)}
+          onFocus={trackStart}
+          onChange={(e) => {
+            trackStart();
+            setAway(e.target.value);
+          }}
           className={NUM}
           required
         />
-        <span className="text-sm font-medium truncate max-w-[30%]">{awayName}</span>
+        <span className="min-w-0 text-xs font-semibold leading-tight [overflow-wrap:anywhere] sm:text-sm">
+          {awayName}
+        </span>
       </form>
       {error && <p className="text-sm text-red-500 text-center">{error}</p>}
       {justSaved && <p className="text-sm text-green-600 text-center">{t("saved")}</p>}
       <button
         type="submit"
-        onClick={onSubmit}
+        form={formId}
         disabled={pending}
         className="w-full rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--brand-dark)] disabled:opacity-60"
       >

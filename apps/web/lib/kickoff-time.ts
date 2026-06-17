@@ -16,10 +16,11 @@ const LOCALE_CONFIG: Record<
   vi: { intlLocale: "vi-VN", timeZone: "Asia/Ho_Chi_Minh" },
   en: { intlLocale: "en-US", timeZone: "America/New_York" },
   zh: { intlLocale: "zh-CN", timeZone: "Asia/Shanghai" },
+  th: { intlLocale: "th-TH", timeZone: "Asia/Bangkok" },
 };
 
 function normalizeLocale(locale: string): KickoffLocale {
-  return locale === "id" || locale === "vi" || locale === "en" || locale === "zh"
+  return locale === "id" || locale === "vi" || locale === "en" || locale === "zh" || locale === "th"
     ? locale
     : FALLBACK_LOCALE;
 }

@@ -1,13 +1,15 @@
 import { SITE_URL } from "@/lib/seo";
+import { ALL_LOCALES } from "@/i18n/locales";
 import { confirmRuntimeSubscriber } from "@/lib/runtime-data";
 
-const LOCALES = new Set(["id", "vi", "en", "zh"]);
+const LOCALES = new Set<string>(ALL_LOCALES);
 
 const MSG: Record<string, { ok: string; bad: string }> = {
   id: { ok: "Langganan dikonfirmasi! 🎉", bad: "Tautan tidak valid atau kedaluwarsa." },
   en: { ok: "Subscription confirmed! 🎉", bad: "This link is invalid or expired." },
   vi: { ok: "Đã xác nhận đăng ký! 🎉", bad: "Liên kết không hợp lệ hoặc đã hết hạn." },
   zh: { ok: "订阅已确认！🎉", bad: "链接无效或已过期。" },
+  th: { ok: "ยืนยันการสมัครรับข่าวสารแล้ว! 🎉", bad: "ลิงก์ไม่ถูกต้องหรือหมดอายุ" },
 };
 
 function page(locale: string, ok: boolean): Response {

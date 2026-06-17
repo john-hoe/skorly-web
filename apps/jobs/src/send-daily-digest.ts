@@ -6,22 +6,16 @@
  */
 import { getUpcomingFixtures, getConfirmedSubscribers, getPushTargetsForTopic, type FixtureView } from "@skorly/db";
 import { sendPush, type VapidConfig } from "./web-push";
+import { PUBLIC_LOCALES, localizedSitePath, type Locale } from "@skorly/types";
 
-const LOCALES = ["id", "vi", "en", "zh"] as const;
-type Locale = (typeof LOCALES)[number];
+const LOCALES = PUBLIC_LOCALES;
 
 const TZ: Record<Locale, { zone: string; label: string }> = {
   id: { zone: "Asia/Jakarta", label: "WIB" },
   vi: { zone: "Asia/Ho_Chi_Minh", label: "ICT" },
   en: { zone: "Asia/Manila", label: "PHT" },
   zh: { zone: "Asia/Shanghai", label: "北京时间" },
-};
-
-const SCHEDULE_PATH: Record<Locale, string> = {
-  id: "/jadwal",
-  vi: "/lich-thi-dau",
-  en: "/schedule",
-  zh: "/saicheng",
+  th: { zone: "Asia/Bangkok", label: "เวลาไทย" },
 };
 
 const COPY: Record<
@@ -66,6 +60,14 @@ const COPY: Record<
     lead: "今天的比赛（当地时间）。开赛前来猜个比分：",
     cta: "查看赛程并猜比分",
     foot: "退订",
+  },
+  th: {
+    subject: (n) => `ตารางวันนี้: ฟุตบอลโลก ${n} แมตช์`,
+    pushTitle: (n) => `วันนี้มีฟุตบอลโลก ${n} แมตช์`,
+    pushBody: (first, time) => `เริ่ม ${time}: ${first} ทายสกอร์ตอนนี้!`,
+    lead: "แมตช์วันนี้ เวลาแสดงตามประเทศไทย ทายสกอร์ก่อนเริ่มแข่ง:",
+    cta: "ดูตารางและทายสกอร์",
+    foot: "ยกเลิกการสมัคร",
   },
 };
 
@@ -157,7 +159,7 @@ async function emailDigestForLocale(
   if (!recipients.length) return 0;
 
   const c = COPY[locale];
-  const link = `${base}/${locale}${SCHEDULE_PATH[locale]}`;
+  const link = `${base}${localizedSitePath(locale, "schedule")}`;
   const rows = fixtures
     .map(
       (f) =>
@@ -218,7 +220,7 @@ export async function sendDailyDigest(): Promise<{
           matchLabel(first),
           first.kickoffAt ? fmtTime(new Date(first.kickoffAt), locale) : "",
         ),
-        url: `${base}/${locale}${SCHEDULE_PATH[locale]}`,
+        url: `${base}${localizedSitePath(locale, "schedule")}`,
         tag: `daily-digest-${new Date().toISOString().slice(0, 10)}`,
       };
       const res = await sendPush(t, payload, vapid).catch(() => ({ ok: false as const }));

@@ -1,13 +1,15 @@
 import { SITE_URL } from "@/lib/seo";
+import { ALL_LOCALES } from "@/i18n/locales";
 import { unsubscribeRuntimeByToken } from "@/lib/runtime-data";
 
-const LOCALES = new Set(["id", "vi", "en", "zh"]);
+const LOCALES = new Set<string>(ALL_LOCALES);
 
 const MSG: Record<string, { ok: string; bad: string }> = {
   id: { ok: "Kamu telah berhenti berlangganan.", bad: "Tautan tidak valid atau kedaluwarsa." },
   en: { ok: "You've been unsubscribed.", bad: "This link is invalid or expired." },
   vi: { ok: "Bạn đã hủy đăng ký.", bad: "Liên kết không hợp lệ hoặc đã hết hạn." },
   zh: { ok: "你已成功退订。", bad: "链接无效或已过期。" },
+  th: { ok: "คุณยกเลิกการสมัครรับข่าวสารแล้ว", bad: "ลิงก์ไม่ถูกต้องหรือหมดอายุ" },
 };
 
 function page(locale: string, ok: boolean): Response {

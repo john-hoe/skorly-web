@@ -153,6 +153,9 @@ importers:
       '@skorly/predict-model':
         specifier: workspace:*
         version: link:../predict-model
+      '@skorly/types':
+        specifier: workspace:*
+        version: link:../types
       drizzle-orm:
         specifier: ^0.38.0
         version: 0.38.4(@cloudflare/workers-types@4.20260529.1)(@neondatabase/serverless@1.1.0)(@types/react@19.2.15)(postgres@3.4.9)(react@19.2.4)
@@ -185,6 +188,9 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@20.19.41)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.16.9)(tsx@4.22.3)(yaml@2.9.0)
 
   packages/predict-model:
     devDependencies:

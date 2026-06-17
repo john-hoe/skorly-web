@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { TeamBadge } from "@/components/team-badge";
 import { getLiveAllApi } from "@/lib/runtime-api-client";
 import { isLivePollingWindow, LIVE_POLL_MS } from "@/lib/live-window";
+import { track } from "@/lib/analytics";
 import type { LiveFixtureSummary } from "@skorly/types";
 
 export interface FocusMatchData {
@@ -113,6 +114,14 @@ function FocusCard({
         <div className="mt-3 flex items-center justify-center gap-3">
           <Link
             href={{ pathname: "/pertandingan/[slug]", params: { slug: match.slug } }}
+            onClick={() =>
+              track("focus_match_cta_click", {
+                fixtureId: match.id,
+                target: "match_detail",
+                status,
+                source: "home_focus_match",
+              })
+            }
             className="rounded-lg bg-white px-5 py-2 text-sm font-bold text-[var(--brand-dark)] hover:bg-white/90"
           >
             {isLive ? t("enterLive") : t("predictCta")}

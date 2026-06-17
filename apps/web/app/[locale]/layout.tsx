@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Sans_SC, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Noto_Sans_SC, Noto_Sans_Thai, Plus_Jakarta_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing, type Locale } from "@/i18n/routing";
+import { LOCALE_HTML_LANG } from "@/i18n/locales";
 import { AnalyticsProvider } from "@/components/analytics-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { JsonLd } from "@/components/json-ld";
 import { PwaRegister } from "@/components/pwa-register";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { SITE_LOGO_URL, SITE_NAME, SITE_URL, OG_LOCALE } from "@/lib/seo";
 import "../globals.css";
 
@@ -22,17 +25,15 @@ const notoSc = Noto_Sans_SC({
   weight: ["400", "500", "600", "700"],
   variable: "--font-noto-sc",
 });
+const notoThai = Noto_Sans_Thai({
+  subsets: ["thai"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-thai",
+});
 const gaId = process.env.NEXT_PUBLIC_GA_ID;
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
-
-const HTML_LANG: Record<Locale, string> = {
-  id: "id",
-  vi: "vi",
-  en: "en",
-  zh: "zh-Hans",
-};
 
 export async function generateMetadata({
   params,
@@ -94,7 +95,7 @@ export default async function LocaleLayout({
   }
   setRequestLocale(locale);
 
-  const htmlClass = `${inter.variable} ${jakarta.variable} ${notoSc.variable}`;
+  const htmlClass = `${inter.variable} ${jakarta.variable} ${notoSc.variable} ${notoThai.variable}`;
 
   const orgLd = {
     "@context": "https://schema.org",
@@ -112,9 +113,11 @@ export default async function LocaleLayout({
   };
 
   return (
-    <html lang={HTML_LANG[locale as Locale]} className={htmlClass}>
+    <html lang={LOCALE_HTML_LANG[locale as Locale]} className={htmlClass}>
       <body
-        className={`min-h-screen flex flex-col ${locale === "zh" ? "font-zh" : ""}`}
+        className={`min-h-screen flex flex-col ${
+          locale === "zh" ? "font-zh" : locale === "th" ? "font-th" : ""
+        }`}
       >
         <JsonLd data={[orgLd, siteLd]} />
         <PwaRegister />
@@ -128,6 +131,9 @@ export default async function LocaleLayout({
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          <div className="h-[calc(5rem+env(safe-area-inset-bottom))] lg:hidden" aria-hidden />
+          <PwaInstallPrompt />
+          <MobileBottomNav />
         </NextIntlClientProvider>
       </body>
     </html>

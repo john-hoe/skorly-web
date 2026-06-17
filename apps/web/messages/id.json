@@ -12,9 +12,11 @@
     "teams": "Tim",
     "articles": "Artikel",
     "leaderboard": "Klasemen",
+    "predictions": "Prediksi",
     "leagues": "Liga",
     "groups": "Grup",
     "news": "Berita",
+    "mobileNav": "Navigasi utama",
     "contact": "Kontak",
     "login": "Masuk",
     "register": "Daftar",
@@ -98,6 +100,81 @@
     "busyLabel": "Menyimpan preferensi notifikasi",
     "onLabel": "Nonaktifkan notifikasi pertandingan",
     "deniedLabel": "Notifikasi pertandingan diblokir"
+  },
+  "pwaInstall": {
+    "title": "Pasang Skorly",
+    "body": "Buka skor, jadwal, dan prediksi lebih cepat dari layar utama.",
+    "iosTitle": "Tambahkan Skorly ke layar utama",
+    "iosBody": "Gunakan tombol Bagikan di Safari, lalu pilih Tambahkan ke Layar Utama.",
+    "install": "Pasang",
+    "notNow": "Nanti"
+  },
+  "seoLinks": {
+    "title": "Jelajahi Piala Dunia 2026",
+    "description": "Akses cepat ke skor langsung, jadwal, prediksi, tim, dan panduan nonton resmi.",
+    "items": {
+      "scores": {
+        "title": "Skor langsung Piala Dunia",
+        "description": "Ikuti skor live, status pertandingan, dan hasil terbaru."
+      },
+      "schedule": {
+        "title": "Jadwal Piala Dunia 2026",
+        "description": "Lihat tanggal, jam kick-off, grup, dan tautan laga."
+      },
+      "predictions": {
+        "title": "Prediksi skor",
+        "description": "Masuk ke game tebak skor dan kumpulkan poin."
+      },
+      "groups": {
+        "title": "Grup dan klasemen",
+        "description": "Pantau posisi tim, fase grup, dan jalur turnamen."
+      },
+      "teams": {
+        "title": "Profil tim",
+        "description": "Buka skuad, jadwal, dan halaman tiap tim peserta."
+      },
+      "watch": {
+        "title": "Tempat nonton resmi",
+        "description": "Cari panduan broadcaster resmi tanpa tautan ilegal."
+      },
+      "news": {
+        "title": "Berita Piala Dunia",
+        "description": "Ikuti kabar terbaru, cedera, dan konteks pertandingan."
+      },
+      "archive": {
+        "title": "Pratinjau dan ulasan",
+        "description": "Baca preview, prediksi, recap, dan analisis taktik."
+      }
+    },
+    "teamTitle": "Profil {team}",
+    "teamDescription": "Skuad, jadwal, dan tautan pertandingan Piala Dunia 2026 untuk {team}."
+  },
+  "pushPreferences": {
+    "title": "Preferensi notifikasi",
+    "description": "Pilih notifikasi pertandingan yang ingin diterima di perangkat ini.",
+    "unsupported": "Browser ini belum mendukung notifikasi push.",
+    "denied": "Notifikasi diblokir di browser. Ubah izin situs untuk mengaktifkannya.",
+    "enable": "Aktifkan notifikasi",
+    "save": "Simpan preferensi",
+    "disable": "Matikan notifikasi",
+    "busy": "Menyimpan...",
+    "saved": "Preferensi notifikasi tersimpan.",
+    "disabled": "Notifikasi dimatikan di perangkat ini.",
+    "error": "Preferensi belum bisa disimpan. Coba lagi.",
+    "topics": {
+      "kickoff": {
+        "title": "Kick-off",
+        "description": "Pengingat sebelum pertandingan dimulai."
+      },
+      "goals": {
+        "title": "Gol",
+        "description": "Pemberitahuan saat ada gol."
+      },
+      "predictionResult": {
+        "title": "Hasil tebakan",
+        "description": "Pemberitahuan saat tebakanmu sudah dinilai."
+      }
+    }
   },
   "share": {
     "label": "Bagikan:",

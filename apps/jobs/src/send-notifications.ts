@@ -19,6 +19,7 @@ import {
   type PushTarget,
 } from "@skorly/db";
 import { sendPush, type VapidConfig } from "./web-push";
+import { localizedSitePath } from "@skorly/types";
 
 interface PushPayload {
   title: string;
@@ -45,6 +46,57 @@ function vapidFromEnv(): VapidConfig | null {
 
 function siteUrl(): string {
   return (readEnv().SITE_URL ?? "https://skorly.cc").replace(/\/$/, "");
+}
+
+function kickoffBody(locale: string): string {
+  switch (locale) {
+    case "id":
+      return "Kickoff! ⚽";
+    case "vi":
+      return "Bóng lăn! ⚽";
+    case "zh":
+      return "比赛开始！⚽";
+    case "th":
+      return "เริ่มแข่งแล้ว! ⚽";
+    default:
+      return "Kickoff! ⚽";
+  }
+}
+
+function resultTitle(locale: string, points: number): string {
+  if (points > 0) return `🎯 +${points} pts!`;
+  switch (locale) {
+    case "id":
+      return "Hasil pertandingan";
+    case "vi":
+      return "Kết quả trận đấu";
+    case "zh":
+      return "比赛结果";
+    case "th":
+      return "ผลการแข่งขัน";
+    default:
+      return "Match result";
+  }
+}
+
+function resultBody(
+  locale: string,
+  match: string,
+  actual: string,
+  pick: string,
+): string {
+  switch (locale) {
+    case "id":
+      return `${match} ${actual} · tebakanmu ${pick}`;
+    case "vi":
+      return `${match} ${actual} · bạn dự đoán ${pick}`;
+    case "zh":
+      return `${match} ${actual} · 你的预测 ${pick}`;
+    case "th":
+      return `${match} ${actual} · คุณทาย ${pick}`;
+    default:
+      return `${match} ${actual} · you picked ${pick}`;
+  }
 }
 
 /** Deliver one payload to a list of targets; returns delivered count. */
@@ -96,8 +148,8 @@ export async function sendNotifications(): Promise<{
           targets,
           (locale) => ({
             title: `${k.homeName} vs ${k.awayName}`,
-            body: "Kickoff! ⚽",
-            url: `${base}/${locale}/pertandingan/${k.slug}`,
+            body: kickoffBody(locale),
+            url: `${base}${localizedSitePath(locale, "match", { slug: k.slug })}`,
             tag: `kickoff-${k.fixtureId}`,
           }),
           vapid,
@@ -121,7 +173,7 @@ export async function sendNotifications(): Promise<{
           (locale) => ({
             title: `⚽ ${g.homeName} ${g.homeGoals ?? ""}-${g.awayGoals ?? ""} ${g.awayName}`.trim(),
             body: `${g.minute ? g.minute + "' " : ""}${who}${score}`,
-            url: `${base}/${locale}/pertandingan/${g.slug}`,
+            url: `${base}${localizedSitePath(locale, "match", { slug: g.slug })}`,
             tag: `goal-${g.fixtureId}`,
           }),
           vapid,
@@ -149,9 +201,14 @@ export async function sendNotifications(): Promise<{
           out.results += await fanOut(
             targets,
             (locale) => ({
-              title: hit ? `🎯 +${r.pointsAwarded} pts!` : "Match result",
-              body: `${r.homeName} ${r.homeGoals ?? ""}-${r.awayGoals ?? ""} ${r.awayName} · you picked ${r.homeGoalsPred}-${r.awayGoalsPred}`,
-              url: `${base}/${locale}/pertandingan/${r.slug}`,
+              title: resultTitle(locale, r.pointsAwarded),
+              body: resultBody(
+                locale,
+                `${r.homeName} vs ${r.awayName}`,
+                `${r.homeGoals ?? ""}-${r.awayGoals ?? ""}`,
+                `${r.homeGoalsPred}-${r.awayGoalsPred}`,
+              ),
+              url: `${base}${localizedSitePath(locale, "match", { slug: r.slug })}`,
               tag: `result-${r.predictionId}`,
             }),
             vapid,

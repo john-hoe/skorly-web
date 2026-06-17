@@ -11,7 +11,7 @@
  *   pnpm tsx --env-file=.env apps/jobs/scripts/regenerate-predictions.ts
  *   pnpm tsx --env-file=.env apps/jobs/scripts/regenerate-predictions.ts --locale zh --limit 2
  */
-import type { Locale } from "@skorly/types";
+import { PUBLIC_LOCALES, type Locale } from "@skorly/types";
 import {
   getAllFixtures,
   getArticleGenMeta,
@@ -27,7 +27,7 @@ import {
   type MatchContext,
 } from "@skorly/ai-content";
 
-const ALL_LOCALES: Locale[] = ["id", "vi", "en", "zh"];
+const ALL_LOCALES: readonly Locale[] = PUBLIC_LOCALES;
 const CONCURRENCY = 4;
 const MIN_LEAD_MS = 30 * 60 * 1000;
 
@@ -45,7 +45,7 @@ interface Args {
 function parseArgs(): Args {
   const args = process.argv.slice(2);
   const out: Args = {
-    locales: ALL_LOCALES,
+    locales: [...ALL_LOCALES],
     limit: Infinity,
     windowHours: Infinity,
     maxAgeHours: 0,

@@ -12,9 +12,11 @@
     "teams": "Đội tuyển",
     "articles": "Bài viết",
     "leaderboard": "Xếp hạng",
+    "predictions": "Dự đoán",
     "leagues": "Giải đấu",
     "groups": "Bảng đấu",
     "news": "Tin tức",
+    "mobileNav": "Điều hướng chính",
     "contact": "Liên hệ",
     "login": "Đăng nhập",
     "register": "Đăng ký",
@@ -98,6 +100,81 @@
     "busyLabel": "Đang lưu tùy chọn thông báo",
     "onLabel": "Tắt thông báo trận đấu",
     "deniedLabel": "Thông báo trận đấu đã bị chặn"
+  },
+  "pwaInstall": {
+    "title": "Cài Skorly",
+    "body": "Mở tỉ số, lịch thi đấu và dự đoán nhanh hơn từ màn hình chính.",
+    "iosTitle": "Thêm Skorly vào màn hình chính",
+    "iosBody": "Dùng nút Chia sẻ trong Safari, rồi chọn Thêm vào màn hình chính.",
+    "install": "Cài đặt",
+    "notNow": "Để sau"
+  },
+  "seoLinks": {
+    "title": "Khám phá World Cup 2026",
+    "description": "Liên kết nhanh tới tỷ số trực tiếp, lịch đấu, dự đoán, đội tuyển và hướng dẫn xem chính thức.",
+    "items": {
+      "scores": {
+        "title": "Tỷ số trực tiếp World Cup",
+        "description": "Theo dõi tỷ số live, trạng thái trận đấu và kết quả mới nhất."
+      },
+      "schedule": {
+        "title": "Lịch thi đấu World Cup 2026",
+        "description": "Xem ngày, giờ bóng lăn, bảng đấu và liên kết trận."
+      },
+      "predictions": {
+        "title": "Dự đoán tỷ số",
+        "description": "Tham gia trò chơi dự đoán và tích điểm."
+      },
+      "groups": {
+        "title": "Bảng đấu và xếp hạng",
+        "description": "Theo dõi vị trí đội, bối cảnh vòng bảng và nhánh giải."
+      },
+      "teams": {
+        "title": "Hồ sơ đội tuyển",
+        "description": "Mở đội hình, lịch đấu và trang của từng đội."
+      },
+      "watch": {
+        "title": "Xem chính thức ở đâu",
+        "description": "Tìm hướng dẫn nhà đài có bản quyền, không dùng luồng lậu."
+      },
+      "news": {
+        "title": "Tin World Cup",
+        "description": "Theo dõi cập nhật, chấn thương và bối cảnh trận đấu."
+      },
+      "archive": {
+        "title": "Nhận định và tổng kết",
+        "description": "Đọc preview, dự đoán, recap và phân tích chiến thuật."
+      }
+    },
+    "teamTitle": "Hồ sơ đội {team}",
+    "teamDescription": "Đội hình, lịch đấu và liên kết trận World Cup 2026 của {team}."
+  },
+  "pushPreferences": {
+    "title": "Tùy chọn thông báo",
+    "description": "Chọn thông báo trận đấu bạn muốn nhận trên thiết bị này.",
+    "unsupported": "Trình duyệt này chưa hỗ trợ thông báo push.",
+    "denied": "Thông báo đang bị chặn trong trình duyệt. Hãy đổi quyền của trang để bật lại.",
+    "enable": "Bật thông báo",
+    "save": "Lưu tùy chọn",
+    "disable": "Tắt thông báo",
+    "busy": "Đang lưu...",
+    "saved": "Đã lưu tùy chọn thông báo.",
+    "disabled": "Thông báo đã tắt trên thiết bị này.",
+    "error": "Chưa thể lưu tùy chọn. Hãy thử lại.",
+    "topics": {
+      "kickoff": {
+        "title": "Bóng lăn",
+        "description": "Nhắc trước khi trận đấu bắt đầu."
+      },
+      "goals": {
+        "title": "Bàn thắng",
+        "description": "Thông báo khi có bàn thắng."
+      },
+      "predictionResult": {
+        "title": "Kết quả dự đoán",
+        "description": "Thông báo khi dự đoán của bạn được chấm điểm."
+      }
+    }
   },
   "share": {
     "label": "Chia sẻ:",

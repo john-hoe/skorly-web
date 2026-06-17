@@ -56,6 +56,8 @@ function langCode(locale: string): string {
       return "vi";
     case "zh":
       return "zh_CN";
+    case "th":
+      return "th";
     default:
       return "en";
   }

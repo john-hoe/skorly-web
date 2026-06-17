@@ -4,7 +4,7 @@ import {
   getArticleSitemapEntries,
   getAllTeamSlugs,
 } from "@skorly/db";
-import { routing } from "@/i18n/routing";
+import { INDEXABLE_LOCALES } from "@/i18n/locales";
 import { ARTICLE_AUTHOR_SLUG } from "@/lib/article-author";
 import { absoluteUrl, buildLanguageAlternates, localizedPath } from "@/lib/seo";
 import { getStaticFixturesForBuild } from "@/lib/static-fixtures";
@@ -21,7 +21,7 @@ function withAlternates(
 ): MetadataRoute.Sitemap {
   const languages = buildLanguageAlternates(href);
 
-  return routing.locales.map((locale) => ({
+  return INDEXABLE_LOCALES.map((locale) => ({
     url: absoluteUrl(localizedPath(href, locale)),
     lastModified,
     changeFrequency: opts?.changeFrequency,
@@ -40,7 +40,7 @@ function articleLocalesBySlug(articles: { slug: string; locale: string }[]) {
   return new Map(
     [...bySlug.entries()].map(([slug, locales]) => [
       slug,
-      routing.locales.filter((locale) => locales.has(locale)),
+      INDEXABLE_LOCALES.filter((locale) => locales.has(locale)),
     ])
   );
 }
@@ -150,6 +150,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Articles (one entry per locale that actually has the article)
   for (const a of articles) {
+    if (!INDEXABLE_LOCALES.some((locale) => locale === a.locale)) continue;
     const href = { pathname: "/artikel/[slug]", params: { slug: a.slug } } as const;
     const locales = articleLocales.get(a.slug) ?? [a.locale];
     entries.push({

@@ -532,9 +532,10 @@ describe("admin match management actions", () => {
     expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/matches");
     expect(cache.revalidatePath).toHaveBeenCalledWith(`/admin/matches/${target.id}`);
     expect(cache.revalidatePath).toHaveBeenCalledWith(`/id/pertandingan/${target.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/pertandingan/${target.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/pertandingan/${target.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/pertandingan/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/tran-dau/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/match/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/bisai/${target.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/th/การแข่งขัน/${target.slug}`);
   });
 
   it("does not audit no-op fixture status updates", async () => {
@@ -617,9 +618,10 @@ describe("admin media management actions", () => {
     );
     expect(cache.revalidatePath).toHaveBeenCalledWith("/admin/media");
     expect(cache.revalidatePath).toHaveBeenCalledWith(`/id/pertandingan/${target.fixture?.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/pertandingan/${target.fixture?.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/pertandingan/${target.fixture?.slug}`);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/pertandingan/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/vi/tran-dau/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/en/match/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/zh/bisai/${target.fixture?.slug}`);
+    expect(cache.revalidatePath).toHaveBeenCalledWith(`/th/การแข่งขัน/${target.fixture?.slug}`);
   });
 
   it("requires explicit confirmation before retrying media generation", async () => {

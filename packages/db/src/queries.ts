@@ -3,6 +3,11 @@ import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "./client";
 import { fixtures, teams, players, articles, articleType, standings, newsSignals, topics, profiles, adminAuditLog, jobLocks, predictions, campaigns, campaignEntries, fixtureEvents, fixtureMedia, liveCommentary, pushSubscriptions, subscribers, comments, commentLikes, commentReports, imageLibrary, teamIdentities } from "./schema";
 import { forecastMatch, forecastSummary, type MatchForecast, type TeamForm } from "@skorly/predict-model";
+import {
+  NEWS_PIPELINE_DRAFT_REASON_LABELS,
+  classifyNewsPipelineDraftReasons,
+  type NewsPipelineDraftReasonCode,
+} from "@skorly/types";
 
 const homeTeam = () => alias(teams, "home_team");
 const awayTeam = () => alias(teams, "away_team");
@@ -876,6 +881,87 @@ export async function articleExists(slug: string, locale = "id"): Promise<boolea
     )
     .limit(1);
   return rows.length > 0;
+}
+
+/** True if any article row with this slug+locale exists, including draft. */
+export async function articleLocaleExists(slug: string, locale = "id"): Promise<boolean> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: articles.id })
+    .from(articles)
+    .where(and(eq(articles.slug, slug), eq(articles.locale, locale)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** Current article status for a slug+locale pair, if present. */
+export async function getArticleLocaleStatus(
+  slug: string,
+  locale = "id",
+): Promise<"draft" | "published" | null> {
+  const db = getDb();
+  const rows = await db
+    .select({ status: articles.status })
+    .from(articles)
+    .where(and(eq(articles.slug, slug), eq(articles.locale, locale)))
+    .limit(1);
+  return rows[0]?.status ?? null;
+}
+
+export interface ArticleBackfillSource {
+  id: number;
+  slug: string;
+  locale: string;
+  type: string;
+  title: string;
+  summary: string | null;
+  body: string;
+  fixtureId: number | null;
+  teamId: number | null;
+  groupName: string | null;
+  topicId: number | null;
+  imageUrl: string | null;
+  sources: unknown;
+  embeds: unknown;
+  publishedAt: Date | null;
+}
+
+/** Published source articles for faithful locale backfill. */
+export async function getPublishedArticlesForBackfill(input: {
+  sourceLocale?: string;
+  limit?: number;
+  type?: string;
+} = {}): Promise<ArticleBackfillSource[]> {
+  const sourceLocale = input.sourceLocale ?? "en";
+  const limit = Math.max(1, Math.min(input.limit ?? 320, 1000));
+  const conds = [
+    eq(articles.locale, sourceLocale),
+    eq(articles.status, "published"),
+  ];
+  if (input.type) conds.push(eq(articles.type, input.type as (typeof articles.type.enumValues)[number]));
+  const rows = await getDb()
+    .select({
+      id: articles.id,
+      slug: articles.slug,
+      locale: articles.locale,
+      type: articles.type,
+      title: articles.title,
+      summary: articles.summary,
+      body: articles.body,
+      fixtureId: articles.fixtureId,
+      teamId: articles.teamId,
+      groupName: articles.groupName,
+      topicId: articles.topicId,
+      imageUrl: articles.imageUrl,
+      sources: articles.sources,
+      embeds: articles.embeds,
+      publishedAt: articles.publishedAt,
+    })
+    .from(articles)
+    .where(and(...conds))
+    .orderBy(desc(articles.publishedAt), desc(articles.createdAt))
+    .limit(limit);
+  return rows.map((r) => ({ ...r, publishedAt: safeDate(r.publishedAt) }));
 }
 
 /** All published article slugs for a locale (for static generation / sitemap). */
@@ -1936,6 +2022,268 @@ export async function getPendingTopics(limit = 10): Promise<TopicView[]> {
     .orderBy(desc(topics.heat))
     .limit(limit);
   return rows as TopicView[];
+}
+
+export type NewsPipelineHealthStatus = "healthy" | "degraded" | "failed";
+
+export interface NewsPipelineReasonCount {
+  code: NewsPipelineDraftReasonCode;
+  label: string;
+  count: number;
+}
+
+export interface NewsPipelineReport {
+  generatedAt: Date;
+  since: Date;
+  hours: number;
+  status: NewsPipelineHealthStatus;
+  signalsInserted: number;
+  signalsBySource: Array<{ source: string; count: number }>;
+  topicsUpdated: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishedTopics: number;
+  draftOrSkippedTopics: number;
+  publishedArticles: number;
+  draftArticles: number;
+  publishRate: number | null;
+  draftReasons: NewsPipelineReasonCount[];
+  diagnostics: string[];
+  recommendedActions: string[];
+}
+
+export interface NewsPipelineReportInput {
+  hours?: number;
+  now?: Date;
+  configuredTopicCount?: number;
+}
+
+function normalizeReportHours(hours: number | undefined): number {
+  if (!Number.isFinite(hours)) return 24;
+  return Math.min(168, Math.max(1, Math.floor(hours ?? 24)));
+}
+
+function addReasonCount(
+  counts: Map<NewsPipelineDraftReasonCode, number>,
+  code: NewsPipelineDraftReasonCode,
+): void {
+  counts.set(code, (counts.get(code) ?? 0) + 1);
+}
+
+function buildNewsPipelineStatus(input: {
+  signalsInserted: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishRate: number | null;
+  targetTopics: number;
+}): NewsPipelineHealthStatus {
+  if (input.signalsInserted === 0) return "failed";
+  if (input.pendingTopics > 0 && input.attemptedTopics === 0) return "failed";
+  if (input.publishRate != null && input.publishRate < 0.4) return "degraded";
+  if (input.pendingTopics > 0 && input.attemptedTopics < Math.ceil(input.targetTopics * 0.8)) {
+    return "degraded";
+  }
+  return "healthy";
+}
+
+function buildNewsPipelineDiagnostics(input: {
+  status: NewsPipelineHealthStatus;
+  signalsInserted: number;
+  pendingTopics: number;
+  attemptedTopics: number;
+  publishRate: number | null;
+  topReason: NewsPipelineReasonCount | null;
+  targetTopics: number;
+}): { diagnostics: string[]; recommendedActions: string[] } {
+  const diagnostics: string[] = [];
+  const recommendedActions: string[] = [];
+
+  if (input.signalsInserted === 0) {
+    diagnostics.push("No new news signals were stored in the report window.");
+    recommendedActions.push("Check the ingest workflow/API keys before changing generation logic.");
+  }
+  if (input.pendingTopics > 100) {
+    diagnostics.push(`${input.pendingTopics} topics are still pending; backlog is accumulating.`);
+    recommendedActions.push("Review topic selection and run size after checking signal quality.");
+  }
+  if (input.pendingTopics > 0 && input.attemptedTopics < Math.ceil(input.targetTopics * 0.8)) {
+    diagnostics.push(
+      `Only ${input.attemptedTopics} topic(s) were attempted against a target of ${input.targetTopics}.`,
+    );
+    recommendedActions.push("Check whether the scheduled generation job ran and whether topics reset to pending.");
+  }
+  if (input.publishRate != null && input.publishRate < 0.5) {
+    diagnostics.push(`Publish rate is ${(input.publishRate * 100).toFixed(0)}%, below the 50% target.`);
+    recommendedActions.push("Use the top draft reason before increasing topic count.");
+  }
+  if (input.topReason && input.topReason.code !== "unknown") {
+    diagnostics.push(`Top draft reason: ${input.topReason.label} (${input.topReason.count}).`);
+    if (input.topReason.code === "spam_topic") {
+      recommendedActions.push("Tighten radar/topic filters before generation.");
+    } else if (input.topReason.code === "thin_fact_sheet") {
+      recommendedActions.push("Improve source selection or route score-only topics to brief templates.");
+    } else if (
+      input.topReason.code === "web_factcheck_fail" ||
+      input.topReason.code === "unsupported_claim" ||
+      input.topReason.code === "contradicted_fact"
+    ) {
+      recommendedActions.push("Inspect unsupported claims and adjust the repair/delete policy.");
+    }
+  }
+  if (!diagnostics.length) diagnostics.push("No obvious pipeline blockage in this report window.");
+  if (!recommendedActions.length && input.status !== "healthy") {
+    recommendedActions.push("Inspect recent draft QA logs for the first failing topic.");
+  }
+  return { diagnostics, recommendedActions };
+}
+
+export async function getNewsPipelineReport(
+  input: NewsPipelineReportInput = {},
+): Promise<NewsPipelineReport> {
+  const db = getDb();
+  const hours = normalizeReportHours(input.hours);
+  const now = input.now ?? new Date();
+  const since = new Date(now.getTime() - hours * 60 * 60 * 1000);
+  const targetTopics = Math.max(1, Math.floor(input.configuredTopicCount ?? 6));
+
+  const [
+    signalCountRows,
+    signalSourceRows,
+    topicCountRows,
+    pendingCountRows,
+    recentTopics,
+    recentArticles,
+  ] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(newsSignals)
+      .where(gte(newsSignals.fetchedAt, since)),
+    db
+      .select({ source: newsSignals.source, count: sql<number>`count(*)::int` })
+      .from(newsSignals)
+      .where(gte(newsSignals.fetchedAt, since))
+      .groupBy(newsSignals.source),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(topics)
+      .where(gte(topics.updatedAt, since)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(topics)
+      .where(eq(topics.status, "pending")),
+    db
+      .select({
+        id: topics.id,
+        status: topics.status,
+        title: topics.title,
+        updatedAt: topics.updatedAt,
+      })
+      .from(topics)
+      .where(gte(topics.updatedAt, since)),
+    db
+      .select({
+        id: articles.id,
+        topicId: articles.topicId,
+        status: articles.status,
+        title: articles.title,
+        qualityScore: articles.qualityScore,
+        qaLog: articles.qaLog,
+        createdAt: articles.createdAt,
+      })
+      .from(articles)
+      .where(and(eq(articles.type, "news"), gte(articles.createdAt, since))),
+  ]);
+
+  const attemptedTopicIds = new Set<number>();
+  const publishedTopicIds = new Set<number>();
+  const draftOrSkippedTopicIds = new Set<number>();
+  const articleTopicIds = new Set<number>();
+  const reasonCounts = new Map<NewsPipelineDraftReasonCode, number>();
+
+  for (const article of recentArticles) {
+    if (article.topicId == null) continue;
+    articleTopicIds.add(article.topicId);
+    attemptedTopicIds.add(article.topicId);
+    if (article.status === "published") {
+      publishedTopicIds.add(article.topicId);
+    } else {
+      draftOrSkippedTopicIds.add(article.topicId);
+      for (const reason of classifyNewsPipelineDraftReasons({
+        title: article.title,
+        qaLog: article.qaLog,
+        qualityScore: article.qualityScore,
+        status: article.status,
+      })) {
+        addReasonCount(reasonCounts, reason);
+      }
+    }
+  }
+
+  for (const topic of recentTopics) {
+    if (topic.status === "done" || topic.status === "skipped") {
+      attemptedTopicIds.add(topic.id);
+    }
+    if (topic.status === "skipped" && !articleTopicIds.has(topic.id)) {
+      draftOrSkippedTopicIds.add(topic.id);
+      addReasonCount(reasonCounts, "thin_fact_sheet");
+    }
+  }
+
+  for (const topicId of publishedTopicIds) {
+    draftOrSkippedTopicIds.delete(topicId);
+  }
+
+  const signalsInserted = Number(signalCountRows[0]?.count ?? 0);
+  const topicsUpdated = Number(topicCountRows[0]?.count ?? 0);
+  const pendingTopics = Number(pendingCountRows[0]?.count ?? 0);
+  const attemptedTopics = attemptedTopicIds.size;
+  const publishedTopics = publishedTopicIds.size;
+  const publishRate = attemptedTopics > 0 ? publishedTopics / attemptedTopics : null;
+  const draftReasons = Array.from(reasonCounts.entries())
+    .map(([code, count]) => ({
+      code,
+      label: NEWS_PIPELINE_DRAFT_REASON_LABELS[code],
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const status = buildNewsPipelineStatus({
+    signalsInserted,
+    pendingTopics,
+    attemptedTopics,
+    publishRate,
+    targetTopics,
+  });
+  const { diagnostics, recommendedActions } = buildNewsPipelineDiagnostics({
+    status,
+    signalsInserted,
+    pendingTopics,
+    attemptedTopics,
+    publishRate,
+    topReason: draftReasons[0] ?? null,
+    targetTopics,
+  });
+
+  return {
+    generatedAt: now,
+    since,
+    hours,
+    status,
+    signalsInserted,
+    signalsBySource: signalSourceRows
+      .map((row) => ({ source: row.source, count: Number(row.count ?? 0) }))
+      .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source)),
+    topicsUpdated,
+    pendingTopics,
+    attemptedTopics,
+    publishedTopics,
+    draftOrSkippedTopics: draftOrSkippedTopicIds.size,
+    publishedArticles: recentArticles.filter((article) => article.status === "published").length,
+    draftArticles: recentArticles.filter((article) => article.status === "draft").length,
+    publishRate,
+    draftReasons,
+    diagnostics,
+    recommendedActions,
+  };
 }
 
 /* ------------------------------------------------------------------ */

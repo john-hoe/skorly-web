@@ -37,6 +37,7 @@ import { sendEmail, optInEmail } from "./email";
 import { SITE_URL } from "./seo";
 import { getAdminOperation, type AdminOperationId } from "./admin-operations";
 import { requireAdmin } from "./admin";
+import { PUBLIC_LOCALES, localizedSitePath } from "@/i18n/locales";
 
 const RESPONSE_PREVIEW_LIMIT = 2_000;
 const JOB_TIMEOUT_MS = 120_000;
@@ -45,8 +46,6 @@ const ARTICLE_SUMMARY_MAX = 600;
 const ARTICLE_BODY_MAX = 120_000;
 const ARTICLE_IMAGE_URL_MAX = 2_000;
 const MEDIA_IMAGE_URL_MAX = 2_000;
-const PUBLIC_LOCALES = ["id", "vi", "en", "zh"] as const;
-
 export type RunAdminOperationResult =
   | {
       ok: true;
@@ -441,9 +440,9 @@ function revalidateArticleAdminPaths(article: Pick<RuntimeAdminArticleDetail, "i
   revalidatePath("/admin");
   revalidatePath("/admin/content");
   revalidatePath(`/admin/content/${article.id}`);
-  revalidatePath(`/${article.locale}/artikel/${article.slug}`);
-  revalidatePath(`/${article.locale}/arsip`);
-  revalidatePath(`/${article.locale}/berita`);
+  revalidatePath(localizedSitePath(article.locale, "article", { slug: article.slug }));
+  revalidatePath(localizedSitePath(article.locale, "articles"));
+  revalidatePath(localizedSitePath(article.locale, "news"));
   revalidatePath("/sitemap.xml");
   revalidatePath("/news-sitemap.xml");
 }
@@ -455,9 +454,9 @@ function revalidateMatchAdminPaths(match: Pick<RuntimeAdminMatchBasic, "id" | "s
   revalidatePath("/api/live");
   revalidatePath("/api/score/live");
   for (const locale of PUBLIC_LOCALES) {
-    revalidatePath(`/${locale}/jadwal`);
-    revalidatePath(`/${locale}/skor`);
-    revalidatePath(`/${locale}/pertandingan/${match.slug}`);
+    revalidatePath(localizedSitePath(locale, "schedule"));
+    revalidatePath(localizedSitePath(locale, "scores"));
+    revalidatePath(localizedSitePath(locale, "match", { slug: match.slug }));
   }
 }
 
@@ -1101,7 +1100,7 @@ function revalidateMediaAdminPaths(image: RuntimeAdminMediaItem): void {
   const slug = image.fixture?.slug;
   if (slug) {
     for (const locale of PUBLIC_LOCALES) {
-      revalidatePath(`/${locale}/pertandingan/${slug}`);
+      revalidatePath(localizedSitePath(locale, "match", { slug }));
     }
   }
 }

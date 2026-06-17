@@ -15,7 +15,7 @@ import type {
   LiveStatsSnapshot,
 } from "@skorly/types";
 
-export const COMMENTARY_LOCALES = ["id", "vi", "en", "zh"] as const;
+export const COMMENTARY_LOCALES = ["id", "vi", "en", "zh", "th"] as const;
 export type CommentaryLocale = (typeof COMMENTARY_LOCALES)[number];
 
 export interface CommentaryContext {
@@ -77,6 +77,7 @@ function kickoffTexts(f: LiveFixtureSummary): Texts {
     vi: `⚽ Bóng lăn! ${m} bắt đầu.`,
     en: `⚽ Kick-off! ${m} is underway.`,
     zh: `⚽ 比赛开始！${m} 正式开打。`,
+    th: `⚽ เริ่มแข่ง! ${m} เปิดเกมแล้ว`,
   };
 }
 
@@ -87,6 +88,7 @@ function halftimeTexts(f: LiveFixtureSummary): Texts {
     vi: `⏸️ Hết hiệp một. ${f.home.name} ${s} ${f.away.name}.`,
     en: `⏸️ Half-time. ${f.home.name} ${s} ${f.away.name}.`,
     zh: `⏸️ 中场休息。${f.home.name} ${s} ${f.away.name}。`,
+    th: `⏸️ พักครึ่ง ${f.home.name} ${s} ${f.away.name}`,
   };
 }
 
@@ -96,6 +98,7 @@ function secondHalfTexts(): Texts {
     vi: `▶️ Hiệp hai bắt đầu.`,
     en: `▶️ The second half is underway.`,
     zh: `▶️ 下半场开始。`,
+    th: `▶️ ครึ่งหลังเริ่มแล้ว`,
   };
 }
 
@@ -106,6 +109,7 @@ function fulltimeTexts(f: LiveFixtureSummary): Texts {
     vi: `🏁 Trận đấu kết thúc. ${f.home.name} ${s} ${f.away.name}.`,
     en: `🏁 Full-time. ${f.home.name} ${s} ${f.away.name}.`,
     zh: `🏁 全场结束。${f.home.name} ${s} ${f.away.name}。`,
+    th: `🏁 จบเกม ${f.home.name} ${s} ${f.away.name}`,
   };
 }
 
@@ -126,11 +130,13 @@ function goalTexts(
   const tagVi = pen ? " (phạt đền)" : og ? " (phản lưới nhà)" : "";
   const tagEn = pen ? " (penalty)" : og ? " (own goal)" : "";
   const tagZh = pen ? "（点球）" : og ? "（乌龙球）" : "";
+  const tagTh = pen ? " (จุดโทษ)" : og ? " (ทำเข้าประตูตัวเอง)" : "";
   return {
     id: `⚽ GOL! ${min} ${who}${t ? ` (${t})` : ""}${tagId} mencetak gol! ${f.home.name} ${s} ${f.away.name}.`,
     vi: `⚽ VÀO! ${min} ${who}${t ? ` (${t})` : ""}${tagVi} ghi bàn! ${f.home.name} ${s} ${f.away.name}.`,
     en: `⚽ GOAL! ${min} ${who}${t ? ` (${t})` : ""}${tagEn} scores! ${f.home.name} ${s} ${f.away.name}.`,
     zh: `⚽ 进球！${min} ${who}${t ? `（${t}）` : ""}${tagZh}破门！${f.home.name} ${s} ${f.away.name}。`,
+    th: `⚽ ประตู! ${min} ${who}${t ? ` (${t})` : ""}${tagTh} ยิงเข้า! ${f.home.name} ${s} ${f.away.name}`,
   };
 }
 
@@ -150,6 +156,7 @@ function cardTexts(
       vi: `🟥 ${min} Thẻ đỏ! ${who}${t} bị truất quyền thi đấu.`,
       en: `🟥 ${min} Red card! ${who}${t} is sent off.`,
       zh: `🟥 ${min} 红牌！${who}${tZh}被罚下。`,
+      th: `🟥 ${min} ใบแดง! ${who}${t} ถูกไล่ออก`,
     };
   }
   return {
@@ -157,6 +164,7 @@ function cardTexts(
     vi: `🟨 ${min} Thẻ vàng cho ${who}${t}.`,
     en: `🟨 ${min} Yellow card for ${who}${t}.`,
     zh: `🟨 ${min} ${who}${tZh}吃到黄牌。`,
+    th: `🟨 ${min} ใบเหลืองสำหรับ ${who}${t}`,
   };
 }
 
@@ -169,6 +177,7 @@ function substitutionTexts(minute: number | null, player: string | null, team: s
     vi: `🔄 ${min} ${t} thay người: ${who}.`,
     en: `🔄 ${min} Substitution for ${t}: ${who}.`,
     zh: `🔄 ${min} ${t} 进行换人调整：${who}。`,
+    th: `🔄 ${min} ${t} เปลี่ยนตัว: ${who}`,
   };
 }
 
@@ -180,6 +189,7 @@ function varTexts(minute: number | null, detail: string | null): Texts {
     vi: `📺 ${min} VAR can thiệp: ${d}.`,
     en: `📺 ${min} VAR review: ${d}.`,
     zh: `📺 ${min} VAR 介入：${d}。`,
+    th: `📺 ${min} ตรวจ VAR: ${d}`,
   };
 }
 
@@ -201,6 +211,7 @@ function statsTexts(f: LiveFixtureSummary, stats: LiveStatsSnapshot): Texts {
     vi: `📊 ${f.home.name} vs ${f.away.name}: ${parts("kiểm soát bóng", "dứt điểm")}.`,
     en: `📊 ${f.home.name} vs ${f.away.name}: ${parts("possession", "shots")}.`,
     zh: `📊 ${f.home.name} vs ${f.away.name}：${parts("控球率", "射门")}。`,
+    th: `📊 ${f.home.name} vs ${f.away.name}: ${parts("ครองบอล", "ยิง")}`,
   };
 }
 
@@ -363,7 +374,7 @@ function readColorEnv(): ColorEnv {
 }
 
 /**
- * One LLM call per big moment returning all four locales as JSON. The prompt
+ * One LLM call per big moment returning all five locales as JSON. The prompt
  * forbids any fact not present in the parameters; on any failure we simply
  * keep the template entry.
  */
@@ -378,10 +389,10 @@ export async function buildColorEntry(
 
   const baseUrl = (env.QWEN_BASE_URL ?? "https://dashscope.aliyuncs.com/compatible-mode/v1").replace(/\/$/, "");
   const facts = `Match: ${fixture.home.name} vs ${fixture.away.name}. Score now: ${score(fixture)}. Moment: ${draft.texts.en}`;
-  const prompt = `You are a football commentator. Write ONE short, vivid commentary line (max 25 words) about this moment, in each of these languages: Indonesian (id), Vietnamese (vi), English (en), Simplified Chinese (zh).
+  const prompt = `You are a football commentator. Write ONE short, vivid commentary line (max 25 words) about this moment, in each of these languages: Indonesian (id), Vietnamese (vi), English (en), Simplified Chinese (zh), Thai (th).
 STRICT RULES: Use ONLY the facts below. Do not add player history, statistics, or any detail not stated. No betting language.
 FACTS: ${facts}
-Reply with ONLY a JSON object: {"id":"...","vi":"...","en":"...","zh":"..."}`;
+Reply with ONLY a JSON object: {"id":"...","vi":"...","en":"...","zh":"...","th":"..."}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), COLOR_TIMEOUT_MS);
@@ -408,7 +419,7 @@ Reply with ONLY a JSON object: {"id":"...","vi":"...","en":"...","zh":"..."}`;
     const match = content.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const texts = JSON.parse(match[0]) as Record<string, string>;
-    if (!texts.id || !texts.vi || !texts.en || !texts.zh) return null;
+    if (!texts.id || !texts.vi || !texts.en || !texts.zh || !texts.th) return null;
     return {
       dedupeKey: `${draft.dedupeKey}:color`,
       sortKey: draft.sortKey + 1,
@@ -419,6 +430,7 @@ Reply with ONLY a JSON object: {"id":"...","vi":"...","en":"...","zh":"..."}`;
         vi: String(texts.vi).slice(0, 280),
         en: String(texts.en).slice(0, 280),
         zh: String(texts.zh).slice(0, 280),
+        th: String(texts.th).slice(0, 280),
       },
     };
   } catch {

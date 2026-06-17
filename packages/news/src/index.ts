@@ -8,8 +8,13 @@ export { ApiFootballNewsAdapter } from "./sources/api-football";
 export type { ApiFootballNewsOptions } from "./sources/api-football";
 export { clusterSignals } from "./cluster";
 export type { TopicCluster, TopicCategory } from "./cluster";
-export { filterSignals, sourceWeight } from "./filter";
-export type { FilterOptions } from "./filter";
+export {
+  filterSignals,
+  isSpammySignalText,
+  scoreTopicPublishability,
+  sourceWeight,
+} from "./filter";
+export type { FilterOptions, TopicPublishability, TopicPublishabilityRoute } from "./filter";
 export { fetchSourceText, enrichLeadsWithSource } from "./fetch-source";
 export type { EnrichedLead } from "./fetch-source";
 export { tavilySearch, toQuery } from "./tavily";

@@ -1,16 +1,43 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAllFixtures, type FixtureView } from "@skorly/db";
-import { routing } from "@/i18n/routing";
 import { MatchCard } from "@/components/match-card";
+import { SeoIntentLinks } from "@/components/seo-intent-links";
 import { formatKickoffDay, kickoffDayKey } from "@/lib/kickoff-time";
 import { buildCanonicalMetadata, pageSeoDescription } from "@/lib/seo";
-import { withBuildRetry } from "@/lib/build-retry";
 
-export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
+const SCHEDULE_DATA_TIMEOUT_MS = 10_000;
+
+async function withScheduleDataTimeout(
+  label: string,
+  work: Promise<FixtureView[]>,
+): Promise<FixtureView[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<FixtureView[]>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[schedule-page] ${label} exceeded ${SCHEDULE_DATA_TIMEOUT_MS}ms; rendering fallback data.`,
+      );
+      resolve([]);
+    }, SCHEDULE_DATA_TIMEOUT_MS);
+    if (timer && typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+  });
+
+  try {
+    return await Promise.race([
+      work.catch((error) => {
+        console.warn(`[schedule-page] ${label} failed; rendering fallback data.`, error);
+        return [];
+      }),
+      timeout,
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export async function generateMetadata({
@@ -37,13 +64,7 @@ export default async function SchedulePage({
   setRequestLocale(locale);
   const t = await getTranslations();
 
-  // Build-time read with no revalidate: swallowing a transient DB failure here
-  // would permanently bake an empty page. Retry, then fail the build — the
-  // match-day cron retries within 30 minutes and the old page stays live.
-  const fixtures = await withBuildRetry("jadwal:getAllFixtures", () => getAllFixtures());
-  if (fixtures.length === 0) {
-    throw new Error("[jadwal] getAllFixtures returned 0 rows at build time");
-  }
+  const fixtures = await withScheduleDataTimeout("getAllFixtures", getAllFixtures());
 
   const byDay = new Map<string, { day: Date | null; fixtures: FixtureView[] }>();
   for (const f of fixtures) {
@@ -60,18 +81,26 @@ export default async function SchedulePage({
         <p className="mt-1 text-[var(--muted)]">{t("nav.worldCup")}</p>
       </header>
 
-      {Array.from(byDay.entries()).map(([day, group]) => (
-        <section key={day}>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
-            {formatKickoffDay(group.day, locale)}
-          </h2>
-          <div className="grid gap-3">
-            {group.fixtures.map((f) => (
-              <MatchCard key={f.id} fixture={f} locale={locale} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {fixtures.length === 0 ? (
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-6 text-center text-sm text-[var(--muted)]">
+          {t("team.noFixtures")}
+        </p>
+      ) : (
+        Array.from(byDay.entries()).map(([day, group]) => (
+          <section key={day}>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+              {formatKickoffDay(group.day, locale)}
+            </h2>
+            <div className="grid gap-3">
+              {group.fixtures.map((f) => (
+                <MatchCard key={f.id} fixture={f} locale={locale} />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+
+      <SeoIntentLinks variant="schedule" />
     </div>
   );
 }

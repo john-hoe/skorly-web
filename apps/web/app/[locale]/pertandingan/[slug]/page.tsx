@@ -22,6 +22,7 @@ import { CommentsSection } from "@/components/comments-section";
 import { EventsTimeline } from "@/components/events-timeline";
 import { GoalHighlights } from "@/components/goal-highlights";
 import { SubscribeGiftCard } from "@/components/subscribe-gift-card";
+import { SeoIntentLinks } from "@/components/seo-intent-links";
 import { JsonLd } from "@/components/json-ld";
 import { buildFixtureSportsEventLd } from "@/lib/event-structured-data";
 import { formatKickoffTime } from "@/lib/kickoff-time";
@@ -461,6 +462,14 @@ export default async function MatchPage({
 
       {/* Structured "show your prediction" — community picks for this fixture */}
       <PublicPicks fixtureId={fixture.id} />
+
+      <SeoIntentLinks
+        variant="match"
+        teams={[
+          { name: fixture.home.name, slug: fixture.home.slug },
+          { name: fixture.away.name, slug: fixture.away.slug },
+        ]}
+      />
 
       <SubscribeGiftCard source="match_page" />
 

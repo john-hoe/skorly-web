@@ -6,7 +6,7 @@
  *   pnpm tsx --env-file=.env apps/jobs/scripts/run-generate-news.ts [N]
  * N = number of top pending topics to write (default 3 for validation).
  */
-import type { Locale } from "@skorly/types";
+import { PUBLIC_LOCALES, type Locale } from "@skorly/types";
 import {
   getPendingTopics,
   getSignalsForTopic,
@@ -21,10 +21,17 @@ import {
   generateArticle,
   translateArticle,
   backTranslateCheck,
+  thaiQualityGate,
   webVerifyArticle,
   DEFAULT_THEME,
 } from "@skorly/ai-content";
-import { enrichLeadsWithSource, extractEntities, tavilySearch, toQuery } from "@skorly/news";
+import {
+  enrichLeadsWithSource,
+  extractEntities,
+  scoreTopicPublishability,
+  tavilySearch,
+  toQuery,
+} from "@skorly/news";
 
 /** Web-search grounding (Lever C): pull REAL current facts so the writer
  *  doesn't hallucinate squads/numbers. Returns high-confidence leads (answer +
@@ -72,10 +79,21 @@ function categoryImage(title: string, summary?: string | null): string {
 
 /** Skip topics with fewer than this many verified facts (avoids fabrication). */
 const MIN_FACTS = 2;
+const TOPIC_POOL_MULTIPLIER = 4;
 
 /** English is the vetted base; the rest are faithful translations of it. */
 const BASE_LOCALE: Locale = "en";
-const TARGET_LOCALES: Locale[] = ["id", "vi", "zh"];
+const TARGET_LOCALES: Locale[] = PUBLIC_LOCALES.filter((locale) => locale !== BASE_LOCALE);
+
+function topicCountFromArg(value: string | undefined): number {
+  const parsed = Number(value ?? 3);
+  if (!Number.isFinite(parsed)) return 3;
+  return Math.max(0, Math.floor(parsed));
+}
+
+function topicCountArg(): string | undefined {
+  return process.argv.slice(2).find((arg) => !arg.startsWith("--"));
+}
 
 /** Title of the first markdown H1, used as the article title. */
 function titleOf(markdown: string, fallback: string): string {
@@ -105,20 +123,98 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
+async function selectPublishableTopics(limit: number, options: { dryRun?: boolean } = {}) {
+  const poolSize = Math.max(limit, limit * TOPIC_POOL_MULTIPLIER);
+  const topicPool = await getPendingTopics(poolSize);
+  const selected: Array<{
+    topic: (typeof topicPool)[number];
+    signals: Awaited<ReturnType<typeof getSignalsForTopic>>;
+    publishability: ReturnType<typeof scoreTopicPublishability>;
+  }> = [];
+  let held = 0;
+  let skipped = 0;
+
+  for (const topic of topicPool) {
+    const signals = await getSignalsForTopic(topic.id);
+    const publishability = scoreTopicPublishability({
+      title: topic.title,
+      heat: topic.heat,
+      signalCount: topic.signalCount,
+      signals,
+    });
+
+    if (publishability.route === "reject") {
+      const permanentReject = publishability.reasons.some(
+        (reason) => reason === "spam/live-stream signal" || reason === "prediction/odds topic",
+      );
+      if (permanentReject) {
+        if (!options.dryRun) await setTopicStatus(topic.id, "skipped");
+        skipped += 1;
+      } else {
+        held += 1;
+      }
+      const action = permanentReject
+        ? options.dryRun
+          ? "would skip"
+          : "skipped"
+        : "held";
+      console.log(
+        `  gate ${action} topic ${topic.id}: score ${publishability.score} (${publishability.reasons.join(", ") || "low publishability"})`,
+      );
+      continue;
+    }
+
+    selected.push({ topic, signals, publishability });
+  }
+
+  selected.sort((a, b) => {
+    const routeRank = (route: string) => (route === "write" ? 2 : route === "brief_only" ? 1 : 0);
+    return (
+      routeRank(b.publishability.route) - routeRank(a.publishability.route) ||
+      b.publishability.score - a.publishability.score ||
+      b.topic.heat - a.topic.heat
+    );
+  });
+
+  return {
+    topics: selected.slice(0, limit),
+    scanned: topicPool.length,
+    held,
+    skipped,
+  };
+}
+
 async function main() {
-  const n = Number(process.argv[2] ?? 3);
+  const n = topicCountFromArg(topicCountArg());
+  const dryRun = process.argv.includes("--dry-run");
   const tavilyKey = process.env.TAVILY_API_KEY ?? "";
   if (!tavilyKey) console.warn("WARN: TAVILY_API_KEY not set — web fact-check disabled.");
   const teamNames = await getTeamNames();
-  const topics = await getPendingTopics(n);
-  console.log(`Writing ${topics.length} topics (top by heat).`);
+  const selection = await selectPublishableTopics(n, { dryRun });
+  console.log(
+    `${dryRun ? "Would write" : "Writing"} ${
+      selection.topics.length
+    } topics (publishability-ranked from ${selection.scanned}; held ${selection.held}, skipped ${selection.skipped}).`,
+  );
+  if (dryRun) {
+    for (const candidate of selection.topics) {
+      console.log(
+        `  candidate ${candidate.topic.id}: score ${candidate.publishability.score}, ${candidate.publishability.route}, heat ${candidate.topic.heat} — ${candidate.topic.title.slice(0, 80)}`,
+      );
+    }
+    console.log("\nDry run done.");
+    process.exit(0);
+  }
 
-  for (const topic of topics) {
+  for (const candidate of selection.topics) {
+    const { topic, publishability } = candidate;
    try {
-    console.log(`\n=== [heat ${topic.heat}] ${topic.title.slice(0, 70)} ===`);
+    console.log(
+      `\n=== [heat ${topic.heat}, pub ${publishability.score}, ${publishability.route}] ${topic.title.slice(0, 70)} ===`,
+    );
     await setTopicStatus(topic.id, "writing");
 
-    const signals = await getSignalsForTopic(topic.id);
+    const signals = candidate.signals;
     if (!signals.length) {
       console.log("  no signals linked — skipping");
       await setTopicStatus(topic.id, "skipped");
@@ -238,8 +334,13 @@ async function main() {
       TARGET_LOCALES.map(async (locale) => {
         const translated = await translateArticle(finalBody, locale);
         const localizedSummary = summaryOf(translated, baseSummary);
-        const bt = await backTranslateCheck(translated, teams).catch(() => ({ ok: true, missing: [] as string[] }));
-        const status = bt.ok ? "published" : "draft";
+        const bt = locale === "th"
+          ? null
+          : await backTranslateCheck(translated, teams).catch(() => ({ ok: true, missing: [] as string[] }));
+        const thaiGate = locale === "th"
+          ? await thaiQualityGate(finalBody, translated, { expectedEntities: teams, facts: factsText })
+          : null;
+        const status = thaiGate ? thaiGate.status : bt?.ok ? "published" : "draft";
         await insertArticle({
           slug,
           locale,
@@ -252,11 +353,38 @@ async function main() {
           sources,
           embeds,
           status,
-          qualityScore: base.qualityScore,
-          qaLog: base.qaLog,
+          qualityScore: thaiGate?.score ?? base.qualityScore,
+          qaLog: thaiGate
+            ? [
+                ...base.qaLog,
+                {
+                  round: 50,
+                  model: "thai-quality-gate",
+                  fluency: thaiGate.review.thai_fluency,
+                  factual: thaiGate.review.fidelity,
+                  seo: thaiGate.review.seo_title,
+                  overall: thaiGate.score,
+                  notes: [
+                    ...thaiGate.review.risk_notes,
+                    ...thaiGate.deterministicIssues,
+                    ...thaiGate.missingEntities.map((entity) => `missing entity: ${entity}`),
+                  ].join(" | "),
+                },
+              ]
+            : base.qaLog,
           model: base.model,
         });
-        console.log(`  [${status}] ${locale}${bt.ok ? "" : ` (missing: ${bt.missing.join(",")})`}`);
+        console.log(
+          `  [${status}] ${locale}${
+            thaiGate
+              ? thaiGate.status === "published"
+                ? ""
+                : ` (${[...thaiGate.deterministicIssues, ...thaiGate.missingEntities].join(",")})`
+              : bt?.ok
+                ? ""
+                : ` (missing: ${bt?.missing.join(",")})`
+          }`,
+        );
       })
     );
     const publishedAny = true;

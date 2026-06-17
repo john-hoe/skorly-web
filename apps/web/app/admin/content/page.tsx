@@ -14,6 +14,7 @@ import {
   type RuntimeAdminArticleStatus,
   type RuntimeAdminArticleType,
 } from "@/lib/runtime-data";
+import { PUBLIC_LOCALES, localizedSitePath } from "@/i18n/locales";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ const ARTICLE_TYPES: RuntimeAdminArticleType[] = [
   "group_analysis",
   "news",
 ];
-const ARTICLE_LOCALES = ["id", "vi", "en", "zh"] as const;
+const ARTICLE_LOCALES = PUBLIC_LOCALES;
 const PUBLISHED_FILTERS: Array<{ value: RuntimeAdminArticlePublishedFilter; label: string }> = [
   { value: "all", label: "All dates" },
   { value: "set", label: "Has publishedAt" },
@@ -172,7 +173,7 @@ function formatDate(value: Date | null): string {
 }
 
 function articleHref(article: RuntimeAdminArticleListItem): string {
-  return `/${article.locale}/artikel/${article.slug}`;
+  return localizedSitePath(article.locale, "article", { slug: article.slug });
 }
 
 function statusClass(status: RuntimeAdminArticleStatus): string {

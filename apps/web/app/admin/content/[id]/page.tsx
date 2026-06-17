@@ -7,6 +7,7 @@ import {
   type AdminArticleManagementResult,
 } from "@/lib/admin-actions";
 import { getRuntimeAdminArticle, type RuntimeAdminArticleDetail } from "@/lib/runtime-data";
+import { localizedSitePath } from "@/i18n/locales";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ function formatDate(value: Date | null): string {
 }
 
 function articleHref(article: RuntimeAdminArticleDetail): string {
-  return `/${article.locale}/artikel/${article.slug}`;
+  return localizedSitePath(article.locale, "article", { slug: article.slug });
 }
 
 function Notice({ notice, error }: { notice?: string; error?: string }) {
