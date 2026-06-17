@@ -91,6 +91,13 @@ const ROLE_PROVIDER: Record<LlmRole, ProviderName> = {
   fallback: "qwen", // back-translation
 };
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 90_000;
+
+function requestTimeoutMs(): number {
+  const raw = Number(process.env.LLM_REQUEST_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw >= 5_000 ? Math.floor(raw) : DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
 export interface CompleteParams {
   role?: LlmRole;
   provider?: ProviderName;
@@ -123,7 +130,12 @@ async function callProvider(
 ): Promise<CompleteResult> {
   // maxRetries covers transient 429/5xx; outer loop covers low-level network
   // drops (ECONNRESET / TLS reset) that can escape the SDK.
-  const client = new OpenAI({ apiKey: cfg.apiKey!, baseURL: cfg.baseUrl, maxRetries: 3 });
+  const client = new OpenAI({
+    apiKey: cfg.apiKey!,
+    baseURL: cfg.baseUrl,
+    maxRetries: 3,
+    timeout: requestTimeoutMs(),
+  });
   const model = params.model ?? cfg.model;
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
