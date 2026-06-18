@@ -92,6 +92,8 @@ const ROLE_PROVIDER: Record<LlmRole, ProviderName> = {
 };
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 90_000;
+const MIN_PROVIDER_TIMEOUT_MS = 1_000;
+const MAX_FALLBACK_RESERVE_MS = 20_000;
 
 function requestTimeoutMs(): number {
   const raw = Number(process.env.LLM_REQUEST_TIMEOUT_MS);
@@ -100,6 +102,19 @@ function requestTimeoutMs(): number {
 
 function remainingDeadlineMs(deadlineMs: number): number {
   return Math.max(0, deadlineMs - Date.now());
+}
+
+function providerBudgetMs(totalDeadlineMs: number, providerCount: number): number {
+  const remaining = remainingDeadlineMs(totalDeadlineMs);
+  if (providerCount <= 1 || remaining <= MIN_PROVIDER_TIMEOUT_MS) return remaining;
+
+  const fairSlice = Math.floor(remaining / providerCount);
+  const reservePerFallback = Math.min(
+    MAX_FALLBACK_RESERVE_MS,
+    Math.max(MIN_PROVIDER_TIMEOUT_MS, fairSlice),
+  );
+  const reserve = reservePerFallback * (providerCount - 1);
+  return Math.max(MIN_PROVIDER_TIMEOUT_MS, remaining - reserve);
 }
 
 export interface CompleteParams {
@@ -126,19 +141,19 @@ export interface CompleteResult {
   model: string;
 }
 
-/** One provider attempt bounded by the caller's complete() deadline. */
+/** One provider attempt bounded by its provider deadline. */
 async function callProvider(
   name: ProviderName,
   cfg: ProviderConfig,
   params: CompleteParams,
-  deadlineMs: number,
+  providerDeadlineMs: number,
 ): Promise<CompleteResult> {
-  // Keep retries under one shared deadline. SDK retries stay disabled so a
+  // Keep retries under one provider budget. SDK retries stay disabled so a
   // timeout cannot multiply across SDK retries, our retry loop, and fallbacks.
   const model = params.model ?? cfg.model;
   let lastErr: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const remaining = remainingDeadlineMs(deadlineMs);
+    const remaining = remainingDeadlineMs(providerDeadlineMs);
     if (remaining <= 0) {
       throw lastErr ?? new Error(`LLM provider "${name}" timed out before request`);
     }
@@ -167,7 +182,7 @@ async function callProvider(
       return { text, provider: name, model };
     } catch (e) {
       lastErr = e;
-      const sleepMs = Math.min(1000 * (attempt + 1), remainingDeadlineMs(deadlineMs));
+      const sleepMs = Math.min(1000 * (attempt + 1), remainingDeadlineMs(providerDeadlineMs));
       if (attempt < 2 && sleepMs > 0) {
         await new Promise((r) => setTimeout(r, sleepMs));
       }
@@ -190,16 +205,21 @@ export async function complete(params: CompleteParams): Promise<CompleteResult> 
   ];
 
   let lastErr: unknown;
-  const deadlineMs = Date.now() + requestTimeoutMs();
-  for (const name of chain) {
-    if (remainingDeadlineMs(deadlineMs) <= 0) break;
+  const totalDeadlineMs = Date.now() + requestTimeoutMs();
+  for (const [index, name] of chain.entries()) {
+    if (remainingDeadlineMs(totalDeadlineMs) <= 0) break;
     const cfg = all[name];
     if (!cfg.apiKey) {
       lastErr = new Error(`LLM provider "${name}" missing API key`);
       continue;
     }
     try {
-      return await callProvider(name, cfg, params, deadlineMs);
+      const providerCount = chain
+        .slice(index)
+        .filter((providerName) => Boolean(all[providerName]?.apiKey)).length;
+      const budgetMs = providerBudgetMs(totalDeadlineMs, providerCount);
+      if (budgetMs <= 0) break;
+      return await callProvider(name, cfg, params, Date.now() + budgetMs);
     } catch (e) {
       lastErr = e;
       // fall through to the next provider in the chain
