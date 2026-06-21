@@ -106,7 +106,8 @@ function buildArticleMeta(article: NonNullable<Article>, locale: string) {
     article.summary ?? article.body,
     pageSeoDescription(locale, "articles"),
     140,
-    article.title
+    article.title,
+    locale
   );
   return {
     title,

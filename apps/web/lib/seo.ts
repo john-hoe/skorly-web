@@ -101,6 +101,35 @@ export function cleanMetaText(text: string): string {
     .trim();
 }
 
+const META_DESCRIPTION_MIN_LENGTH = 90;
+const META_DESCRIPTION_MAX_LENGTH = 155;
+
+const META_DESCRIPTION_EXPANSIONS: Record<string, string> = {
+  id: "Buka jadwal, berita, prediksi, konteks tim, dan tautan pertandingan terkait di Skorly.",
+  vi: "Xem lịch thi đấu, tin đội tuyển, dự đoán, bối cảnh trận đấu và liên kết liên quan trên Skorly.",
+  en: "Get fixtures, team context, prediction notes, match links and related World Cup 2026 coverage on Skorly.",
+  zh: "查看赛程、球队动态、预测依据、关键数据、赛前看点和相关比赛入口，快速掌握完整背景。",
+  th: "ดูโปรแกรม ข่าวทีม บทวิเคราะห์ คาดการณ์สกอร์ และลิงก์การแข่งขันที่เกี่ยวข้องบน Skorly.",
+};
+
+function metaTextLength(text: string): number {
+  return Array.from(text).length;
+}
+
+function ensureMetaDescriptionLength(
+  text: string,
+  locale: string,
+  maxLength = META_DESCRIPTION_MAX_LENGTH,
+  minLength = META_DESCRIPTION_MIN_LENGTH
+): string {
+  const cleaned = cleanMetaText(text);
+  if (metaTextLength(cleaned) >= minLength) {
+    return truncateAtBoundary(cleaned, maxLength);
+  }
+  const expansion = META_DESCRIPTION_EXPANSIONS[locale] ?? META_DESCRIPTION_EXPANSIONS.en;
+  return truncateAtBoundary(cleanMetaText(`${cleaned} ${expansion}`), maxLength);
+}
+
 export function fitMetaTitle(title: string, maxLength = 52): string {
   return truncateAtBoundary(cleanMetaText(title), maxLength);
 }
@@ -109,14 +138,15 @@ export function fitMetaDescription(
   text: string,
   fallback: string,
   maxLength = 140,
-  leadingTextToRemove?: string
+  leadingTextToRemove?: string,
+  locale = "en"
 ): string {
   const cleaned = removeLeadingText(cleanMetaText(text), leadingTextToRemove);
   const base =
-    cleaned.length >= 50
+    metaTextLength(cleaned) >= META_DESCRIPTION_MIN_LENGTH
       ? cleaned
       : cleanMetaText(`${cleaned} ${fallback}`);
-  return truncateAtBoundary(base, maxLength);
+  return ensureMetaDescriptionLength(base, locale, maxLength);
 }
 
 function removeLeadingText(text: string, leadingTextToRemove?: string): string {
@@ -129,18 +159,21 @@ function removeLeadingText(text: string, leadingTextToRemove?: string): string {
 }
 
 export function matchSeoDescription(locale: string, matchTitle: string): string {
-  switch (locale) {
-    case "id":
-      return `${matchTitle} — preview Piala Dunia 2026, prediksi skor, detail kick-off, info tim, dan analisis pertandingan.`;
-    case "vi":
-      return `${matchTitle} — nhận định World Cup 2026, dự đoán tỉ số, giờ bóng lăn, thông tin đội tuyển và phân tích trận đấu.`;
-    case "zh":
-      return `${matchTitle} — 2026 世界杯赛前分析、比分预测、开球信息、球队动态和比赛看点。`;
-    case "th":
-      return `${matchTitle} — พรีวิวฟุตบอลโลก 2026, คาดการณ์สกอร์, เวลาแข่งขัน, ข่าวทีม และประเด็นน่าจับตา.`;
-    default:
-      return `${matchTitle} — World Cup 2026 preview, score prediction, kickoff details, team news and match analysis.`;
-  }
+  const description = (() => {
+    switch (locale) {
+      case "id":
+        return `${matchTitle} — preview Piala Dunia 2026, prediksi skor, detail kick-off, info tim, dan analisis pertandingan.`;
+      case "vi":
+        return `${matchTitle} — nhận định World Cup 2026, dự đoán tỉ số, giờ bóng lăn, thông tin đội tuyển và phân tích trận đấu.`;
+      case "zh":
+        return `${matchTitle} — 2026 世界杯赛前分析、比分预测、开球信息、球队动态和比赛看点。`;
+      case "th":
+        return `${matchTitle} — พรีวิวฟุตบอลโลก 2026, คาดการณ์สกอร์, เวลาแข่งขัน, ข่าวทีม และประเด็นน่าจับตา.`;
+      default:
+        return `${matchTitle} — World Cup 2026 preview, score prediction, kickoff details, team news and match analysis.`;
+    }
+  })();
+  return ensureMetaDescriptionLength(description, locale);
 }
 
 type PageSeoKind =
@@ -309,7 +342,8 @@ export function pageSeoDescription(
   kind: PageSeoKind,
   subject?: string
 ): string {
-  return (PAGE_DESCRIPTIONS[locale] ?? PAGE_DESCRIPTIONS.id)[kind](subject);
+  const description = (PAGE_DESCRIPTIONS[locale] ?? PAGE_DESCRIPTIONS.id)[kind](subject);
+  return ensureMetaDescriptionLength(description, locale);
 }
 
 const PAGE_TITLES: Record<
