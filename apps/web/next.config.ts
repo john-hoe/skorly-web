@@ -81,6 +81,10 @@ const nextConfig: NextConfig = {
         headers: sitemapHeaders,
       },
       {
+        source: "/sitemaps/:path*",
+        headers: sitemapHeaders,
+      },
+      {
         source: "/news-sitemap.xml",
         headers: newsSitemapHeaders,
       },
