@@ -11,6 +11,7 @@ name: Match Day Rebuild
 #
 # Costs when nothing changed: ~30s (checkout + curl). Self-disables after the
 # final (2026-07-21); repurpose the date guard for the new season in S2.
+# Code pushes to Web-related paths deploy current main immediately.
 
 on:
   push:
