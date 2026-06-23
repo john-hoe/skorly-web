@@ -178,3 +178,8 @@ jobs:
             n=$((n+1)); [ "$n" -ge 2 ] && { echo "deploy failed after $n attempts"; exit 1; }
             echo "deploy attempt $n failed; retry in 30s"; sleep 30
           done
+
+      - name: Submit recent URLs to IndexNow
+        if: steps.fresh.outputs.changed == 'true'
+        continue-on-error: true
+        run: pnpm tsx --env-file=.env apps/jobs/scripts/submit-indexnow.ts --days 14 --limit 1000
