@@ -30,6 +30,7 @@ export interface SitemapIndexEntry {
 export const SITEMAP_CACHE_CONTROL =
   "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
 
+// Keep the submitted root sitemap small; Google can fetch each child sitemap separately.
 export const SITEMAP_INDEX_PATHS = [
   "/sitemaps/static.xml",
   "/sitemaps/groups.xml",
