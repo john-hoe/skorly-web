@@ -70,6 +70,16 @@ const newsSitemapHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.skorly.cc" }],
+        destination: "https://skorly.cc/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
