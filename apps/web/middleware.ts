@@ -9,6 +9,29 @@ import { supabaseAuthCookieOptions, withSupabaseAuthCookieOptions } from "./lib/
 // next-intl's middleware is Edge-compatible, so this runs fine.
 const intlMiddleware = createIntlMiddleware(routing);
 
+function canonicalHostRedirect(request: NextRequest) {
+  const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
+  if (host !== "www.skorly.cc") return null;
+
+  const target = new URL(request.url);
+  target.protocol = "https:";
+  target.hostname = "skorly.cc";
+  target.port = "";
+  return NextResponse.redirect(target, 308);
+}
+
+function bypassLocaleRouting(pathname: string) {
+  return (
+    pathname === "/api" ||
+    pathname.startsWith("/api/") ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/og" ||
+    pathname.startsWith("/og/") ||
+    /\/[^/]+\.[^/]+$/.test(pathname)
+  );
+}
+
 function authLandingRedirect(request: NextRequest) {
   const { nextUrl } = request;
   const isLocaleRoot =
@@ -43,6 +66,13 @@ function authLandingRedirect(request: NextRequest) {
  * SSR auth state fresh on every navigation without a second redirect.
  */
 export async function middleware(request: NextRequest) {
+  const hostRedirect = canonicalHostRedirect(request);
+  if (hostRedirect) return hostRedirect;
+
+  if (bypassLocaleRouting(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   const authRedirect = authLandingRedirect(request);
   if (authRedirect) return authRedirect;
 
@@ -85,7 +115,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Match all paths except api, auth (OAuth callback, no locale prefix),
-  // og (dynamic OG image route handler), _next, _vercel, and files with an extension.
-  matcher: ["/((?!api|auth|og|_next|_vercel|.*\\..*).*)"],
+  // Include file-like routes such as sitemap.xml so www.skorly.cc can be
+  // canonicalized before route handlers run.
+  matcher: ["/((?!_next|_vercel).*)"],
 };
